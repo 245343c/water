@@ -7,6 +7,7 @@ import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/widgets/month_year_wheel_picker.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
+import 'package:sri_sai_ro_water/features/dashboard/widgets/dashboard_action_center.dart';
 import 'package:sri_sai_ro_water/features/dashboard/widgets/dashboard_home_widgets.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
@@ -105,7 +106,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Consumer<WaterPlantRepository>(
       builder: (context, repo, _) {
         final stats = repo.dashboardStats(_month);
-        final recent = repo.recentDeliveries(limit: 3);
+        final actions = repo.dashboardActionItems(limit: 5);
         final business = repo.settings.businessName;
 
         final overview = DashboardOverviewData(
@@ -116,11 +117,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           paidThisMonth: CurrencyUtils.format(stats.paidThisMonth),
           pendingAmount: CurrencyUtils.format(stats.pendingAmount),
         );
-
-        int colorIndexFor(String customerId) {
-          final i = repo.customers.indexWhere((c) => c.id == customerId);
-          return i >= 0 ? i : 0;
-        }
 
         void openAddDelivery() => _showCustomerPicker(context, repo);
 
@@ -148,16 +144,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           data: overview,
                         ),
                         const SizedBox(height: 16),
-                        DashboardRecentCard(
-                          deliveries: recent,
-                          customerNameOf: (id) => repo.customerById(id)?.name ?? 'Unknown',
-                          colorIndexOf: colorIndexFor,
-                          onViewAll: () => context.go(AppRoutes.deliveries),
-                          onAddDelivery: openAddDelivery,
-                          onItemTap: (d) {
-                            final c = repo.customerById(d.customerId);
-                            if (c != null) context.push('/customers/${c.id}');
-                          },
+                        DashboardActionCenter(
+                          items: actions,
+                          onViewCustomers: () => context.go(AppRoutes.customers),
+                          onItemTap: (item) => context.push('/customers/${item.customerId}'),
                         ),
                       ],
                     ),

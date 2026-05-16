@@ -1,6 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:sri_sai_ro_water/data/models/business_settings.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
+import 'package:sri_sai_ro_water/data/models/customer_order.dart';
+import 'package:sri_sai_ro_water/data/models/order_status.dart';
+import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
+import 'package:sri_sai_ro_water/data/models/dashboard_action_item.dart';
 import 'package:sri_sai_ro_water/data/models/dashboard_stats.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/data/models/monthly_stats.dart';
@@ -18,12 +22,14 @@ class WaterPlantRepository extends ChangeNotifier {
   final List<Customer> _customers = [];
   final List<Delivery> _deliveries = [];
   final List<Payment> _payments = [];
+  final List<CustomerOrder> _orders = [];
 
   late BusinessSettings settings;
 
   List<Customer> get customers => List.unmodifiable(_customers);
   List<Delivery> get deliveries => List.unmodifiable(_deliveries);
   List<Payment> get payments => List.unmodifiable(_payments);
+  List<CustomerOrder> get orders => List.unmodifiable(_orders);
 
   void _seedMockData() {
     settings = BusinessSettings(
@@ -136,6 +142,53 @@ class WaterPlantRepository extends ChangeNotifier {
         date: DateTime(may.year, may.month, 10),
         amount: 800,
         method: PaymentMethod.upi,
+      ),
+    ]);
+
+    _seedMockOrders();
+  }
+
+  void _seedMockOrders() {
+    final now = DateTime.now();
+
+    CustomerOrder make(
+      String customerId,
+      int normal,
+      int cool,
+      OrderStatus status, {
+      Duration age = const Duration(hours: 2),
+      String? adminResponse,
+      String? customerNote,
+    }) {
+      final created = now.subtract(age);
+      return CustomerOrder(
+        id: _uuid.v4(),
+        customerId: customerId,
+        normalQty: normal,
+        coolQty: cool,
+        status: status,
+        customerNote: customerNote,
+        adminResponse: adminResponse,
+        createdAt: created,
+        respondedAt: status == OrderStatus.pending
+            ? null
+            : created.add(const Duration(minutes: 20)),
+      );
+    }
+
+    _orders.addAll([
+      make('c1', 2, 1, OrderStatus.pending, age: const Duration(minutes: 35), customerNote: 'Please deliver by evening'),
+      make('c3', 3, 0, OrderStatus.pending, age: const Duration(hours: 1)),
+      make('c5', 0, 2, OrderStatus.pending, age: const Duration(hours: 3)),
+      make('c2', 1, 2, OrderStatus.accepted, age: const Duration(hours: 5), adminResponse: 'Order confirmed'),
+      make('c4', 2, 0, OrderStatus.accepted, age: const Duration(days: 1), adminResponse: 'Order confirmed'),
+      make(
+        'c1',
+        4,
+        0,
+        OrderStatus.rejected,
+        age: const Duration(days: 2),
+        adminResponse: 'Out of stock — Normal cans',
       ),
     ]);
   }
@@ -252,6 +305,103 @@ class WaterPlantRepository extends ChangeNotifier {
     );
   }
 
+  /// Admin home: prioritized attention items (one per customer, highest urgency wins).
+  List<DashboardActionItem> dashboardActionItems({int limit = 5}) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final month = DateTime(now.year, now.month);
+    final best = <String, DashboardActionItem>{};
+
+    void consider(DashboardActionItem item) {
+      final existing = best[item.customerId];
+      if (existing == null || item.priority < existing.priority) {
+        best[item.customerId] = item;
+      }
+    }
+
+    for (final c in _customers) {
+      final monthStats = monthlyStatsForCustomer(c.id, month);
+      final totalBal = customerBalance(c.id);
+      final prior = previousBalanceForMonth(c.id, month);
+      final lastPay = lastPayment(c.id);
+      final daysSincePay = lastPay == null
+          ? null
+          : today
+              .difference(DateTime(lastPay.date.year, lastPay.date.month, lastPay.date.day))
+              .inDays;
+
+      if (prior > 0 && monthStats.balance > 0) {
+        consider(
+          DashboardActionItem(
+            customerId: c.id,
+            customerName: c.name,
+            kind: DashboardActionKind.overdue,
+            subtitle: '${CurrencyUtils.format(totalBal)} overdue · prior month due',
+            priority: 0,
+          ),
+        );
+      }
+
+      if (monthStats.balance > 0 && totalBal > 0) {
+        final payHint = daysSincePay != null && daysSincePay > 0
+            ? ' · last paid $daysSincePay days ago'
+            : '';
+        consider(
+          DashboardActionItem(
+            customerId: c.id,
+            customerName: c.name,
+            kind: DashboardActionKind.pendingPayment,
+            subtitle: '${CurrencyUtils.format(monthStats.balance)} pending$payHint',
+            priority: 1,
+          ),
+        );
+      }
+
+      final deliveredToday = _deliveries.any((d) {
+        if (d.customerId != c.id) return false;
+        final dDay = DateTime(d.date.year, d.date.month, d.date.day);
+        return dDay == today;
+      });
+
+      final activeThisMonth = monthStats.normalCans + monthStats.coolCans > 0;
+      if (activeThisMonth && !deliveredToday) {
+        consider(
+          DashboardActionItem(
+            customerId: c.id,
+            customerName: c.name,
+            kind: DashboardActionKind.noDeliveryToday,
+            subtitle: 'No delivery logged today',
+            priority: 2,
+          ),
+        );
+      }
+
+      final customerDeliveries = deliveriesForCustomer(c.id);
+      if (customerDeliveries.isNotEmpty) {
+        final lastDay = DateTime(
+          customerDeliveries.first.date.year,
+          customerDeliveries.first.date.month,
+          customerDeliveries.first.date.day,
+        );
+        final gap = today.difference(lastDay).inDays;
+        if (gap >= 7) {
+          consider(
+            DashboardActionItem(
+              customerId: c.id,
+              customerName: c.name,
+              kind: DashboardActionKind.inactive,
+              subtitle: 'No delivery in $gap days',
+              priority: 3,
+            ),
+          );
+        }
+      }
+    }
+
+    final list = best.values.toList()..sort((a, b) => a.priority.compareTo(b.priority));
+    return list.take(limit).toList();
+  }
+
   static int compareDeliveriesNewestFirst(Delivery a, Delivery b) {
     final byDate = b.date.compareTo(a.date);
     if (byDate != 0) return byDate;
@@ -328,6 +478,39 @@ class WaterPlantRepository extends ChangeNotifier {
     _customers.removeWhere((c) => c.id == id);
     _deliveries.removeWhere((d) => d.customerId == id);
     _payments.removeWhere((p) => p.customerId == id);
+    _orders.removeWhere((o) => o.customerId == id);
+    notifyListeners();
+  }
+
+  int get pendingOrderCount =>
+      _orders.where((o) => o.status == OrderStatus.pending).length;
+
+  List<CustomerOrder> ordersNewestFirst() {
+    final list = List<CustomerOrder>.from(_orders)
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
+  }
+
+  CustomerOrder? orderById(String id) {
+    try {
+      return _orders.firstWhere((o) => o.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void respondToOrder(
+    String orderId,
+    OrderStatus status, {
+    String? adminResponse,
+  }) {
+    final index = _orders.indexWhere((o) => o.id == orderId);
+    if (index < 0) return;
+    final order = _orders[index];
+    if (order.status != OrderStatus.pending) return;
+    order.status = status;
+    order.adminResponse = adminResponse;
+    order.respondedAt = DateTime.now();
     notifyListeners();
   }
 
@@ -380,6 +563,7 @@ class WaterPlantRepository extends ChangeNotifier {
     _customers.clear();
     _deliveries.clear();
     _payments.clear();
+    _orders.clear();
     _seedMockData();
     notifyListeners();
   }

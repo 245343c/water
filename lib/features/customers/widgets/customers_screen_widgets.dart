@@ -42,11 +42,13 @@ class CustomersHeader extends StatelessWidget {
     this.title = 'Customers',
     required this.onAdd,
     this.onMenu,
+    this.showAddButton = true,
   });
 
   final String title;
   final VoidCallback onAdd;
   final VoidCallback? onMenu;
+  final bool showAddButton;
 
   @override
   Widget build(BuildContext context) {
@@ -70,21 +72,24 @@ class CustomersHeader extends StatelessWidget {
               ),
             ),
           ),
-          Material(
-            color: CustomersColors.addButton,
-            elevation: 4,
-            shadowColor: CustomersColors.addButton.withValues(alpha: 0.45),
-            shape: const CircleBorder(),
-            child: InkWell(
-              onTap: onAdd,
-              customBorder: const CircleBorder(),
-              child: const SizedBox(
-                width: 44,
-                height: 44,
-                child: Icon(Icons.add, color: Colors.white, size: 26),
+          if (showAddButton)
+            Material(
+              color: CustomersColors.addButton,
+              elevation: 4,
+              shadowColor: CustomersColors.addButton.withValues(alpha: 0.45),
+              shape: const CircleBorder(),
+              child: InkWell(
+                onTap: onAdd,
+                customBorder: const CircleBorder(),
+                child: const SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Icon(Icons.add, color: Colors.white, size: 26),
+                ),
               ),
-            ),
-          ),
+            )
+          else
+            const SizedBox(width: 44),
         ],
       ),
     );

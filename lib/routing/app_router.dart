@@ -12,6 +12,7 @@ import 'package:sri_sai_ro_water/features/deliveries/deliveries_screen.dart';
 import 'package:sri_sai_ro_water/features/deliveries/delivery_history_screen.dart';
 import 'package:sri_sai_ro_water/features/deliveries/delivery_success_screen.dart';
 import 'package:sri_sai_ro_water/features/more/more_screen.dart';
+import 'package:sri_sai_ro_water/features/orders/orders_screen.dart';
 import 'package:sri_sai_ro_water/features/more/settings_screen.dart';
 import 'package:sri_sai_ro_water/features/payments/record_payment_screen.dart';
 import 'package:sri_sai_ro_water/features/reports/reports_screen.dart';
@@ -23,6 +24,7 @@ final shellNavigatorKey = GlobalKey<NavigatorState>();
 class AppRoutes {
   static const dashboard = '/';
   static const customers = '/customers';
+  static const orders = '/orders';
   static const deliveries = '/deliveries';
   static const more = '/more';
   static const reports = '/reports';
@@ -54,6 +56,16 @@ GoRouter createAppRouter() {
                 path: AppRoutes.customers,
                 pageBuilder: (context, state) => const NoTransitionPage(
                   child: CustomersScreen(),
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.orders,
+                pageBuilder: (context, state) => const NoTransitionPage(
+                  child: OrdersScreen(),
                 ),
               ),
             ],
