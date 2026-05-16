@@ -1,0 +1,205 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
+import 'package:sri_sai_ro_water/data/models/payment_method.dart';
+import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
+import 'package:sri_sai_ro_water/features/payments/widgets/record_payment_widgets.dart';
+
+class RecordPaymentScreen extends StatefulWidget {
+  const RecordPaymentScreen({super.key, required this.customerId});
+
+  final String customerId;
+
+  @override
+  State<RecordPaymentScreen> createState() => _RecordPaymentScreenState();
+}
+
+class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
+  final _amountController = TextEditingController();
+  final _notesController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  PaymentMethod _method = PaymentMethod.cash;
+  DateTime _date = DateTime.now();
+  bool _amountInitialized = false;
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+    );
+    if (picked != null) setState(() => _date = picked);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<WaterPlantRepository>(
+      builder: (context, repo, _) {
+        final customer = repo.customerById(widget.customerId);
+        if (customer == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Record Payment')),
+            body: const Center(child: Text('Customer not found')),
+          );
+        }
+
+        final month = DateTime.now();
+        final monthly = repo.monthlyStatsForCustomer(widget.customerId, month);
+        final previousBalance = repo.previousBalanceForMonth(widget.customerId, month);
+        final totalPayable = (previousBalance + monthly.totalAmount - monthly.paidAmount)
+            .clamp(0.0, double.infinity)
+            .toDouble();
+
+        if (!_amountInitialized && totalPayable > 0) {
+          _amountInitialized = true;
+          _amountController.text = totalPayable.round().toString();
+        }
+
+        final colorIndex = repo.customers.indexWhere((c) => c.id == widget.customerId);
+
+        return Scaffold(
+          backgroundColor: Colors.white,
+          body: RecordPaymentScaffold(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  RecordPaymentHeader(onBack: () => context.pop()),
+                  Expanded(
+                    child: ListView(
+                      children: [
+                        RecordPaymentCustomerBar(
+                          customer: customer,
+                          colorIndex: colorIndex >= 0 ? colorIndex : 0,
+                        ),
+                        RecordPaymentSummaryBox(
+                          month: month,
+                          totalAmount: monthly.totalAmount,
+                          previousBalance: previousBalance,
+                          totalPayable: totalPayable,
+                        ),
+                        RecordPaymentLabeledField(
+                          label: 'Enter Payment Amount',
+                          child: TextFormField(
+                            controller: _amountController,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: RecordPaymentColors.titleNavy,
+                            ),
+                            decoration: InputDecoration(
+                              prefixText: '${CurrencyUtils.symbol} ',
+                              prefixStyle: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: RecordPaymentColors.titleNavy,
+                              ),
+                              filled: true,
+                              fillColor: Colors.white,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: RecordPaymentColors.fieldBorder),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: RecordPaymentColors.fieldBorder),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: RecordPaymentColors.selectedBorder, width: 1.5),
+                              ),
+                            ),
+                            validator: (v) {
+                              final amount = double.tryParse(v ?? '');
+                              if (amount == null || amount <= 0) {
+                                return 'Enter a valid amount';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        RecordPaymentMethodRow(
+                          selected: _method,
+                          onSelected: (m) => setState(() => _method = m),
+                        ),
+                        RecordPaymentLabeledField(
+                          label: 'Payment Date',
+                          child: RecordPaymentDateField(date: _date, onTap: _pickDate),
+                        ),
+                        RecordPaymentLabeledField(
+                          label: 'Notes (Optional)',
+                          child: TextFormField(
+                            controller: _notesController,
+                            decoration: InputDecoration(
+                              hintText: 'Enter notes...',
+                              hintStyle: GoogleFonts.poppins(
+                                color: RecordPaymentColors.labelGrey,
+                                fontSize: 14,
+                              ),
+                              filled: true,
+                              fillColor: Colors.white,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: RecordPaymentColors.fieldBorder),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: RecordPaymentColors.fieldBorder),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: RecordPaymentColors.selectedBorder, width: 1.5),
+                              ),
+                            ),
+                            maxLines: 2,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  ),
+                  RecordPaymentSaveButton(
+                    onPressed: () {
+                      if (!_formKey.currentState!.validate()) return;
+                      final amount = double.parse(_amountController.text);
+                      repo.addPayment(
+                        customerId: widget.customerId,
+                        amount: amount,
+                        method: _method,
+                        date: _date,
+                        notes: _notesController.text.trim().isEmpty
+                            ? null
+                            : _notesController.text.trim(),
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Payment of ${CurrencyUtils.format(amount)} recorded'),
+                        ),
+                      );
+                      context.pop();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
