@@ -7,9 +7,14 @@ import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/data/models/dashboard_action_item.dart';
 import 'package:sri_sai_ro_water/data/models/dashboard_stats.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
+import 'package:sri_sai_ro_water/data/models/delivery_line_item.dart';
 import 'package:sri_sai_ro_water/data/models/monthly_stats.dart';
 import 'package:sri_sai_ro_water/data/models/payment.dart';
 import 'package:sri_sai_ro_water/data/models/payment_method.dart';
+import 'package:sri_sai_ro_water/data/models/product.dart';
+import 'package:sri_sai_ro_water/data/models/product_category.dart';
+import 'package:sri_sai_ro_water/data/models/product_variant.dart';
+import 'package:sri_sai_ro_water/core/services/product_image_service.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:uuid/uuid.dart';
 
@@ -23,6 +28,7 @@ class WaterPlantRepository extends ChangeNotifier {
   final List<Delivery> _deliveries = [];
   final List<Payment> _payments = [];
   final List<CustomerOrder> _orders = [];
+  final List<Product> _products = [];
 
   late BusinessSettings settings;
 
@@ -30,6 +36,7 @@ class WaterPlantRepository extends ChangeNotifier {
   List<Delivery> get deliveries => List.unmodifiable(_deliveries);
   List<Payment> get payments => List.unmodifiable(_payments);
   List<CustomerOrder> get orders => List.unmodifiable(_orders);
+  List<Product> get products => List.unmodifiable(_products);
 
   void _seedMockData() {
     settings = BusinessSettings(
@@ -83,6 +90,8 @@ class WaterPlantRepository extends ChangeNotifier {
 
     _customers.addAll([ramesh, lakshmi, suresh, priya, venkat]);
 
+    _seedProducts();
+
     final now = DateTime.now();
     final may = DateTime(now.year, now.month);
 
@@ -94,7 +103,7 @@ class WaterPlantRepository extends ChangeNotifier {
       int hour = 10,
     }) {
       _deliveries.add(
-        Delivery(
+        Delivery.fromLegacyCans(
           id: _uuid.v4(),
           customerId: customerId,
           date: DateTime(may.year, may.month, day, hour),
@@ -119,6 +128,34 @@ class WaterPlantRepository extends ChangeNotifier {
     addDelivery('c4', 16, 2, 2, hour: 15);
     addDelivery('c5', 20, 0, 2, hour: 13);
     addDelivery('c5', 14, 3, 0, hour: 8);
+
+    _deliveries.add(
+      Delivery(
+        id: _uuid.v4(),
+        customerId: 'c1',
+        date: DateTime(may.year, may.month, 22, 10),
+        lines: [
+          DeliveryLineItem(
+            kind: DeliveryItemKind.bottle,
+            label: '1 L',
+            quantity: 6,
+            unitPrice: 15,
+          ),
+          DeliveryLineItem(
+            kind: DeliveryItemKind.bottle,
+            label: '2 L',
+            quantity: 4,
+            unitPrice: 25,
+          ),
+          DeliveryLineItem(
+            kind: DeliveryItemKind.normalCan,
+            label: 'Normal Can',
+            quantity: 1,
+            unitPrice: settings.normalPrice,
+          ),
+        ],
+      ),
+    );
 
     _payments.addAll([
       Payment(
@@ -223,9 +260,12 @@ class WaterPlantRepository extends ChangeNotifier {
     return list;
   }
 
-  List<Payment> paymentsForCustomer(String customerId) {
-    final list = _payments.where((p) => p.customerId == customerId).toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
+  List<Payment> paymentsForCustomer(String customerId, {DateTime? month}) {
+    var list = _payments.where((p) => p.customerId == customerId).toList();
+    if (month != null) {
+      list = list.where((p) => p.date.isSameMonth(month)).toList();
+    }
+    list.sort((a, b) => b.date.compareTo(a.date));
     return list;
   }
 
@@ -234,11 +274,40 @@ class WaterPlantRepository extends ChangeNotifier {
     return list.isEmpty ? null : list.first;
   }
 
+  double paymentsTotalForMonth(String customerId, DateTime month) {
+    return paymentsForCustomer(customerId, month: month)
+        .fold<double>(0, (sum, p) => sum + p.amount);
+  }
+
+  Map<String, int> _bottlesByLabelFromDeliveries(List<Delivery> deliveries) {
+    final map = <String, int>{};
+    for (final d in deliveries) {
+      for (final line in d.lines.where((l) => l.kind == DeliveryItemKind.bottle)) {
+        map[line.label] = (map[line.label] ?? 0) + line.quantity;
+      }
+    }
+    return map;
+  }
+
+  Map<String, int> _quantitiesByLabelFromDeliveries(List<Delivery> deliveries) {
+    final map = <String, int>{};
+    for (final d in deliveries) {
+      for (final line in d.lines) {
+        map[line.label] = (map[line.label] ?? 0) + line.quantity;
+      }
+    }
+    return map;
+  }
+
   MonthlyStats monthlyStatsForCustomer(String customerId, DateTime month) {
     final monthDeliveries = deliveriesForCustomer(customerId, month: month);
     final normalCans =
         monthDeliveries.fold<int>(0, (s, d) => s + d.normalQty);
     final coolCans = monthDeliveries.fold<int>(0, (s, d) => s + d.coolQty);
+    final bottleUnits =
+        monthDeliveries.fold<int>(0, (s, d) => s + d.bottleQty);
+    final bottlesByLabel = _bottlesByLabelFromDeliveries(monthDeliveries);
+    final quantitiesByLabel = _quantitiesByLabelFromDeliveries(monthDeliveries);
     final totalAmount =
         monthDeliveries.fold<double>(0, (s, d) => s + d.totalAmount);
 
@@ -255,6 +324,9 @@ class WaterPlantRepository extends ChangeNotifier {
     return MonthlyStats(
       normalCans: normalCans,
       coolCans: coolCans,
+      bottleUnits: bottleUnits,
+      bottlesByLabel: bottlesByLabel,
+      quantitiesByLabel: quantitiesByLabel,
       totalAmount: totalAmount,
       paidAmount: paidInMonth,
       balance: balance.clamp(0, double.infinity).toDouble(),
@@ -280,7 +352,7 @@ class WaterPlantRepository extends ChangeNotifier {
         _deliveries.where((d) => d.date.isSameMonth(month)).toList();
     final totalCans = monthDeliveries.fold<int>(
       0,
-      (s, d) => s + d.normalQty + d.coolQty,
+      (s, d) => s + d.normalQty + d.coolQty + d.bottleQty,
     );
     final totalSales =
         monthDeliveries.fold<double>(0, (s, d) => s + d.totalAmount);
@@ -517,22 +589,60 @@ class WaterPlantRepository extends ChangeNotifier {
   Delivery addDelivery({
     required String customerId,
     required DateTime date,
-    required int normalQty,
-    required int coolQty,
+    int normalQty = 0,
+    int coolQty = 0,
+    List<BottleDeliveryInput> bottles = const [],
   }) {
+    final lines = <DeliveryLineItem>[];
+    if (normalQty > 0) {
+      lines.add(
+        DeliveryLineItem(
+          kind: DeliveryItemKind.normalCan,
+          label: 'Normal Can',
+          quantity: normalQty,
+          unitPrice: settings.normalPrice,
+        ),
+      );
+    }
+    if (coolQty > 0) {
+      lines.add(
+        DeliveryLineItem(
+          kind: DeliveryItemKind.coolCan,
+          label: 'Cool Can',
+          quantity: coolQty,
+          unitPrice: settings.coolPrice,
+        ),
+      );
+    }
+    for (final b in bottles) {
+      if (b.quantity <= 0) continue;
+      lines.add(
+        DeliveryLineItem(
+          kind: DeliveryItemKind.bottle,
+          label: b.label,
+          quantity: b.quantity,
+          unitPrice: b.unitPrice,
+          productId: b.productId,
+        ),
+      );
+    }
+    if (lines.isEmpty) {
+      throw ArgumentError('At least one item is required for a delivery');
+    }
+
     final delivery = Delivery(
       id: _uuid.v4(),
       customerId: customerId,
       date: date,
-      normalQty: normalQty,
-      coolQty: coolQty,
-      normalUnitPrice: settings.normalPrice,
-      coolUnitPrice: settings.coolPrice,
+      lines: lines,
     );
     _deliveries.insert(0, delivery);
     notifyListeners();
     return delivery;
   }
+
+  List<Product> get bottleCatalog =>
+      _products.where((p) => p.category == ProductCategory.bottle).toList();
 
   Payment addPayment({
     required String customerId,
@@ -556,7 +666,116 @@ class WaterPlantRepository extends ChangeNotifier {
 
   void updateSettings(BusinessSettings newSettings) {
     settings = newSettings;
+    final canProduct = productById('p2');
+    if (canProduct != null) {
+      final i = _products.indexWhere((p) => p.id == 'p2');
+      _products[i] = canProduct.copyWith(
+        variants: [
+          ProductVariant(id: 'p2-v1', label: 'Normal Can', price: newSettings.normalPrice),
+          ProductVariant(id: 'p2-v2', label: 'Cool Can', price: newSettings.coolPrice, isCool: true),
+        ],
+      );
+    }
     notifyListeners();
+  }
+
+  void _seedProducts() {
+    _products
+      ..clear()
+      ..addAll([
+        Product(
+          id: 'p1',
+          name: 'RO Water Bottles',
+          description: 'Sealed packaged drinking water in multiple sizes for home and retail.',
+          category: ProductCategory.bottle,
+          variants: const [
+            ProductVariant(id: 'p1-v1', label: '1/2 L', price: 10),
+            ProductVariant(id: 'p1-v2', label: '1 L', price: 15),
+            ProductVariant(id: 'p1-v3', label: '2 L', price: 25),
+            ProductVariant(id: 'p1-v4', label: '5 L', price: 45),
+            ProductVariant(id: 'p1-v5', label: '20 L', price: 80),
+            ProductVariant(id: 'p1-v6', label: '25 L', price: 95),
+          ],
+        ),
+        Product(
+          id: 'p2',
+          name: '20L Water Cans',
+          description: 'Refillable RO water cans for dispensers — normal and chilled delivery.',
+          category: ProductCategory.can,
+          variants: [
+            ProductVariant(id: 'p2-v1', label: 'Normal Can', price: settings.normalPrice),
+            ProductVariant(id: 'p2-v2', label: 'Cool Can', price: settings.coolPrice, isCool: true),
+          ],
+        ),
+      ]);
+  }
+
+  Product? productById(String id) {
+    for (final p in _products) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
+
+  Future<Product> addProduct({
+    required String name,
+    String? description,
+    required ProductCategory category,
+    required String variantLabel,
+    required double price,
+    bool isCool = false,
+    String? imageSourcePath,
+  }) async {
+    String? savedImagePath;
+    if (imageSourcePath != null && imageSourcePath.isNotEmpty) {
+      savedImagePath = await ProductImageService.persistFromFile(imageSourcePath);
+    }
+
+    final product = Product(
+      id: _uuid.v4(),
+      name: name.trim(),
+      description: (description?.trim().isEmpty ?? true)
+          ? _defaultProductDescription(category, variantLabel, isCool: isCool)
+          : description!.trim(),
+      category: category,
+      variants: [
+        ProductVariant(
+          id: _uuid.v4(),
+          label: variantLabel.trim(),
+          price: price,
+          isCool: isCool,
+        ),
+      ],
+      localImagePath: savedImagePath,
+    );
+    _products.insert(0, product);
+    notifyListeners();
+    return product;
+  }
+
+  String _defaultProductDescription(
+    ProductCategory category,
+    String label, {
+    bool isCool = false,
+  }) {
+    return switch (category) {
+      ProductCategory.bottle => 'RO water bottle — $label',
+      ProductCategory.can => isCool ? 'Chilled 20L RO water can' : '20L RO water can — $label',
+    };
+  }
+
+  List<Product> searchProducts(String query) {
+    if (query.trim().isEmpty) return List<Product>.from(_products);
+    final q = query.toLowerCase();
+    return _products
+        .where(
+          (p) =>
+              p.name.toLowerCase().contains(q) ||
+              p.description.toLowerCase().contains(q) ||
+              p.category.label.toLowerCase().contains(q) ||
+              p.variants.any((v) => v.label.toLowerCase().contains(q)),
+        )
+        .toList();
   }
 
   void resetMockData() {
@@ -564,15 +783,19 @@ class WaterPlantRepository extends ChangeNotifier {
     _deliveries.clear();
     _payments.clear();
     _orders.clear();
+    _products.clear();
     _seedMockData();
     notifyListeners();
   }
 
   String customerActivityLabel(String customerId, DateTime month) {
     final stats = monthlyStatsForCustomer(customerId, month);
-    final cans = stats.normalCans + stats.coolCans;
-    if (cans == 0) return 'No deliveries this month';
-    return '$cans cans delivered this month';
+    final parts = <String>[];
+    if (stats.normalCans > 0) parts.add('${stats.normalCans} normal');
+    if (stats.coolCans > 0) parts.add('${stats.coolCans} cool');
+    if (stats.bottleUnits > 0) parts.add('${stats.bottleUnits} bottles');
+    if (parts.isEmpty) return 'No deliveries this month';
+    return '${parts.join(', ')} delivered this month';
   }
 
   bool customerHasPendingBalance(String customerId) =>

@@ -63,9 +63,7 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
         final deliveries = List.of(repo.deliveriesForCustomer(widget.customerId, month: _month))
           ..sort((a, b) => b.date.compareTo(a.date));
 
-        final normalTotal = deliveries.fold<int>(0, (s, d) => s + d.normalQty);
-        final coolTotal = deliveries.fold<int>(0, (s, d) => s + d.coolQty);
-        final amountTotal = deliveries.fold<double>(0, (s, d) => s + d.totalAmount);
+        final monthStats = repo.monthlyStatsForCustomer(widget.customerId, _month);
         final colorIndex = repo.customers.indexWhere((c) => c.id == widget.customerId);
 
         return Scaffold(
@@ -90,11 +88,7 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                 Expanded(
                   child: DeliveryHistoryListCard(deliveries: deliveries),
                 ),
-                DeliveryHistoryMonthTotalCard(
-                  normalCans: normalTotal,
-                  coolCans: coolTotal,
-                  totalAmount: amountTotal,
-                ),
+                DeliveryHistoryMonthTotalCard(stats: monthStats),
               ],
             ),
           ),

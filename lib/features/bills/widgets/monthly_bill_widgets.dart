@@ -88,7 +88,6 @@ class MonthlyBillDocument extends StatelessWidget {
 
   int get _normalTotal => deliveries.fold(0, (s, d) => s + d.normalQty);
   int get _coolTotal => deliveries.fold(0, (s, d) => s + d.coolQty);
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -160,6 +159,7 @@ class MonthlyBillDocument extends StatelessWidget {
           const SizedBox(height: 20),
           _BillTable(
             deliveries: deliveries,
+            stats: stats,
             normalTotal: _normalTotal,
             coolTotal: _coolTotal,
             amountTotal: stats.totalAmount,
@@ -265,12 +265,14 @@ class _CustomerLine extends StatelessWidget {
 class _BillTable extends StatelessWidget {
   const _BillTable({
     required this.deliveries,
+    required this.stats,
     required this.normalTotal,
     required this.coolTotal,
     required this.amountTotal,
   });
 
   final List<Delivery> deliveries;
+  final MonthlyStats stats;
   final int normalTotal;
   final int coolTotal;
   final double amountTotal;
@@ -284,6 +286,15 @@ class _BillTable extends StatelessWidget {
     4: FlexColumnWidth(1.2),
   };
 
+  String _bottleTotalNote() {
+    if (stats.bottleUnits <= 0) return '';
+    final parts = stats.bottlesByLabel.entries
+        .where((e) => e.value > 0)
+        .map((e) => '${e.value}×${e.key}')
+        .join(', ');
+    return parts.isEmpty ? '' : 'Bottles: $parts';
+  }
+
   @override
   Widget build(BuildContext context) {
     final rows = <List<String>>[
@@ -293,13 +304,14 @@ class _BillTable extends StatelessWidget {
         ...deliveries.map(
           (d) => [
             d.date.dayMonth,
-            'Delivery',
+            d.billTableDescription,
             '${d.normalQty}',
             '${d.coolQty}',
             CurrencyUtils.format(d.totalAmount),
           ],
         ),
     ];
+    final bottleNote = _bottleTotalNote();
 
     return Table(
       border: TableBorder.all(color: MonthlyBillColors.tableBorder, width: 1),
@@ -318,7 +330,7 @@ class _BillTable extends StatelessWidget {
               for (var i = 0; i < cells.length; i++)
                 _TableCell(
                   text: cells[i],
-                  align: i >= 2 ? TextAlign.center : TextAlign.start,
+                  align: i >= 2 && i < 4 ? TextAlign.center : (i == 4 ? TextAlign.end : TextAlign.start),
                   amountCol: i == 4,
                 ),
             ],
@@ -328,7 +340,7 @@ class _BillTable extends StatelessWidget {
           decoration: const BoxDecoration(color: MonthlyBillColors.tableTotalBg),
           children: [
             _TableCell(text: 'Total', bold: true),
-            const _TableCell(text: ''),
+            _TableCell(text: bottleNote, bold: true),
             _TableCell(text: '$normalTotal', bold: true, align: TextAlign.center),
             _TableCell(text: '$coolTotal', bold: true, align: TextAlign.center),
             _TableCell(

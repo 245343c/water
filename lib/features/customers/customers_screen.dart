@@ -106,7 +106,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                                   return CustomerListCard(
                                     customer: c,
                                     colorIndex: idx >= 0 ? idx : i,
-                                    cansThisMonth: monthly.normalCans + monthly.coolCans,
+                                    unitsThisMonth: monthly.totalUnits,
                                     lastDeliveryLabel: lastDeliveryRelativeLabel(last),
                                     balance: repo.customerBalance(c.id).clamp(0, double.infinity),
                                     category: _categoryFor(repo, c, month),

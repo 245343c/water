@@ -62,9 +62,9 @@ class MainShell extends StatelessWidget {
                   label: 'Orders',
                 ),
                 const NavigationDestination(
-                  icon: Icon(Icons.local_shipping_outlined),
-                  selectedIcon: Icon(Icons.local_shipping),
-                  label: 'Deliveries',
+                  icon: Icon(Icons.inventory_2_outlined),
+                  selectedIcon: Icon(Icons.inventory_2),
+                  label: 'Products',
                 ),
                 const NavigationDestination(
                   icon: Icon(Icons.menu_outlined),

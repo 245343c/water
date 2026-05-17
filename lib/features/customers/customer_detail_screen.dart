@@ -40,8 +40,6 @@ class CustomerDetailScreen extends StatelessWidget {
 
         final month = DateTime.now();
         final monthly = repo.monthlyStatsForCustomer(customerId, month);
-        final balance = repo.customerBalance(customerId);
-        final lastPay = repo.lastPayment(customerId);
         final recent = repo.deliveriesForCustomer(customerId).take(3).toList();
         final idx = repo.customers.indexWhere((c) => c.id == customerId);
 
@@ -58,13 +56,11 @@ class CustomerDetailScreen extends StatelessWidget {
                   child: ListView(
                     children: [
                       CustomerProfileSection(customer: customer, colorIndex: idx),
-                      const SizedBox(height: 14),
-                      MonthSummaryCard(month: month, stats: monthly),
-                      const SizedBox(height: 14),
-                      AccountSummaryCard(
-                        balance: balance,
-                        lastPayment: lastPay,
-                        paymentFrequency: customer.paymentFrequency,
+                      const SizedBox(height: 8),
+                      CustomerOverviewCard(
+                        month: month,
+                        stats: monthly,
+                        onViewAll: () => context.push('/customers/$customerId/summary'),
                       ),
                       QuickActionsSection(
                         onAddDelivery: () => context.push('/customers/$customerId/delivery'),

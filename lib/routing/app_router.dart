@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
+import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
+import 'package:sri_sai_ro_water/features/auth/forgot_password_screen.dart';
+import 'package:sri_sai_ro_water/features/auth/login_screen.dart';
+import 'package:sri_sai_ro_water/features/auth/register_screen.dart';
+import 'package:sri_sai_ro_water/features/auth/reset_password_screen.dart';
 import 'package:sri_sai_ro_water/features/bills/monthly_bill_screen.dart';
 import 'package:sri_sai_ro_water/features/bills/monthly_summary_screen.dart';
 import 'package:sri_sai_ro_water/features/customers/add_edit_customer_screen.dart';
@@ -8,12 +13,15 @@ import 'package:sri_sai_ro_water/features/customers/customer_detail_screen.dart'
 import 'package:sri_sai_ro_water/features/customers/customers_screen.dart';
 import 'package:sri_sai_ro_water/features/dashboard/dashboard_screen.dart';
 import 'package:sri_sai_ro_water/features/deliveries/add_delivery_screen.dart';
-import 'package:sri_sai_ro_water/features/deliveries/deliveries_screen.dart';
+import 'package:sri_sai_ro_water/features/products/add_product_screen.dart';
+import 'package:sri_sai_ro_water/features/products/product_detail_screen.dart';
+import 'package:sri_sai_ro_water/features/products/products_screen.dart';
 import 'package:sri_sai_ro_water/features/deliveries/delivery_history_screen.dart';
 import 'package:sri_sai_ro_water/features/deliveries/delivery_success_screen.dart';
 import 'package:sri_sai_ro_water/features/more/more_screen.dart';
 import 'package:sri_sai_ro_water/features/orders/orders_screen.dart';
 import 'package:sri_sai_ro_water/features/more/settings_screen.dart';
+import 'package:sri_sai_ro_water/features/payments/payment_history_screen.dart';
 import 'package:sri_sai_ro_water/features/payments/record_payment_screen.dart';
 import 'package:sri_sai_ro_water/features/reports/reports_screen.dart';
 import 'package:sri_sai_ro_water/features/shell/main_shell.dart';
@@ -22,19 +30,55 @@ final rootNavigatorKey = GlobalKey<NavigatorState>();
 final shellNavigatorKey = GlobalKey<NavigatorState>();
 
 class AppRoutes {
+  static const login = '/login';
+  static const register = '/register';
+  static const forgotPassword = '/forgot-password';
+  static const resetPassword = '/reset-password';
   static const dashboard = '/';
   static const customers = '/customers';
   static const orders = '/orders';
-  static const deliveries = '/deliveries';
+  static const products = '/products';
   static const more = '/more';
   static const reports = '/reports';
 }
 
-GoRouter createAppRouter() {
+GoRouter createAppRouter(AuthRepository auth) {
   return GoRouter(
     navigatorKey: rootNavigatorKey,
-    initialLocation: AppRoutes.dashboard,
+    initialLocation: AppRoutes.login,
+    refreshListenable: auth,
+    redirect: (context, state) {
+      final loggedIn = auth.isAuthenticated;
+      final location = state.matchedLocation;
+      final onAuth = location == AppRoutes.login ||
+          location == AppRoutes.register ||
+          location == AppRoutes.forgotPassword ||
+          location.startsWith(AppRoutes.resetPassword);
+
+      if (!loggedIn && !onAuth) return AppRoutes.login;
+      if (loggedIn && onAuth) return AppRoutes.dashboard;
+      return null;
+    },
     routes: [
+      GoRoute(
+        path: AppRoutes.login,
+        builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.register,
+        builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.forgotPassword,
+        builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.resetPassword,
+        builder: (context, state) {
+          final email = state.uri.queryParameters['email'] ?? '';
+          return ResetPasswordScreen(email: Uri.decodeComponent(email));
+        },
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return MainShell(navigationShell: navigationShell);
@@ -73,9 +117,9 @@ GoRouter createAppRouter() {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: AppRoutes.deliveries,
+                path: AppRoutes.products,
                 pageBuilder: (context, state) => const NoTransitionPage(
-                  child: DeliveriesScreen(),
+                  child: ProductsScreen(),
                 ),
               ),
             ],
@@ -155,6 +199,25 @@ GoRouter createAppRouter() {
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => RecordPaymentScreen(
           customerId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/customers/:id/payments',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => PaymentHistoryScreen(
+          customerId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/products/add',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AddProductScreen(),
+      ),
+      GoRoute(
+        path: '/products/:id',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => ProductDetailScreen(
+          productId: state.pathParameters['id']!,
         ),
       ),
       GoRoute(

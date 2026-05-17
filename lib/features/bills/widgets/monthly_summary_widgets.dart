@@ -5,24 +5,39 @@ import 'package:intl/intl.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
+import 'package:sri_sai_ro_water/data/models/delivery.dart';
+import 'package:sri_sai_ro_water/core/widgets/monthly_metrics_list.dart';
 import 'package:sri_sai_ro_water/data/models/monthly_stats.dart';
+import 'package:sri_sai_ro_water/data/models/payment.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class MonthlySummaryColors {
+  static const Color screenBg = Color(0xFFF3F4F6);
   static const Color titleNavy = Color(0xFF1E3A8A);
-  static const Color valueNavy = Color(0xFF111827);
+  static const Color valueNavy = Color(0xFF1E40AF);
   static const Color labelGrey = Color(0xFF6B7280);
   static const Color cardBorder = Color(0xFFE5E7EB);
-  static const Color canCardBg = Color(0xFFEFF6FF);
-  static const Color canCardBorder = Color(0xFFBFDBFE);
+  static const Color divider = Color(0xFFE5E7EB);
   static const Color statBlue = Color(0xFF2563EB);
-  static const Color totalGreen = Color(0xFF16A34A);
-  static const Color totalGreenBg = Color(0xFFECFDF5);
-  static const Color statusOrange = Color(0xFFEA580C);
-  static const Color balanceRed = Color(0xFFDC2626);
-  static const Color paymentCardBg = Color(0xFFFFF7ED);
-  static const Color infoBannerBg = Color(0xFFEFF6FF);
+  static const Color statGreen = Color(0xFF16A34A);
+  static const Color statOrange = Color(0xFFEA580C);
+  static const Color statRed = Color(0xFFDC2626);
+  static const Color linkBlue = Color(0xFF1A73E8);
   static const Color primaryBtn = Color(0xFF1A73E8);
+  static const Color whatsapp = Color(0xFF25D366);
+
+  static BoxDecoration get cardDecoration => BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      );
 }
 
 class MonthlySummaryHeader extends StatelessWidget {
@@ -34,7 +49,7 @@ class MonthlySummaryHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(4, MediaQuery.paddingOf(context).top + 4, 4, 16),
+      padding: EdgeInsets.fromLTRB(4, MediaQuery.paddingOf(context).top + 4, 8, 14),
       child: Row(
         children: [
           IconButton(
@@ -59,44 +74,38 @@ class MonthlySummaryHeader extends StatelessWidget {
   }
 }
 
-class MonthlySummaryCustomerHeader extends StatelessWidget {
-  const MonthlySummaryCustomerHeader({
+class MonthlySummaryCustomerBar extends StatelessWidget {
+  const MonthlySummaryCustomerBar({
     super.key,
     required this.customer,
-    required this.month,
     required this.colorIndex,
-    required this.onPrevMonth,
-    required this.onNextMonth,
   });
 
   final Customer customer;
-  final DateTime month;
   final int colorIndex;
-  final VoidCallback onPrevMonth;
-  final VoidCallback onNextMonth;
 
   @override
   Widget build(BuildContext context) {
     final bg = CustomersColors.avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
-            radius: 28,
+            radius: 22,
             backgroundColor: bg,
             child: Text(
               customer.initials,
               style: GoogleFonts.poppins(
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
-                fontSize: 18,
+                fontSize: 14,
               ),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -104,40 +113,32 @@ class MonthlySummaryCustomerHeader extends StatelessWidget {
                 Text(
                   customer.name,
                   style: GoogleFonts.poppins(
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: MonthlySummaryColors.valueNavy,
+                    color: MonthlySummaryColors.titleNavy,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    InkWell(
-                      onTap: onPrevMonth,
-                      borderRadius: BorderRadius.circular(4),
-                      child: const Padding(
-                        padding: EdgeInsets.all(2),
-                        child: Icon(Icons.chevron_left, size: 20, color: MonthlySummaryColors.labelGrey),
-                      ),
-                    ),
-                    Text(
-                      month.monthYear,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: MonthlySummaryColors.labelGrey,
-                      ),
-                    ),
-                    InkWell(
-                      onTap: onNextMonth,
-                      borderRadius: BorderRadius.circular(4),
-                      child: const Padding(
-                        padding: EdgeInsets.all(2),
-                        child: Icon(Icons.chevron_right, size: 20, color: MonthlySummaryColors.labelGrey),
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 2),
+                Text(
+                  customer.phone,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: MonthlySummaryColors.labelGrey,
+                  ),
                 ),
               ],
+            ),
+          ),
+          Material(
+            color: MonthlySummaryColors.whatsapp.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+            child: InkWell(
+              onTap: () {},
+              borderRadius: BorderRadius.circular(10),
+              child: const Padding(
+                padding: EdgeInsets.all(8),
+                child: Icon(Icons.chat, color: MonthlySummaryColors.whatsapp, size: 22),
+              ),
             ),
           ),
         ],
@@ -146,167 +147,50 @@ class MonthlySummaryCustomerHeader extends StatelessWidget {
   }
 }
 
-class MonthlySummaryCanCards extends StatelessWidget {
-  const MonthlySummaryCanCards({
+class MonthlySummaryMonthNav extends StatelessWidget {
+  const MonthlySummaryMonthNav({
     super.key,
-    required this.normalCans,
-    required this.coolCans,
+    required this.month,
+    required this.onPrev,
+    required this.onNext,
+    this.canGoNext = true,
   });
 
-  final int normalCans;
-  final int coolCans;
+  final DateTime month;
+  final VoidCallback onPrev;
+  final VoidCallback onNext;
+  final bool canGoNext;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(child: _CanCard(label: 'Normal Cans', count: normalCans)),
-          const SizedBox(width: 12),
-          Expanded(child: _CanCard(label: 'Cool Cans', count: coolCans, isCool: true)),
-        ],
-      ),
-    );
-  }
-}
-
-class _CanCard extends StatelessWidget {
-  const _CanCard({
-    required this.label,
-    required this.count,
-    this.isCool = false,
-  });
-
-  final String label;
-  final int count;
-  final bool isCool;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-      decoration: BoxDecoration(
-        color: MonthlySummaryColors.canCardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: MonthlySummaryColors.canCardBorder),
-      ),
-      child: Row(
-        children: [
-          _WaterJugIcon(isCool: isCool),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: MonthlySummaryColors.valueNavy,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$count',
-                  style: GoogleFonts.poppins(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    color: MonthlySummaryColors.statBlue,
-                    height: 1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Water jug icon on the left (mockup: line-style jug, cool variant with snowflake).
-class _WaterJugIcon extends StatelessWidget {
-  const _WaterJugIcon({required this.isCool});
-
-  final bool isCool;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 46,
-      height: 50,
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.center,
-        children: [
-          Icon(
-            Icons.local_drink_outlined,
-            size: 44,
-            color: MonthlySummaryColors.statBlue.withValues(alpha: 0.9),
-          ),
-          if (isCool)
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: Container(
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: MonthlySummaryColors.canCardBorder),
-                ),
-                child: const Icon(
-                  Icons.ac_unit_rounded,
-                  size: 13,
-                  color: MonthlySummaryColors.statBlue,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class MonthlySummaryTotalCard extends StatelessWidget {
-  const MonthlySummaryTotalCard({super.key, required this.amount});
-
-  final double amount;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 18),
-        decoration: BoxDecoration(
-          color: MonthlySummaryColors.totalGreenBg,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
+        decoration: MonthlySummaryColors.cardDecoration,
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Row(
           children: [
-            Text(
-              'Total Amount',
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: MonthlySummaryColors.labelGrey,
+            IconButton(
+              icon: const Icon(Icons.chevron_left, color: MonthlySummaryColors.labelGrey),
+              onPressed: onPrev,
+            ),
+            Expanded(
+              child: Text(
+                month.monthYear,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: MonthlySummaryColors.titleNavy,
+                ),
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              CurrencyUtils.format(amount),
-              style: GoogleFonts.poppins(
-                fontSize: 34,
-                fontWeight: FontWeight.w800,
-                color: MonthlySummaryColors.totalGreen,
-                height: 1,
+            IconButton(
+              icon: Icon(
+                Icons.chevron_right,
+                color: canGoNext ? MonthlySummaryColors.labelGrey : MonthlySummaryColors.labelGrey.withValues(alpha: 0.35),
               ),
+              onPressed: canGoNext ? onNext : null,
             ),
           ],
         ),
@@ -315,8 +199,46 @@ class MonthlySummaryTotalCard extends StatelessWidget {
   }
 }
 
-class MonthlySummaryPaymentCard extends StatelessWidget {
-  const MonthlySummaryPaymentCard({
+class MonthlySummaryStatsCard extends StatelessWidget {
+  const MonthlySummaryStatsCard({super.key, required this.stats});
+
+  final MonthlyStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: Container(
+        decoration: MonthlySummaryColors.cardDecoration,
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This Month Summary',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: MonthlySummaryColors.titleNavy,
+              ),
+            ),
+            const SizedBox(height: 8),
+            MonthlyMetricsList(
+              stats: stats,
+              labelColor: MonthlySummaryColors.labelGrey,
+              valueColor: MonthlySummaryColors.statBlue,
+              titleNavy: MonthlySummaryColors.titleNavy,
+              dividerColor: MonthlySummaryColors.cardBorder,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class MonthlySummaryAccountCard extends StatelessWidget {
+  const MonthlySummaryAccountCard({
     super.key,
     required this.stats,
     required this.balance,
@@ -327,62 +249,316 @@ class MonthlySummaryPaymentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = stats.isPaid ? MonthlySummaryColors.totalGreen : MonthlySummaryColors.statusOrange;
-    final statusText = stats.statusLabel;
+    final statusColor = stats.isPaid ? MonthlySummaryColors.statGreen : MonthlySummaryColors.statOrange;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Container(
-        decoration: BoxDecoration(
-          color: MonthlySummaryColors.paymentCardBg,
-          borderRadius: BorderRadius.circular(12),
+        decoration: MonthlySummaryColors.cardDecoration,
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Account Summary',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: MonthlySummaryColors.titleNavy,
+              ),
+            ),
+            const SizedBox(height: 12),
+            IntrinsicHeight(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _StatCell(
+                      label: 'Payment Status',
+                      value: stats.statusLabel,
+                      color: statusColor,
+                      compact: true,
+                    ),
+                  ),
+                  const _VertDivider(),
+                  Expanded(
+                    child: _StatCell(
+                      label: 'Balance Due',
+                      value: CurrencyUtils.format(balance.clamp(0, double.infinity)),
+                      color: MonthlySummaryColors.statRed,
+                      compact: true,
+                    ),
+                  ),
+                  const _VertDivider(),
+                  Expanded(
+                    child: _StatCell(
+                      label: 'Paid This Month',
+                      value: CurrencyUtils.format(stats.paidAmount),
+                      color: MonthlySummaryColors.statGreen,
+                      compact: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        padding: const EdgeInsets.symmetric(vertical: 18),
-        child: IntrinsicHeight(
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  children: [
-                    Text(
-                      'Payment Status',
-                      style: GoogleFonts.poppins(fontSize: 12, color: MonthlySummaryColors.labelGrey),
+      ),
+    );
+  }
+}
+
+class MonthlyDeliveriesSection extends StatelessWidget {
+  const MonthlyDeliveriesSection({
+    super.key,
+    required this.deliveries,
+    this.onViewAll,
+  });
+
+  final List<Delivery> deliveries;
+  final VoidCallback? onViewAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Container(
+        decoration: MonthlySummaryColors.cardDecoration,
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Deliveries this month',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: MonthlySummaryColors.titleNavy,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      statusText,
+                  ),
+                ),
+                if (onViewAll != null)
+                  GestureDetector(
+                    onTap: onViewAll,
+                    child: Text(
+                      'View all',
                       style: GoogleFonts.poppins(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: statusColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: MonthlySummaryColors.linkBlue,
                       ),
                     ),
-                  ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (deliveries.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Text(
+                  'No deliveries this month',
+                  style: GoogleFonts.poppins(fontSize: 13, color: MonthlySummaryColors.labelGrey),
                 ),
-              ),
-              const VerticalDivider(width: 1, thickness: 1, color: MonthlySummaryColors.cardBorder),
-              Expanded(
-                child: Column(
+              )
+            else
+              ...List.generate(deliveries.length.clamp(0, 5), (i) {
+                final d = deliveries[i];
+                return Column(
                   children: [
-                    Text(
-                      'Balance',
-                      style: GoogleFonts.poppins(fontSize: 12, color: MonthlySummaryColors.labelGrey),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      CurrencyUtils.format(balance.clamp(0, double.infinity)),
-                      style: GoogleFonts.poppins(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: MonthlySummaryColors.balanceRed,
-                      ),
-                    ),
+                    _DeliveryRow(delivery: d),
+                    if (i < deliveries.length.clamp(0, 5) - 1)
+                      const Divider(height: 1, color: MonthlySummaryColors.divider),
                   ],
-                ),
+                );
+              }),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeliveryRow extends StatelessWidget {
+  const _DeliveryRow({required this.delivery});
+
+  final Delivery delivery;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 88,
+            child: Text(
+              delivery.date.fullDate,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: MonthlySummaryColors.valueNavy,
               ),
-            ],
+            ),
           ),
+          Expanded(
+            child: Text(
+              delivery.itemsSummary,
+              style: GoogleFonts.poppins(fontSize: 13, color: MonthlySummaryColors.valueNavy),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Text(
+            CurrencyUtils.format(delivery.totalAmount),
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: MonthlySummaryColors.valueNavy,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class MonthlyPaymentsSection extends StatelessWidget {
+  const MonthlyPaymentsSection({
+    super.key,
+    required this.payments,
+    this.onViewAllPayments,
+  });
+
+  final List<Payment> payments;
+  final VoidCallback? onViewAllPayments;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = payments.fold<double>(0, (s, p) => s + p.amount);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Container(
+        decoration: MonthlySummaryColors.cardDecoration,
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Payments this month',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: MonthlySummaryColors.titleNavy,
+                    ),
+                  ),
+                ),
+                if (onViewAllPayments != null)
+                  GestureDetector(
+                    onTap: onViewAllPayments,
+                    child: Text(
+                      'View all',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: MonthlySummaryColors.linkBlue,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (payments.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Center(
+                  child: Text(
+                    'No payments recorded for this month',
+                    style: GoogleFonts.poppins(fontSize: 13, color: MonthlySummaryColors.labelGrey),
+                  ),
+                ),
+              )
+            else ...[
+              Text(
+                'Total received: ${CurrencyUtils.format(total)}',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: MonthlySummaryColors.statGreen,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...List.generate(payments.length, (i) {
+                final p = payments[i];
+                return Column(
+                  children: [
+                    _PaymentRow(payment: p),
+                    if (i < payments.length - 1)
+                      const Divider(height: 1, color: MonthlySummaryColors.divider),
+                  ],
+                );
+              }),
+            ],
+          ],
         ),
+      ),
+    );
+  }
+}
+
+class _PaymentRow extends StatelessWidget {
+  const _PaymentRow({required this.payment});
+
+  final Payment payment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: MonthlySummaryColors.statGreen.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.payments_outlined, size: 20, color: MonthlySummaryColors.statGreen),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  payment.date.fullDate,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: MonthlySummaryColors.valueNavy,
+                  ),
+                ),
+                Text(
+                  payment.method.label,
+                  style: GoogleFonts.poppins(fontSize: 12, color: MonthlySummaryColors.labelGrey),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            CurrencyUtils.format(payment.amount),
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: MonthlySummaryColors.statGreen,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -399,19 +575,16 @@ class MonthlySummaryInfoBanner extends StatelessWidget {
     final dateLabel = DateFormat('d MMM yyyy').format(lastDay);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: MonthlySummaryColors.infoBannerBg,
-          borderRadius: BorderRadius.circular(12),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: MonthlySummaryColors.cardDecoration,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.info_outline, size: 20, color: MonthlySummaryColors.statBlue),
-            const SizedBox(width: 12),
+            const Icon(Icons.info_outline, size: 18, color: MonthlySummaryColors.statBlue),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 'Customer will pay once per month. Bill will be generated on $dateLabel.',
@@ -436,25 +609,79 @@ class MonthlySummaryPdfButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        child: SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: FilledButton(
-            onPressed: onPressed,
-            style: FilledButton.styleFrom(
-              backgroundColor: MonthlySummaryColors.primaryBtn,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              textStyle: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600),
+    return Container(
+      color: MonthlySummaryColors.screenBg,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton(
+              onPressed: onPressed,
+              style: FilledButton.styleFrom(
+                backgroundColor: MonthlySummaryColors.primaryBtn,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                textStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              child: const Text('View Monthly Bill (PDF)'),
             ),
-            child: const Text('View Monthly Bill (PDF)'),
           ),
         ),
       ),
     );
+  }
+}
+
+class _StatCell extends StatelessWidget {
+  const _StatCell({
+    required this.label,
+    required this.value,
+    required this.color,
+    this.compact = false,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(fontSize: 10, color: MonthlySummaryColors.labelGrey),
+          maxLines: 2,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(
+            fontSize: compact ? 15 : 20,
+            fontWeight: FontWeight.w800,
+            color: color,
+            height: 1.1,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+}
+
+class _VertDivider extends StatelessWidget {
+  const _VertDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const VerticalDivider(width: 1, thickness: 1, color: MonthlySummaryColors.divider);
   }
 }
 

@@ -5,8 +5,8 @@ import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
+import 'package:sri_sai_ro_water/core/widgets/monthly_metrics_list.dart';
 import 'package:sri_sai_ro_water/data/models/monthly_stats.dart';
-import 'package:sri_sai_ro_water/data/models/payment.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class CustomerDetailColors {
@@ -26,6 +26,7 @@ abstract final class CustomerDetailColors {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: cardBorder),
       );
+
 }
 
 class CustomerDetailHeader extends StatelessWidget {
@@ -86,23 +87,23 @@ class CustomerProfileSection extends StatelessWidget {
 
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
-            radius: 36,
+            radius: 30,
             backgroundColor: bg,
             child: Text(
               customer.initials,
               style: GoogleFonts.poppins(
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
-                fontSize: 22,
+                fontSize: 18,
               ),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -110,12 +111,12 @@ class CustomerProfileSection extends StatelessWidget {
                 Text(
                   customer.name,
                   style: GoogleFonts.poppins(
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: CustomerDetailColors.titleNavy,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Row(
                   children: [
                     Text(
@@ -130,7 +131,7 @@ class CustomerProfileSection extends StatelessWidget {
                   ],
                 ),
                 if (customer.email.isNotEmpty) ...[
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
                     customer.email,
                     style: GoogleFonts.poppins(
@@ -158,7 +159,7 @@ class CustomerProfileSection extends StatelessWidget {
                     ],
                   ),
                 ],
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
                   customer.address,
                   style: GoogleFonts.poppins(
@@ -176,73 +177,168 @@ class CustomerProfileSection extends StatelessWidget {
   }
 }
 
-class MonthSummaryCard extends StatelessWidget {
-  const MonthSummaryCard({
+/// Quick glance at this month — full account & payments on Monthly Summary (View all).
+class CustomerOverviewCard extends StatelessWidget {
+  const CustomerOverviewCard({
     super.key,
     required this.month,
     required this.stats,
+    this.onViewAll,
   });
 
   final DateTime month;
   final MonthlyStats stats;
+  final VoidCallback? onViewAll;
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = stats.isPaid ? CustomerDetailColors.statGreen : CustomerDetailColors.statOrange;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: CustomerDetailColors.borderedCard,
-      padding: const EdgeInsets.fromLTRB(14, 16, 14, 18),
-      child: Column(
+    return _OverviewPanel(
+      title: 'This Month Summary',
+      actionLabel: onViewAll != null ? 'View all' : null,
+      onAction: onViewAll,
+      footer: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'This Month Summary (${month.monthYear})',
+            stats.hasDeliveries ? 'Delivered this month' : month.monthYear,
             style: GoogleFonts.poppins(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: CustomerDetailColors.titleNavy,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: CustomerDetailColors.labelGrey,
             ),
           ),
-          const SizedBox(height: 16),
-          IntrinsicHeight(
-            child: Row(
-              children: [
-                Expanded(
-                  child: _StatColumn(
-                    label: 'Normal Cans',
-                    value: '${stats.normalCans}',
-                    valueColor: CustomerDetailColors.statBlue,
+          const SizedBox(height: 2),
+          Text(
+            month.monthYear,
+            style: GoogleFonts.poppins(fontSize: 12, color: CustomerDetailColors.labelGrey),
+          ),
+        ],
+      ),
+      child: MonthlyMetricsList(
+        stats: stats,
+        labelColor: CustomerDetailColors.labelGrey,
+        valueColor: CustomerDetailColors.statBlue,
+        titleNavy: CustomerDetailColors.titleNavy,
+        dividerColor: CustomerDetailColors.cardBorder,
+      ),
+    );
+  }
+}
+
+class _OverviewPanel extends StatelessWidget {
+  const _OverviewPanel({
+    required this.title,
+    required this.child,
+    this.footer,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final String title;
+  final Widget child;
+  final Widget? footer;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: CustomerDetailColors.borderedCard,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: CustomerDetailColors.titleNavy,
+                      ),
+                    ),
+                    if (footer != null) ...[
+                      const SizedBox(height: 2),
+                      footer!,
+                    ],
+                  ],
+                ),
+              ),
+              if (actionLabel != null && onAction != null)
+                GestureDetector(
+                  onTap: onAction,
+                  child: Text(
+                    actionLabel!,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: CustomerDetailColors.linkBlue,
+                    ),
                   ),
                 ),
-                const _VertDivider(),
-                Expanded(
-                  child: _StatColumn(
-                    label: 'Cool Cans',
-                    value: '${stats.coolCans}',
-                    valueColor: CustomerDetailColors.statBlue,
-                  ),
-                ),
-                const _VertDivider(),
-                Expanded(
-                  child: _StatColumn(
-                    label: 'Total Amount',
-                    value: CurrencyUtils.format(stats.totalAmount),
-                    valueColor: CustomerDetailColors.statGreen,
-                    compactValue: true,
-                  ),
-                ),
-                const _VertDivider(),
-                Expanded(
-                  child: _StatColumn(
-                    label: 'Status',
-                    value: stats.statusLabel,
-                    valueColor: statusColor,
-                    compactValue: true,
-                  ),
-                ),
-              ],
+            ],
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _OverviewStatCell extends StatelessWidget {
+  const _OverviewStatCell({
+    required this.label,
+    required this.value,
+    required this.valueColor,
+    this.compact = false,
+  });
+
+  final String label;
+  final String value;
+  final Color valueColor;
+  final bool compact;
+
+  static const double _height = 64;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: _height,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(fontSize: 10, color: CustomerDetailColors.labelGrey),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              value,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: compact ? 16 : 22,
+                fontWeight: FontWeight.w800,
+                color: valueColor,
+                height: 1.1,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -251,124 +347,15 @@ class MonthSummaryCard extends StatelessWidget {
   }
 }
 
-class AccountSummaryCard extends StatelessWidget {
-  const AccountSummaryCard({
-    super.key,
-    required this.balance,
-    required this.lastPayment,
-    required this.paymentFrequency,
-  });
-
-  final double balance;
-  final Payment? lastPayment;
-  final String paymentFrequency;
+class _OverviewDivider extends StatelessWidget {
+  const _OverviewDivider();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: CustomerDetailColors.borderedCard,
-      padding: const EdgeInsets.fromLTRB(14, 16, 14, 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Account Summary',
-            style: GoogleFonts.poppins(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: CustomerDetailColors.titleNavy,
-            ),
-          ),
-          const SizedBox(height: 16),
-          IntrinsicHeight(
-            child: Row(
-              children: [
-                Expanded(
-                  child: _StatColumn(
-                    label: 'Total Pending',
-                    value: CurrencyUtils.format(balance.clamp(0, double.infinity)),
-                    valueColor: CustomerDetailColors.statRed,
-                  ),
-                ),
-                const _VertDivider(),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Last Payment',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.poppins(
-                          fontSize: 10,
-                          color: CustomerDetailColors.labelGrey,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      if (lastPayment != null) ...[
-                        Text(
-                          lastPayment!.date.fullDate,
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: CustomerDetailColors.titleNavy,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          CurrencyUtils.format(lastPayment!.amount),
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: CustomerDetailColors.statGreen,
-                          ),
-                        ),
-                      ] else
-                        Text(
-                          '—',
-                          style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: CustomerDetailColors.labelGrey,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const _VertDivider(),
-                Expanded(
-                  child: Column(
-                    children: [
-                      Text(
-                        'Payment Frequency',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.poppins(
-                          fontSize: 10,
-                          color: CustomerDetailColors.labelGrey,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Icon(Icons.calendar_month, color: CustomerDetailColors.statBlue, size: 22),
-                      const SizedBox(height: 4),
-                      Text(
-                        paymentFrequency,
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: CustomerDetailColors.titleNavy,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return const VerticalDivider(
+      width: 1,
+      thickness: 1,
+      color: CustomerDetailColors.cardBorder,
     );
   }
 }
@@ -554,13 +541,13 @@ class _RecentRow extends StatelessWidget {
             ),
             Expanded(
               child: Text(
-                delivery.cansSummary,
+                delivery.itemsSummary,
                 style: GoogleFonts.poppins(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: CustomerDetailColors.valueNavy,
                 ),
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -575,60 +562,6 @@ class _RecentRow extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _StatColumn extends StatelessWidget {
-  const _StatColumn({
-    required this.label,
-    required this.value,
-    required this.valueColor,
-    this.compactValue = false,
-  });
-
-  final String label;
-  final String value;
-  final Color valueColor;
-  final bool compactValue;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(fontSize: 10, color: CustomerDetailColors.labelGrey),
-          maxLines: 2,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(
-            fontSize: compactValue ? 16 : 22,
-            fontWeight: FontWeight.w800,
-            color: valueColor,
-            height: 1.1,
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    );
-  }
-}
-
-class _VertDivider extends StatelessWidget {
-  const _VertDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return const VerticalDivider(
-      width: 1,
-      thickness: 1,
-      color: CustomerDetailColors.cardBorder,
     );
   }
 }

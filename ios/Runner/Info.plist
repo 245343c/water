@@ -47,6 +47,10 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Take photos of products in your shop to add them to your catalog.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose product photos from your gallery to add them to your catalog.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

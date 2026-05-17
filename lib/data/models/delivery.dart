@@ -1,47 +1,97 @@
+import 'package:sri_sai_ro_water/data/models/delivery_line_item.dart';
+
 class Delivery {
   Delivery({
     required this.id,
     required this.customerId,
     required this.date,
-    required this.normalQty,
-    required this.coolQty,
-    required this.normalUnitPrice,
-    required this.coolUnitPrice,
+    required this.lines,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
   final String id;
   final String customerId;
   DateTime date;
-  int normalQty;
-  int coolQty;
-  final double normalUnitPrice;
-  final double coolUnitPrice;
+  final List<DeliveryLineItem> lines;
   final DateTime createdAt;
 
-  double get totalAmount =>
-      (normalQty * normalUnitPrice) + (coolQty * coolUnitPrice);
+  /// Legacy mock / can-only deliveries.
+  factory Delivery.fromLegacyCans({
+    required String id,
+    required String customerId,
+    required DateTime date,
+    required int normalQty,
+    required int coolQty,
+    required double normalUnitPrice,
+    required double coolUnitPrice,
+    DateTime? createdAt,
+  }) {
+    final lines = <DeliveryLineItem>[];
+    if (normalQty > 0) {
+      lines.add(
+        DeliveryLineItem(
+          kind: DeliveryItemKind.normalCan,
+          label: 'Normal Can',
+          quantity: normalQty,
+          unitPrice: normalUnitPrice,
+        ),
+      );
+    }
+    if (coolQty > 0) {
+      lines.add(
+        DeliveryLineItem(
+          kind: DeliveryItemKind.coolCan,
+          label: 'Cool Can',
+          quantity: coolQty,
+          unitPrice: coolUnitPrice,
+        ),
+      );
+    }
+    return Delivery(
+      id: id,
+      customerId: customerId,
+      date: date,
+      lines: lines,
+      createdAt: createdAt,
+    );
+  }
 
-  String get cansSummary {
-    final parts = <String>[];
-    if (normalQty > 0) parts.add('$normalQty Normal');
-    if (coolQty > 0) parts.add('$coolQty Cool');
-    return parts.isEmpty ? 'No cans' : parts.join(', ');
+  int get normalQty => _sumKind(DeliveryItemKind.normalCan);
+
+  int get coolQty => _sumKind(DeliveryItemKind.coolCan);
+
+  int get bottleQty => _sumKind(DeliveryItemKind.bottle);
+
+  int _sumKind(DeliveryItemKind kind) =>
+      lines.where((l) => l.kind == kind).fold(0, (s, l) => s + l.quantity);
+
+  double get totalAmount => lines.fold<double>(0, (s, l) => s + l.lineTotal);
+
+  String get itemsSummary {
+    if (lines.isEmpty) return 'No items';
+    return lines.map((l) => '${l.quantity} ${l.label}').join(', ');
+  }
+
+  /// Backward-compatible alias.
+  String get cansSummary => itemsSummary;
+
+  /// Official monthly bill — description column.
+  String get billTableDescription {
+    final bottles = lines.where((l) => l.kind == DeliveryItemKind.bottle).toList();
+    if (bottles.isEmpty) return 'Delivery';
+    final detail = bottles.map((l) => '${l.quantity}×${l.label}').join(', ');
+    return 'Delivery ($detail)';
   }
 
   Delivery copyWith({
     DateTime? date,
-    int? normalQty,
-    int? coolQty,
+    List<DeliveryLineItem>? lines,
   }) {
     return Delivery(
       id: id,
       customerId: customerId,
       date: date ?? this.date,
-      normalQty: normalQty ?? this.normalQty,
-      coolQty: coolQty ?? this.coolQty,
-      normalUnitPrice: normalUnitPrice,
-      coolUnitPrice: coolUnitPrice,
+      lines: lines ?? this.lines,
       createdAt: createdAt,
     );
   }

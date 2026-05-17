@@ -12,7 +12,7 @@ class CustomerListCard extends StatelessWidget {
     super.key,
     required this.customer,
     required this.colorIndex,
-    required this.cansThisMonth,
+    required this.unitsThisMonth,
     required this.lastDeliveryLabel,
     required this.balance,
     required this.category,
@@ -21,7 +21,7 @@ class CustomerListCard extends StatelessWidget {
 
   final Customer customer;
   final int colorIndex;
-  final int cansThisMonth;
+  final int unitsThisMonth;
   final String lastDeliveryLabel;
   final double balance;
   final CustomerPaymentCategory category;
@@ -84,7 +84,7 @@ class CustomerListCard extends StatelessWidget {
                       const SizedBox(height: 8),
                       _MetaRow(
                         icon: Icons.water_drop_outlined,
-                        text: '$cansThisMonth Cans this month',
+                        text: '$unitsThisMonth units this month',
                       ),
                       const SizedBox(height: 4),
                       _MetaRow(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/more/widgets/more_screen_widgets.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
@@ -74,6 +75,17 @@ class MoreScreen extends StatelessWidget {
                         title: 'Business Settings',
                         subtitle: 'Name, email, address, can prices',
                         onTap: () => context.push('/settings'),
+                      ),
+                      const MoreSectionDivider(),
+                      MoreMenuTile(
+                        icon: Icons.logout_rounded,
+                        title: 'Sign Out',
+                        subtitle: 'Log out of your admin account',
+                        showChevron: false,
+                        onTap: () {
+                          context.read<AuthRepository>().logout();
+                          context.go(AppRoutes.login);
+                        },
                       ),
                       const MoreSectionDivider(),
                       MoreMenuTile(

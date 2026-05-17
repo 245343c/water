@@ -54,10 +54,10 @@ class DeliveryListTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (!compact || delivery.cansSummary.isNotEmpty) ...[
+                if (!compact || delivery.itemsSummary.isNotEmpty) ...[
                   const SizedBox(height: 3),
                   Text(
-                    delivery.cansSummary,
+                    delivery.itemsSummary,
                     style: AppTextStyles.bodySecondary.copyWith(fontSize: 12),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

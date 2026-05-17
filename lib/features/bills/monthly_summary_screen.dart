@@ -31,6 +31,12 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
     setState(() => _month = next);
   }
 
+  bool get _canGoNext {
+    final next = DateTime(_month.year, _month.month + 1);
+    final now = DateTime.now();
+    return !(next.year > now.year || (next.year == now.year && next.month > now.month));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<WaterPlantRepository>(
@@ -45,30 +51,40 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
 
         final stats = repo.monthlyStatsForCustomer(widget.customerId, _month);
         final balance = repo.customerBalance(widget.customerId);
+        final deliveries = repo.deliveriesForCustomer(widget.customerId, month: _month);
+        final payments = repo.paymentsForCustomer(widget.customerId, month: _month);
         final colorIndex = repo.customers.indexWhere((c) => c.id == widget.customerId);
 
         return Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: MonthlySummaryColors.screenBg,
           body: MonthlySummaryScaffold(
             child: Column(
               children: [
                 MonthlySummaryHeader(onBack: () => context.pop()),
+                MonthlySummaryCustomerBar(
+                  customer: customer,
+                  colorIndex: colorIndex >= 0 ? colorIndex : 0,
+                ),
+                MonthlySummaryMonthNav(
+                  month: _month,
+                  onPrev: _prevMonth,
+                  onNext: _nextMonth,
+                  canGoNext: _canGoNext,
+                ),
                 Expanded(
                   child: ListView(
+                    padding: const EdgeInsets.only(bottom: 8),
                     children: [
-                      MonthlySummaryCustomerHeader(
-                        customer: customer,
-                        month: _month,
-                        colorIndex: colorIndex >= 0 ? colorIndex : 0,
-                        onPrevMonth: _prevMonth,
-                        onNextMonth: _nextMonth,
+                      MonthlySummaryStatsCard(stats: stats),
+                      MonthlySummaryAccountCard(stats: stats, balance: balance),
+                      MonthlyDeliveriesSection(
+                        deliveries: deliveries,
+                        onViewAll: () => context.push('/customers/${widget.customerId}/history'),
                       ),
-                      MonthlySummaryCanCards(
-                        normalCans: stats.normalCans,
-                        coolCans: stats.coolCans,
+                      MonthlyPaymentsSection(
+                        payments: payments,
+                        onViewAllPayments: () => context.push('/customers/${widget.customerId}/payments'),
                       ),
-                      MonthlySummaryTotalCard(amount: stats.totalAmount),
-                      MonthlySummaryPaymentCard(stats: stats, balance: balance),
                       MonthlySummaryInfoBanner(month: _month),
                     ],
                   ),

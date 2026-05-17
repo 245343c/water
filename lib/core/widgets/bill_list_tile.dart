@@ -36,7 +36,12 @@ class BillListTile extends StatelessWidget {
               children: [
                 Text(customer.name, style: AppTextStyles.customerName),
                 const SizedBox(height: 4),
-                Text('${stats.normalCans} Normal · ${stats.coolCans} Cool', style: AppTextStyles.bodySecondary),
+                Text(
+                  stats.deliveredItemsLabel,
+                  style: AppTextStyles.bodySecondary,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 const SizedBox(height: 6),
                 MockupStatusBadge(label: stats.statusLabel, isPaid: stats.isPaid),
               ],

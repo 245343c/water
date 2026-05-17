@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
+import 'package:sri_sai_ro_water/core/widgets/monthly_metrics_list.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
+import 'package:sri_sai_ro_water/data/models/monthly_stats.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class DeliveryHistoryColors {
@@ -263,13 +265,13 @@ class _HistoryRow extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              delivery.cansSummary,
+              delivery.itemsSummary,
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
                 fontSize: 13,
                 color: DeliveryHistoryColors.valueNavy,
               ),
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -290,14 +292,10 @@ class _HistoryRow extends StatelessWidget {
 class DeliveryHistoryMonthTotalCard extends StatelessWidget {
   const DeliveryHistoryMonthTotalCard({
     super.key,
-    required this.normalCans,
-    required this.coolCans,
-    required this.totalAmount,
+    required this.stats,
   });
 
-  final int normalCans;
-  final int coolCans;
-  final double totalAmount;
+  final MonthlyStats stats;
 
   @override
   Widget build(BuildContext context) {
@@ -332,32 +330,36 @@ class DeliveryHistoryMonthTotalCard extends StatelessWidget {
                 color: DeliveryHistoryColors.titleNavy,
               ),
             ),
-            const SizedBox(height: 14),
-            IntrinsicHeight(
+            const SizedBox(height: 10),
+            MonthlyMetricsList(
+              stats: stats,
+              labelColor: DeliveryHistoryColors.labelGrey,
+              valueColor: DeliveryHistoryColors.statBlue,
+              titleNavy: DeliveryHistoryColors.titleNavy,
+              dividerColor: DeliveryHistoryColors.divider,
+              showTotalAndStatus: false,
+            ),
+            Divider(height: 1, color: DeliveryHistoryColors.divider),
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
               child: Row(
                 children: [
                   Expanded(
-                    child: _TotalColumn(
-                      label: 'Normal Cans',
-                      value: '$normalCans',
-                      valueColor: DeliveryHistoryColors.statBlue,
+                    child: Text(
+                      'Total Amount',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: DeliveryHistoryColors.labelGrey,
+                      ),
                     ),
                   ),
-                  const VerticalDivider(width: 1, thickness: 1, color: DeliveryHistoryColors.divider),
-                  Expanded(
-                    child: _TotalColumn(
-                      label: 'Cool Cans',
-                      value: '$coolCans',
-                      valueColor: DeliveryHistoryColors.statBlue,
-                    ),
-                  ),
-                  const VerticalDivider(width: 1, thickness: 1, color: DeliveryHistoryColors.divider),
-                  Expanded(
-                    child: _TotalColumn(
-                      label: 'Total Amount',
-                      value: CurrencyUtils.format(totalAmount),
-                      valueColor: DeliveryHistoryColors.statGreen,
-                      compact: true,
+                  Text(
+                    CurrencyUtils.format(stats.totalAmount),
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: DeliveryHistoryColors.statGreen,
                     ),
                   ),
                 ],
@@ -366,45 +368,6 @@ class DeliveryHistoryMonthTotalCard extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _TotalColumn extends StatelessWidget {
-  const _TotalColumn({
-    required this.label,
-    required this.value,
-    required this.valueColor,
-    this.compact = false,
-  });
-
-  final String label;
-  final String value;
-  final Color valueColor;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(fontSize: 10, color: DeliveryHistoryColors.labelGrey),
-          maxLines: 2,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(
-            fontSize: compact ? 17 : 22,
-            fontWeight: FontWeight.w800,
-            color: valueColor,
-            height: 1.1,
-          ),
-        ),
-      ],
     );
   }
 }

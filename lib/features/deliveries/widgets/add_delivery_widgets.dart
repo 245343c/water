@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
+import 'package:sri_sai_ro_water/data/models/product.dart';
+import 'package:sri_sai_ro_water/data/models/product_variant.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class AddDeliveryColors {
@@ -185,6 +187,164 @@ class AddDeliveryDateRow extends StatelessWidget {
   }
 }
 
+class AddDeliverySectionTitle extends StatelessWidget {
+  const AddDeliverySectionTitle({super.key, required this.title, this.subtitle});
+
+  final String title;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: AddDeliveryColors.titleNavy,
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              subtitle!,
+              style: GoogleFonts.poppins(fontSize: 12, color: AddDeliveryColors.labelGrey),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class AddDeliveryBottleCatalog extends StatelessWidget {
+  const AddDeliveryBottleCatalog({
+    super.key,
+    required this.products,
+    required this.quantities,
+    required this.onChanged,
+  });
+
+  final List<Product> products;
+  final Map<String, int> quantities;
+  final void Function(String variantKey, int qty) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (products.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        child: Text(
+          'Add bottle products from the Products tab first.',
+          style: GoogleFonts.poppins(fontSize: 13, color: AddDeliveryColors.labelGrey),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        for (final product in products) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Text(
+              product.name,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AddDeliveryColors.labelGrey,
+              ),
+            ),
+          ),
+          for (final variant in product.variants)
+            AddDeliveryBottleRow(
+              label: variant.label,
+              price: variant.price,
+              quantity: quantities['${product.id}|${variant.id}'] ?? 0,
+              onChanged: (q) => onChanged('${product.id}|${variant.id}', q),
+            ),
+        ],
+      ],
+    );
+  }
+}
+
+class AddDeliveryBottleRow extends StatelessWidget {
+  const AddDeliveryBottleRow({
+    super.key,
+    required this.label,
+    required this.price,
+    required this.quantity,
+    required this.onChanged,
+  });
+
+  final String label;
+  final double price;
+  final int quantity;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AddDeliveryColors.titleNavy,
+                      ),
+                    ),
+                    Text(
+                      CurrencyUtils.format(price),
+                      style: GoogleFonts.poppins(fontSize: 12, color: AddDeliveryColors.labelGrey),
+                    ),
+                  ],
+                ),
+              ),
+              _StepBtn(
+                icon: Icons.remove,
+                onTap: quantity > 0 ? () => onChanged(quantity - 1) : null,
+              ),
+              SizedBox(
+                width: 36,
+                child: Text(
+                  '$quantity',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AddDeliveryColors.titleNavy,
+                  ),
+                ),
+              ),
+              _StepBtn(
+                icon: Icons.add,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  onChanged(quantity + 1);
+                },
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1, thickness: 1, color: AddDeliveryColors.divider),
+      ],
+    );
+  }
+}
+
 class AddDeliveryCanStepper extends StatelessWidget {
   const AddDeliveryCanStepper({
     super.key,
@@ -271,27 +431,30 @@ class _StepBtn extends StatelessWidget {
   }
 }
 
+class DeliveryPriceLine {
+  const DeliveryPriceLine({
+    required this.name,
+    required this.calc,
+    required this.amount,
+  });
+
+  final String name;
+  final String calc;
+  final double amount;
+}
+
 class AddDeliveryPriceSection extends StatelessWidget {
   const AddDeliveryPriceSection({
     super.key,
-    required this.normalQty,
-    required this.coolQty,
-    required this.normalPrice,
-    required this.coolPrice,
+    required this.lines,
     required this.total,
   });
 
-  final int normalQty;
-  final int coolQty;
-  final double normalPrice;
-  final double coolPrice;
+  final List<DeliveryPriceLine> lines;
   final double total;
 
   @override
   Widget build(BuildContext context) {
-    final nSub = normalQty * normalPrice;
-    final cSub = coolQty * coolPrice;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -306,26 +469,21 @@ class AddDeliveryPriceSection extends StatelessWidget {
             ),
           ),
         ),
-        if (normalQty > 0)
-          _PriceLine(
-            name: 'Normal Cans',
-            calc: '$normalQty x ${CurrencyUtils.format(normalPrice)}',
-            amount: CurrencyUtils.format(nSub),
-          ),
-        if (coolQty > 0)
-          _PriceLine(
-            name: 'Cool Cans',
-            calc: '$coolQty x ${CurrencyUtils.format(coolPrice)}',
-            amount: CurrencyUtils.format(cSub),
-          ),
-        if (normalQty == 0 && coolQty == 0)
+        if (lines.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
-              'Add cans to see price breakdown',
+              'Add cans or bottles to see price breakdown',
               style: GoogleFonts.poppins(fontSize: 13, color: AddDeliveryColors.labelGrey),
             ),
-          ),
+          )
+        else
+          for (final line in lines)
+            _PriceLine(
+              name: line.name,
+              calc: line.calc,
+              amount: CurrencyUtils.format(line.amount),
+            ),
         const Divider(height: 1, thickness: 1, color: AddDeliveryColors.divider),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),

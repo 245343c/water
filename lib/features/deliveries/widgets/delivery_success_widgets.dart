@@ -194,9 +194,14 @@ class _SummaryCard extends StatelessWidget {
           const SizedBox(height: 16),
           _SummaryRow(label: 'Customer', value: customerName),
           const SizedBox(height: 12),
-          _SummaryRow(label: 'Normal Cans', value: '${delivery.normalQty}'),
-          const SizedBox(height: 12),
-          _SummaryRow(label: 'Cool Cans', value: '${delivery.coolQty}'),
+          _SummaryRow(label: 'Items', value: delivery.itemsSummary),
+          for (final line in delivery.lines) ...[
+            const SizedBox(height: 10),
+            _SummaryRow(
+              label: line.label,
+              value: '${line.quantity} × ${CurrencyUtils.format(line.unitPrice)}',
+            ),
+          ],
           const SizedBox(height: 12),
           _SummaryRow(
             label: 'Total Amount',
