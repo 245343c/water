@@ -2,14 +2,53 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/products/widgets/products_screen_widgets.dart';
 
 class ProductDetailScreen extends StatelessWidget {
   const ProductDetailScreen({super.key, required this.productId});
-
   final String productId;
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    WaterPlantRepository repo,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Delete Product?',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          'This product will be permanently removed. Delivery history is unaffected.',
+          style: GoogleFonts.poppins(fontSize: 13, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: GoogleFonts.poppins()),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Delete', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      repo.deleteProduct(productId);
+      context.pop();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,47 +62,20 @@ class ProductDetailScreen extends StatelessWidget {
           );
         }
 
-        final isBottle = product.category == ProductCategory.bottle;
-
         return Scaffold(
-          backgroundColor: const Color(0xFFF3F4F6),
+          backgroundColor: ProductsColors.screenBg,
           body: ProductsScaffold(
             child: Column(
               children: [
-                ProductDetailHeader(onBack: () => context.pop()),
+                ProductDetailHeader(
+                  onBack: () => context.pop(),
+                  onDelete: () => _confirmDelete(context, repo),
+                ),
                 Expanded(
                   child: ListView(
+                    padding: const EdgeInsets.only(bottom: 32),
                     children: [
-                      ProductDetailHero(product: product),
-                      const SizedBox(height: 12),
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: ProductsColors.cardBorder),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
-                              child: Text(
-                                isBottle ? 'Bottle sizes & prices' : 'Can types & prices',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: ProductsColors.titleNavy,
-                                ),
-                              ),
-                            ),
-                            for (final v in product.variants)
-                              ProductVariantRow(variant: v),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
+                      ProductDetailCard(product: product),
                     ],
                   ),
                 ),

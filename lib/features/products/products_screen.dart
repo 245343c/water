@@ -89,21 +89,23 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         ),
                       ),
                       Expanded(
-                        child: products.isEmpty
-                            ? _EmptyProducts(isSearch: _query.isNotEmpty || _filter != _ProductFilter.all)
+                        child:                         products.isEmpty
+                            ? _EmptyProducts(
+                                isSearch: _query.isNotEmpty || _filter != _ProductFilter.all,
+                                onAdd: () => context.push('/products/add'),
+                              )
                             : ListView(
-                                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                                padding: const EdgeInsets.fromLTRB(0, 12, 0, 20),
                                 children: [
-                                  Text(
-                                    '${products.length} product${products.length == 1 ? '' : 's'}',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 12,
-                                      color: ProductsColors.labelGrey,
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                                    child: Text(
+                                      '${products.length} product${products.length == 1 ? '' : 's'}',
+                                      style: GoogleFonts.poppins(fontSize: 12, color: ProductsColors.labelGrey),
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
                                   for (final p in products)
-                                    ProductListCard(
+                                    ProductSection(
                                       product: p,
                                       onTap: () => context.push('/products/${p.id}'),
                                     ),
@@ -123,27 +125,96 @@ class _ProductsScreenState extends State<ProductsScreen> {
 }
 
 class _EmptyProducts extends StatelessWidget {
-  const _EmptyProducts({required this.isSearch});
+  const _EmptyProducts({required this.isSearch, this.onAdd});
 
   final bool isSearch;
+  final VoidCallback? onAdd;
 
   @override
   Widget build(BuildContext context) {
+    if (isSearch) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.search_off_rounded,
+              size: 52,
+              color: ProductsColors.labelGrey.withValues(alpha: 0.45),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No products found',
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: ProductsColors.labelGrey,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Try a different search term',
+              style: GoogleFonts.poppins(fontSize: 12, color: ProductsColors.labelGrey.withValues(alpha: 0.7)),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.inventory_2_outlined,
-            size: 56,
-            color: ProductsColors.labelGrey.withValues(alpha: 0.5),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            isSearch ? 'No products found' : 'No products yet',
-            style: GoogleFonts.poppins(fontSize: 15, color: ProductsColors.labelGrey),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFBFDBFE), width: 2),
+              ),
+              child: const Icon(
+                Icons.inventory_2_outlined,
+                size: 44,
+                color: Color(0xFF2563EB),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'No Products Yet',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: ProductsColors.titleNavy,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Add your water bottles and cans to\nstart managing deliveries.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: ProductsColors.labelGrey,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: onAdd,
+              icon: const Icon(Icons.add_rounded, size: 20),
+              label: const Text('Add First Product'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF1A73E8),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                textStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

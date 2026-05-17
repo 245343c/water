@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/widgets/month_year_wheel_picker.dart';
@@ -26,6 +30,103 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _month = DateTime(DateTime.now().year, DateTime.now().month);
+  }
+
+  Future<void> _pickAdminImage(WaterPlantRepository repo) async {
+    final choice = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Text(
+                'Update Profile Photo',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.camera_alt_rounded, color: Color(0xFF1A73E8)),
+                ),
+                title: Text('Take Photo', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                subtitle: Text('Use camera', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
+                onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECFDF5),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.photo_library_rounded, color: Color(0xFF16A34A)),
+                ),
+                title: Text('Choose from Gallery', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                subtitle: Text('Select existing photo', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
+                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              ),
+              if (repo.adminImagePath != null)
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.delete_outline_rounded, color: Color(0xFFDC2626)),
+                  ),
+                  title: Text('Remove Photo', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    repo.updateAdminImage(null);
+                  },
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (choice == null || !mounted) return;
+
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: choice,
+      imageQuality: 80,
+      maxWidth: 512,
+    );
+    if (picked == null || !mounted) return;
+
+    // Copy to app documents so the path persists through restarts
+    final dir  = await getApplicationDocumentsDirectory();
+    final dest = File('${dir.path}/admin_profile.jpg');
+    await dest.writeAsBytes(await picked.readAsBytes());
+
+    if (mounted) repo.updateAdminImage(dest.path);
   }
 
   Future<void> _pickMonth() async {
@@ -112,7 +213,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final overview = DashboardOverviewData(
           totalSales: CurrencyUtils.format(stats.totalSales),
           totalDeliveries: _countFmt.format(stats.totalDeliveries),
-          totalCans: _countFmt.format(stats.totalCans),
+          totalUnits: _countFmt.format(stats.totalCans),
           activeCustomers: _countFmt.format(stats.activeCustomers),
           paidThisMonth: CurrencyUtils.format(stats.paidThisMonth),
           pendingAmount: CurrencyUtils.format(stats.pendingAmount),
@@ -128,7 +229,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  DashboardHeader(title: business),
+                  DashboardHeader(
+                    title: business,
+                    adminImagePath: repo.adminImagePath,
+                    onAdminTap: () => _pickAdminImage(repo),
+                  ),
                   Expanded(
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),

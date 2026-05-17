@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -40,77 +42,154 @@ abstract final class DashboardColors {
       );
 }
 
+// ─── Greeting helpers ────────────────────────────────────────────────────────
+
+String _greetingText() {
+  final h = DateTime.now().hour;
+  if (h >= 5  && h < 12) return 'Good Morning';
+  if (h >= 12 && h < 17) return 'Good Afternoon';
+  if (h >= 17 && h < 21) return 'Good Evening';
+  return 'Good Night';
+}
+
+IconData _greetingIcon() {
+  final h = DateTime.now().hour;
+  if (h >= 5  && h < 12) return Icons.light_mode_rounded;  // sunrise / morning
+  if (h >= 12 && h < 17) return Icons.wb_sunny_rounded;    // full sun / afternoon
+  if (h >= 17 && h < 21) return Icons.nights_stay_outlined; // evening dusk
+  return Icons.nightlight_round;                             // moon / night
+}
+
+Color _greetingIconColor() {
+  final h = DateTime.now().hour;
+  if (h >= 5  && h < 12) return const Color(0xFFFFA726); // amber/sunrise
+  if (h >= 12 && h < 17) return const Color(0xFFFFD600); // yellow sun
+  if (h >= 17 && h < 21) return const Color(0xFFFF7043); // deep orange/sunset
+  return const Color(0xFF90CAF9);                         // soft blue/moon
+}
+
+// ─── Dashboard header with greeting + admin avatar ───────────────────────────
+
 class DashboardHeader extends StatelessWidget {
-  const DashboardHeader({super.key, required this.title});
+  const DashboardHeader({
+    super.key,
+    required this.title,
+    this.adminImagePath,
+    this.onAdminTap,
+  });
 
   final String title;
+  final String? adminImagePath;
+  final VoidCallback? onAdminTap;
 
   @override
   Widget build(BuildContext context) {
+    final greeting   = _greetingText();
+    final greetIcon  = _greetingIcon();
+    final greetColor = _greetingIconColor();
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 8, 12),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          // Greeting icon — large glow bubble
           Container(
-            width: 40,
-            height: 40,
+            width: 64,
+            height: 64,
             decoration: BoxDecoration(
-              color: const Color(0xFF1A73E8),
+              color: greetColor.withValues(alpha: 0.22),
               shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.22),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+              border: Border.all(
+                color: greetColor.withValues(alpha: 0.35),
+                width: 1.5,
+              ),
+            ),
+            child: Icon(greetIcon, color: greetColor, size: 36),
+          ),
+          const SizedBox(width: 14),
+
+          // Greeting + business name
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  greeting,
+                  style: GoogleFonts.poppins(
+                    color: Colors.white.withValues(alpha: 0.82),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w500,
+                    height: 1.2,
+                  ),
+                ),
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    height: 1.25,
+                    letterSpacing: -0.2,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
-            child: const Icon(Icons.water_drop, color: Colors.white, size: 22),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              title,
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                height: 1.2,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 26),
-                onPressed: () {},
-              ),
-              Positioned(
-                right: 10,
-                top: 10,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                  decoration: const BoxDecoration(
-                    color: DashboardColors.statRed,
+          const SizedBox(width: 10),
+
+          // Admin avatar — large enough to tap and see photo clearly
+          GestureDetector(
+            onTap: onAdminTap,
+            child: Stack(
+              children: [
+                Container(
+                  width: 66,
+                  height: 66,
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.70),
+                      width: 2.5,
+                    ),
+                    color: const Color(0xFF1A73E8).withValues(alpha: 0.75),
                   ),
-                  child: Text(
-                    '0',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.poppins(
+                  child: ClipOval(
+                    child: adminImagePath != null
+                        ? Image.file(
+                            File(adminImagePath!),
+                            fit: BoxFit.cover,
+                          )
+                        : const Icon(
+                            Icons.person_rounded,
+                            color: Colors.white,
+                            size: 36,
+                          ),
+                  ),
+                ),
+                // Camera badge
+                Positioned(
+                  bottom: 2,
+                  right: 2,
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A73E8),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Icon(
+                      Icons.camera_alt_rounded,
                       color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      height: 1,
+                      size: 12,
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -132,7 +211,6 @@ class DashboardQuickActions extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: DashboardColors.whiteCard,
-      padding: const EdgeInsets.all(6),
       child: IntrinsicHeight(
         child: Row(
           children: [
@@ -143,11 +221,12 @@ class DashboardQuickActions extends StatelessWidget {
                 label: 'Add Delivery',
                 subtitle: 'Log cans today',
                 onTap: onAddDelivery,
+                isFirst: true,
               ),
             ),
             Container(
               width: 1,
-              margin: const EdgeInsets.symmetric(vertical: 10),
+              margin: const EdgeInsets.symmetric(vertical: 12),
               color: DashboardColors.statCellBorder,
             ),
             Expanded(
@@ -157,6 +236,7 @@ class DashboardQuickActions extends StatelessWidget {
                 label: 'Add Customer',
                 subtitle: 'New account',
                 onTap: onAddCustomer,
+                isFirst: false,
               ),
             ),
           ],
@@ -173,6 +253,7 @@ class _QuickActionTile extends StatelessWidget {
     required this.label,
     required this.subtitle,
     required this.onTap,
+    required this.isFirst,
   });
 
   final IconData icon;
@@ -180,31 +261,41 @@ class _QuickActionTile extends StatelessWidget {
   final String label;
   final String subtitle;
   final VoidCallback onTap;
+  final bool isFirst;
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.horizontal(
+      left:  Radius.circular(isFirst ? 20 : 0),
+      right: Radius.circular(isFirst ? 0 : 20),
+    );
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: radius,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // Icon square with solid bg
               Container(
-                width: 44,
-                height: 44,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
-                  color: iconBg.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(13),
                 ),
-                child: Icon(icon, color: iconBg, size: 24),
+                child: Icon(icon, color: Colors.white, size: 24),
               ),
               const SizedBox(width: 10),
+              // Label + subtitle
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
                       label,
@@ -214,23 +305,24 @@ class _QuickActionTile extends StatelessWidget {
                         color: const Color(0xFF111827),
                         height: 1.2,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       subtitle,
                       style: GoogleFonts.poppins(
-                        fontSize: 10,
+                        fontSize: 11,
                         color: DashboardColors.labelGrey,
-                        height: 1.2,
+                        height: 1.3,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.arrow_forward_ios_rounded, size: 14, color: iconBg.withValues(alpha: 0.7)),
+              // Chevron
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: DashboardColors.labelGrey,
+              ),
             ],
           ),
         ),
@@ -243,7 +335,7 @@ class DashboardOverviewData {
   const DashboardOverviewData({
     required this.totalSales,
     required this.totalDeliveries,
-    required this.totalCans,
+    required this.totalUnits,
     required this.activeCustomers,
     required this.paidThisMonth,
     required this.pendingAmount,
@@ -251,7 +343,7 @@ class DashboardOverviewData {
 
   final String totalSales;
   final String totalDeliveries;
-  final String totalCans;
+  final String totalUnits;
   final String activeCustomers;
   final String paidThisMonth;
   final String pendingAmount;
@@ -277,6 +369,7 @@ class DashboardOverviewCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Title + month chip ─────────────────────────────────────────
           Row(
             children: [
               Expanded(
@@ -293,12 +386,16 @@ class DashboardOverviewCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+
+          // ── Total Sales hero (teal gradient) ──────────────────────────
           _SalesHero(
             totalSales: data.totalSales,
             deliveries: data.totalDeliveries,
-            cans: data.totalCans,
+            units: data.totalUnits,
           ),
           const SizedBox(height: 10),
+
+          // ── Paid / Pending chips ───────────────────────────────────────
           Row(
             children: [
               Expanded(
@@ -307,7 +404,7 @@ class DashboardOverviewCard extends StatelessWidget {
                   value: data.paidThisMonth,
                   color: DashboardColors.statGreen,
                   bg: const Color(0xFFECFDF5),
-                  icon: Icons.verified_rounded,
+                  icon: Icons.check_circle_rounded,
                 ),
               ),
               const SizedBox(width: 8),
@@ -323,22 +420,24 @@ class DashboardOverviewCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
+
+          // ── Deliveries / Units / Customers compact row ─────────────────
           Row(
             children: [
               Expanded(
                 child: _CompactMetric(
                   value: data.totalDeliveries,
                   label: 'Deliveries',
-                  color: DashboardColors.statGreen,
+                  color: DashboardColors.statBlue,
                   icon: Icons.local_shipping_rounded,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _CompactMetric(
-                  value: data.totalCans,
-                  label: 'Cans',
-                  color: DashboardColors.statBlue,
+                  value: data.totalUnits,
+                  label: 'Units',
+                  color: DashboardColors.statTeal,
                   icon: Icons.water_drop_rounded,
                 ),
               ),
@@ -359,16 +458,18 @@ class DashboardOverviewCard extends StatelessWidget {
   }
 }
 
+// ─── Total Sales hero banner ──────────────────────────────────────────────────
+
 class _SalesHero extends StatelessWidget {
   const _SalesHero({
     required this.totalSales,
     required this.deliveries,
-    required this.cans,
+    required this.units,
   });
 
   final String totalSales;
   final String deliveries;
-  final String cans;
+  final String units;
 
   @override
   Widget build(BuildContext context) {
@@ -378,19 +479,13 @@ class _SalesHero extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
+          colors: [Color(0xFF0369A1), Color(0xFF06B6D4)],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: DashboardColors.statTeal.withValues(alpha: 0.35),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
-      padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+      padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
       child: Row(
         children: [
+          // Text block
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -398,7 +493,7 @@ class _SalesHero extends StatelessWidget {
                 Text(
                   'Total Sales',
                   style: GoogleFonts.poppins(
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: Colors.white.withValues(alpha: 0.88),
                   ),
@@ -410,39 +505,38 @@ class _SalesHero extends StatelessWidget {
                   child: Text(
                     totalSales,
                     style: GoogleFonts.poppins(
-                      fontSize: 28,
+                      fontSize: 30,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
-                      height: 1,
+                      height: 1.1,
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
-                  '$deliveries deliveries · $cans cans',
+                  '$deliveries deliveries  •  $units units',
                   style: GoogleFonts.poppins(
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
-                    color: Colors.white.withValues(alpha: 0.8),
+                    color: Colors.white.withValues(alpha: 0.80),
                   ),
                 ),
               ],
             ),
           ),
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.18),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.trending_up_rounded, color: Colors.white, size: 28),
+          // Water drop illustration
+          Icon(
+            Icons.water_drop_rounded,
+            size: 72,
+            color: Colors.white.withValues(alpha: 0.25),
           ),
         ],
       ),
     );
   }
 }
+
+// ─── Paid / Pending chip ──────────────────────────────────────────────────────
 
 class _MoneyChip extends StatelessWidget {
   const _MoneyChip({
@@ -469,7 +563,7 @@ class _MoneyChip extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: color),
+          Icon(icon, size: 20, color: color),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -504,6 +598,8 @@ class _MoneyChip extends StatelessWidget {
     );
   }
 }
+
+// ─── Compact metric tile ──────────────────────────────────────────────────────
 
 class _CompactMetric extends StatelessWidget {
   const _CompactMetric({
@@ -558,6 +654,7 @@ class _CompactMetric extends StatelessWidget {
     );
   }
 }
+
 
 class _MonthChip extends StatelessWidget {
   const _MonthChip({required this.month, required this.onTap});

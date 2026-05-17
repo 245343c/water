@@ -32,6 +32,14 @@ class WaterPlantRepository extends ChangeNotifier {
 
   late BusinessSettings settings;
 
+  /// Local path to the admin's profile photo (null = not set).
+  String? adminImagePath;
+
+  void updateAdminImage(String? path) {
+    adminImagePath = path;
+    notifyListeners();
+  }
+
   List<Customer> get customers => List.unmodifiable(_customers);
   List<Delivery> get deliveries => List.unmodifiable(_deliveries);
   List<Payment> get payments => List.unmodifiable(_payments);
@@ -48,186 +56,7 @@ class WaterPlantRepository extends ChangeNotifier {
       coolPrice: 30,
     );
 
-    final ramesh = Customer(
-      id: 'c1',
-      name: 'Ramesh Kumar',
-      phone: '98850 12345',
-      email: 'ramesh.kumar@email.com',
-      place: 'Gandhi Nagar, Rajahmundry',
-      address: 'Door No: 12-5-8, Gandhi Nagar',
-    );
-    final lakshmi = Customer(
-      id: 'c2',
-      name: 'Lakshmi Devi',
-      phone: '98765 43210',
-      email: 'lakshmi.devi@email.com',
-      place: 'RTC Colony, Rajahmundry',
-      address: 'Plot 45, RTC Colony',
-    );
-    final suresh = Customer(
-      id: 'c3',
-      name: 'Suresh Babu',
-      phone: '91234 56789',
-      email: 'suresh.babu@email.com',
-      place: 'Danavaipeta, Rajahmundry',
-      address: 'Flat 302, Sai Residency',
-    );
-    final priya = Customer(
-      id: 'c4',
-      name: 'Priya Sharma',
-      phone: '99887 76655',
-      email: 'priya.sharma@email.com',
-      place: 'Market Street, Rajahmundry',
-      address: '12, Market Street',
-    );
-    final venkat = Customer(
-      id: 'c5',
-      name: 'Venkat Reddy',
-      phone: '94401 22334',
-      place: 'Katheru Road, Rajahmundry',
-      address: 'H.No 8-2-14, Katheru Road',
-    );
-
-    _customers.addAll([ramesh, lakshmi, suresh, priya, venkat]);
-
     _seedProducts();
-
-    final now = DateTime.now();
-    final may = DateTime(now.year, now.month);
-
-    void addDelivery(
-      String customerId,
-      int day,
-      int normal,
-      int cool, {
-      int hour = 10,
-    }) {
-      _deliveries.add(
-        Delivery.fromLegacyCans(
-          id: _uuid.v4(),
-          customerId: customerId,
-          date: DateTime(may.year, may.month, day, hour),
-          normalQty: normal,
-          coolQty: cool,
-          normalUnitPrice: settings.normalPrice,
-          coolUnitPrice: settings.coolPrice,
-        ),
-      );
-    }
-
-    addDelivery('c1', 21, 1, 2, hour: 9);
-    addDelivery('c1', 20, 2, 0, hour: 11);
-    addDelivery('c1', 18, 1, 1, hour: 8);
-    addDelivery('c2', 19, 0, 3, hour: 14);
-    addDelivery('c2', 17, 2, 1, hour: 10);
-    addDelivery('c3', 21, 3, 2, hour: 7);
-    addDelivery('c3', 20, 2, 2, hour: 16);
-    addDelivery('c3', 19, 4, 1, hour: 9);
-    addDelivery('c3', 15, 2, 3, hour: 11);
-    addDelivery('c4', 21, 1, 0, hour: 12);
-    addDelivery('c4', 16, 2, 2, hour: 15);
-    addDelivery('c5', 20, 0, 2, hour: 13);
-    addDelivery('c5', 14, 3, 0, hour: 8);
-
-    _deliveries.add(
-      Delivery(
-        id: _uuid.v4(),
-        customerId: 'c1',
-        date: DateTime(may.year, may.month, 22, 10),
-        lines: [
-          DeliveryLineItem(
-            kind: DeliveryItemKind.bottle,
-            label: '1 L',
-            quantity: 6,
-            unitPrice: 15,
-          ),
-          DeliveryLineItem(
-            kind: DeliveryItemKind.bottle,
-            label: '2 L',
-            quantity: 4,
-            unitPrice: 25,
-          ),
-          DeliveryLineItem(
-            kind: DeliveryItemKind.normalCan,
-            label: 'Normal Can',
-            quantity: 1,
-            unitPrice: settings.normalPrice,
-          ),
-        ],
-      ),
-    );
-
-    _payments.addAll([
-      Payment(
-        id: _uuid.v4(),
-        customerId: 'c1',
-        date: DateTime(may.year, may.month, 15),
-        amount: 500,
-        method: PaymentMethod.upi,
-        notes: 'Partial payment',
-      ),
-      Payment(
-        id: _uuid.v4(),
-        customerId: 'c2',
-        date: DateTime(may.year, may.month, 20),
-        amount: 2000,
-        method: PaymentMethod.cash,
-      ),
-      Payment(
-        id: _uuid.v4(),
-        customerId: 'c4',
-        date: DateTime(may.year, may.month, 10),
-        amount: 800,
-        method: PaymentMethod.upi,
-      ),
-    ]);
-
-    _seedMockOrders();
-  }
-
-  void _seedMockOrders() {
-    final now = DateTime.now();
-
-    CustomerOrder make(
-      String customerId,
-      int normal,
-      int cool,
-      OrderStatus status, {
-      Duration age = const Duration(hours: 2),
-      String? adminResponse,
-      String? customerNote,
-    }) {
-      final created = now.subtract(age);
-      return CustomerOrder(
-        id: _uuid.v4(),
-        customerId: customerId,
-        normalQty: normal,
-        coolQty: cool,
-        status: status,
-        customerNote: customerNote,
-        adminResponse: adminResponse,
-        createdAt: created,
-        respondedAt: status == OrderStatus.pending
-            ? null
-            : created.add(const Duration(minutes: 20)),
-      );
-    }
-
-    _orders.addAll([
-      make('c1', 2, 1, OrderStatus.pending, age: const Duration(minutes: 35), customerNote: 'Please deliver by evening'),
-      make('c3', 3, 0, OrderStatus.pending, age: const Duration(hours: 1)),
-      make('c5', 0, 2, OrderStatus.pending, age: const Duration(hours: 3)),
-      make('c2', 1, 2, OrderStatus.accepted, age: const Duration(hours: 5), adminResponse: 'Order confirmed'),
-      make('c4', 2, 0, OrderStatus.accepted, age: const Duration(days: 1), adminResponse: 'Order confirmed'),
-      make(
-        'c1',
-        4,
-        0,
-        OrderStatus.rejected,
-        age: const Duration(days: 2),
-        adminResponse: 'Out of stock — Normal cans',
-      ),
-    ]);
   }
 
   Customer? customerById(String id) {
@@ -680,34 +509,8 @@ class WaterPlantRepository extends ChangeNotifier {
   }
 
   void _seedProducts() {
-    _products
-      ..clear()
-      ..addAll([
-        Product(
-          id: 'p1',
-          name: 'RO Water Bottles',
-          description: 'Sealed packaged drinking water in multiple sizes for home and retail.',
-          category: ProductCategory.bottle,
-          variants: const [
-            ProductVariant(id: 'p1-v1', label: '1/2 L', price: 10),
-            ProductVariant(id: 'p1-v2', label: '1 L', price: 15),
-            ProductVariant(id: 'p1-v3', label: '2 L', price: 25),
-            ProductVariant(id: 'p1-v4', label: '5 L', price: 45),
-            ProductVariant(id: 'p1-v5', label: '20 L', price: 80),
-            ProductVariant(id: 'p1-v6', label: '25 L', price: 95),
-          ],
-        ),
-        Product(
-          id: 'p2',
-          name: '20L Water Cans',
-          description: 'Refillable RO water cans for dispensers — normal and chilled delivery.',
-          category: ProductCategory.can,
-          variants: [
-            ProductVariant(id: 'p2-v1', label: 'Normal Can', price: settings.normalPrice),
-            ProductVariant(id: 'p2-v2', label: 'Cool Can', price: settings.coolPrice, isCool: true),
-          ],
-        ),
-      ]);
+    // Products start empty — admin adds their own catalog.
+    _products.clear();
   }
 
   Product? productById(String id) {
@@ -762,6 +565,11 @@ class WaterPlantRepository extends ChangeNotifier {
       ProductCategory.bottle => 'RO water bottle — $label',
       ProductCategory.can => isCool ? 'Chilled 20L RO water can' : '20L RO water can — $label',
     };
+  }
+
+  void deleteProduct(String id) {
+    _products.removeWhere((p) => p.id == id);
+    notifyListeners();
   }
 
   List<Product> searchProducts(String query) {
