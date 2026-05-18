@@ -35,11 +35,14 @@ class PaymentHistoryScreen extends StatelessWidget {
                 PaymentHistoryCustomerBar(
                   customer: customer,
                   colorIndex: colorIndex >= 0 ? colorIndex : 0,
+                ),
+                PaymentHistoryHeroCard(
                   totalPaid: total,
                   paymentCount: payments.length,
                 ),
                 Expanded(
                   child: ListView(
+                    physics: const BouncingScrollPhysics(),
                     children: [
                       PaymentHistoryList(payments: payments),
                     ],

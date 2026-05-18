@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/customer_delete_dialog.dart';
+import 'package:sri_sai_ro_water/core/widgets/customer_info_bar.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customer_detail_widgets.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
@@ -17,24 +18,6 @@ class CustomerDetailScreen extends StatefulWidget {
 }
 
 class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
-  late DateTime _month;
-
-  @override
-  void initState() {
-    super.initState();
-    final now = DateTime.now();
-    _month = DateTime(now.year, now.month);
-  }
-
-  void _prevMonth() => setState(() => _month = DateTime(_month.year, _month.month - 1));
-
-  void _nextMonth() {
-    final now = DateTime.now();
-    final current = DateTime(now.year, now.month);
-    final next = DateTime(_month.year, _month.month + 1);
-    if (!next.isAfter(current)) setState(() => _month = next);
-  }
-
   void _onCall(String phone) {
     Clipboard.setData(ClipboardData(text: phone));
     if (!mounted) return;
@@ -60,8 +43,18 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     );
   }
 
+  void _openMonthlySummary(DateTime month) {
+    context.push(
+      '/customers/${widget.customerId}/summary'
+      '?year=${month.year}&month=${month.month}',
+    );
+  }
+
   Future<void> _deleteCustomer(
-      BuildContext context, WaterPlantRepository repo, String name) async {
+    BuildContext context,
+    WaterPlantRepository repo,
+    String name,
+  ) async {
     final confirmed = await confirmDeleteCustomer(context, customerName: name);
     if (!confirmed || !context.mounted) return;
     repo.deleteCustomer(widget.customerId);
@@ -87,8 +80,12 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
           );
         }
 
-        final monthly = repo.monthlyStatsForCustomer(widget.customerId, _month);
-        final totalBalance = repo.customerBalance(widget.customerId).clamp(0.0, double.infinity);
+        final now = DateTime.now();
+        final currentMonth = DateTime(now.year, now.month);
+        final monthly = repo.monthlyStatsForCustomer(widget.customerId, currentMonth);
+        final totalPending = repo.customerBalance(widget.customerId);
+        final previousPending =
+            repo.previousBalanceForMonth(widget.customerId, currentMonth);
         final idx = repo.customers.indexWhere((c) => c.id == widget.customerId);
 
         return Scaffold(
@@ -98,43 +95,41 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               children: [
                 CustomerDetailHeader(
                   onBack: () => context.pop(),
-                  onEdit: () => context.push('/customers/${widget.customerId}/edit'),
+                  onEdit: () =>
+                      context.push('/customers/${widget.customerId}/edit'),
                 ),
                 Expanded(
                   child: ListView(
+                    padding: const EdgeInsets.only(bottom: 24),
                     children: [
-                      // ── Profile ─────────────────────────────────────────
-                      CustomerProfileSection(customer: customer, colorIndex: idx >= 0 ? idx : 0),
-
-                      // ── Balance Hero ────────────────────────────────────
-                      CustomerBalanceHero(
-                        totalBalance: totalBalance,
-                        stats: monthly,
-                        month: _month,
+                      CustomerInfoBar(
+                        customer: customer,
+                        colorIndex: idx >= 0 ? idx : 0,
                       ),
-
-                      // ── This Month Summary ──────────────────────────────
-                      CustomerOverviewCard(
-                        month: _month,
-                        stats: monthly,
-                        onViewAll: () => context.push('/customers/${widget.customerId}/summary'),
-                        onPrevMonth: _prevMonth,
-                        onNextMonth: _nextMonth,
+                      CustomerPendingCard(
+                        totalPending: totalPending,
+                        previousPending: previousPending,
+                        monthStats: monthly,
                       ),
-
-                      // ── Quick Actions ───────────────────────────────────
+                      CustomerMonthlyOverviewSection(
+                        statsForMonth: (m) =>
+                            repo.monthlyStatsForCustomer(widget.customerId, m),
+                        onMonthTap: _openMonthlySummary,
+                        year: now.year,
+                        initialMonth: now.month,
+                      ),
                       QuickActionsSection(
-                        onAddDelivery: () => context.push('/customers/${widget.customerId}/delivery'),
-                        onRecordPayment: () => context.push('/customers/${widget.customerId}/payment'),
-                        onViewBills: () => context.push('/customers/${widget.customerId}/bill'),
-                        onViewHistory: () => context.push('/customers/${widget.customerId}/history'),
+                        onAddDelivery: () =>
+                            context.push('/customers/${widget.customerId}/delivery'),
+                        onRecordPayment: () =>
+                            context.push('/customers/${widget.customerId}/payment'),
+                        onViewBills: () =>
+                            context.push('/customers/${widget.customerId}/bill'),
                         onCall: () => _onCall(customer.phone),
-                        customerPhone: customer.phone,
                       ),
-
-                      // ── Delete ──────────────────────────────────────────
                       DeleteCustomerSection(
-                        onDelete: () => _deleteCustomer(context, repo, customer.name),
+                        onDelete: () =>
+                            _deleteCustomer(context, repo, customer.name),
                       ),
                     ],
                   ),

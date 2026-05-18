@@ -52,20 +52,13 @@ String _greetingText() {
   return 'Good Night';
 }
 
-IconData _greetingIcon() {
+/// Realistic time-of-day accent shown after the greeting text.
+String _greetingAccent() {
   final h = DateTime.now().hour;
-  if (h >= 5  && h < 12) return Icons.light_mode_rounded;  // sunrise / morning
-  if (h >= 12 && h < 17) return Icons.wb_sunny_rounded;    // full sun / afternoon
-  if (h >= 17 && h < 21) return Icons.nights_stay_outlined; // evening dusk
-  return Icons.nightlight_round;                             // moon / night
-}
-
-Color _greetingIconColor() {
-  final h = DateTime.now().hour;
-  if (h >= 5  && h < 12) return const Color(0xFFFFA726); // amber/sunrise
-  if (h >= 12 && h < 17) return const Color(0xFFFFD600); // yellow sun
-  if (h >= 17 && h < 21) return const Color(0xFFFF7043); // deep orange/sunset
-  return const Color(0xFF90CAF9);                         // soft blue/moon
+  if (h >= 5 && h < 12) return '🌅';
+  if (h >= 12 && h < 17) return '☀️';
+  if (h >= 17 && h < 21) return '🌇';
+  return '🌃';
 }
 
 // ─── Dashboard header with greeting + admin avatar ───────────────────────────
@@ -84,45 +77,36 @@ class DashboardHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final greeting   = _greetingText();
-    final greetIcon  = _greetingIcon();
-    final greetColor = _greetingIconColor();
+    final greeting = _greetingText();
+    final accent = _greetingAccent();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Greeting icon — large glow bubble
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: greetColor.withValues(alpha: 0.22),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: greetColor.withValues(alpha: 0.35),
-                width: 1.5,
-              ),
-            ),
-            child: Icon(greetIcon, color: greetColor, size: 36),
-          ),
-          const SizedBox(width: 14),
-
-          // Greeting + business name
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  greeting,
-                  style: GoogleFonts.poppins(
-                    color: Colors.white.withValues(alpha: 0.82),
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
-                    height: 1.2,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        greeting,
+                        style: GoogleFonts.poppins(
+                          color: Colors.white.withValues(alpha: 0.92),
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                          height: 1.15,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(accent, style: const TextStyle(fontSize: 32, height: 1.0)),
+                  ],
                 ),
+                const SizedBox(height: 2),
                 Text(
                   title,
                   style: GoogleFonts.poppins(
@@ -219,7 +203,6 @@ class DashboardQuickActions extends StatelessWidget {
                 icon: Icons.local_shipping_rounded,
                 iconBg: const Color(0xFF1A73E8),
                 label: 'Add Delivery',
-                subtitle: 'Log cans today',
                 onTap: onAddDelivery,
                 isFirst: true,
               ),
@@ -234,7 +217,6 @@ class DashboardQuickActions extends StatelessWidget {
                 icon: Icons.person_add_alt_1_rounded,
                 iconBg: DashboardColors.statGreen,
                 label: 'Add Customer',
-                subtitle: 'New account',
                 onTap: onAddCustomer,
                 isFirst: false,
               ),
@@ -251,7 +233,6 @@ class _QuickActionTile extends StatelessWidget {
     required this.icon,
     required this.iconBg,
     required this.label,
-    required this.subtitle,
     required this.onTap,
     required this.isFirst,
   });
@@ -259,7 +240,6 @@ class _QuickActionTile extends StatelessWidget {
   final IconData icon;
   final Color iconBg;
   final String label;
-  final String subtitle;
   final VoidCallback onTap;
   final bool isFirst;
 
@@ -291,30 +271,15 @@ class _QuickActionTile extends StatelessWidget {
                 child: Icon(icon, color: Colors.white, size: 24),
               ),
               const SizedBox(width: 10),
-              // Label + subtitle
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      label,
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF111827),
-                        height: 1.2,
-                      ),
-                    ),
-                    Text(
-                      subtitle,
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        color: DashboardColors.labelGrey,
-                        height: 1.3,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF111827),
+                    height: 1.2,
+                  ),
                 ),
               ),
               // Chevron

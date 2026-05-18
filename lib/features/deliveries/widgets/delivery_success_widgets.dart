@@ -193,9 +193,8 @@ class _SummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _SummaryRow(label: 'Customer', value: customerName),
-          const SizedBox(height: 12),
-          _SummaryRow(label: 'Items', value: delivery.itemsSummary),
           for (final line in delivery.lines) ...[
+            const SizedBox(height: 12),
             const SizedBox(height: 10),
             _SummaryRow(
               label: line.label,

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
+import 'package:sri_sai_ro_water/data/models/product_variant.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/features/products/widgets/products_screen_widgets.dart';
@@ -94,22 +95,22 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 isSearch: _query.isNotEmpty || _filter != _ProductFilter.all,
                                 onAdd: () => context.push('/products/add'),
                               )
-                            : ListView(
-                                padding: const EdgeInsets.fromLTRB(0, 12, 0, 20),
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                                    child: Text(
-                                      '${products.length} product${products.length == 1 ? '' : 's'}',
-                                      style: GoogleFonts.poppins(fontSize: 12, color: ProductsColors.labelGrey),
-                                    ),
-                                  ),
-                                  for (final p in products)
-                                    ProductSection(
-                                      product: p,
-                                      onTap: () => context.push('/products/${p.id}'),
-                                    ),
-                                ],
+                            : GridView.builder(
+                                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: 0.78,
+                                ),
+                                itemCount: products.length,
+                                itemBuilder: (context, i) {
+                                  final p = products[i];
+                                  return ProductCatalogCard(
+                                    product: p,
+                                    onTap: () => context.push('/products/${p.id}'),
+                                  );
+                                },
                               ),
                       ),
                     ],
@@ -163,22 +164,29 @@ class _EmptyProducts extends StatelessWidget {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 90,
-              height: 90,
-              decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFBFDBFE), width: 2),
-              ),
-              child: const Icon(
-                Icons.inventory_2_outlined,
-                size: 44,
-                color: Color(0xFF2563EB),
+            SizedBox(
+              width: 160,
+              child: Opacity(
+                opacity: 0.85,
+                child: IgnorePointer(
+                  child: ProductCatalogCard(
+                    product: Product(
+                      id: 'preview',
+                      name: 'RO Water Can',
+                      description: '20L',
+                      category: ProductCategory.can,
+                      variants: const [
+                        ProductVariant(id: 'n', label: 'Normal', price: 20),
+                        ProductVariant(id: 'c', label: 'Cool', price: 25, isCool: true),
+                      ],
+                    ),
+                    onTap: () {},
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -192,7 +200,7 @@ class _EmptyProducts extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Add your water bottles and cans to\nstart managing deliveries.',
+              'Add bottles or cans — they appear in a\nclean catalog like the preview above.',
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
                 fontSize: 13,
@@ -200,7 +208,7 @@ class _EmptyProducts extends StatelessWidget {
                 height: 1.5,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
             FilledButton.icon(
               onPressed: onAdd,
               icon: const Icon(Icons.add_rounded, size: 20),

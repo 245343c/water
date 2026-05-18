@@ -50,6 +50,8 @@ class WaterPlantRepository extends ChangeNotifier {
     settings = BusinessSettings(
       businessName: 'Sri Sai RO Water Plant',
       address: 'Main Road, Rajahmundry, Andhra Pradesh - 533101',
+      shopLatitude: 16.9902,
+      shopLongitude: 81.7780,
       phone: '+91 98765 43210',
       email: 'info@srisairowater.com',
       normalPrice: 20,
@@ -57,6 +59,119 @@ class WaterPlantRepository extends ChangeNotifier {
     );
 
     _seedProducts();
+
+    final abi = Customer(
+      id: 'c1',
+      name: 'Abi',
+      phone: '9632580741',
+      email: 'abi@email.com',
+      place: 'Hyderabad, Telangana',
+      address: 'Hyderabad, Telangana',
+    );
+    final ramesh = Customer(
+      id: 'c2',
+      name: 'Ramesh Kumar',
+      phone: '98850 12345',
+      email: 'ramesh.kumar@email.com',
+      place: 'Gandhi Nagar, Rajahmundry',
+      address: 'Door No: 12-5-8, Gandhi Nagar',
+    );
+    final lakshmi = Customer(
+      id: 'c3',
+      name: 'Lakshmi Devi',
+      phone: '98765 43210',
+      place: 'RTC Colony, Rajahmundry',
+      address: 'Plot 45, RTC Colony',
+    );
+    final suresh = Customer(
+      id: 'c4',
+      name: 'Suresh Babu',
+      phone: '91234 56789',
+      place: 'Danavaipeta, Rajahmundry',
+      address: 'Flat 302, Sai Residency',
+    );
+
+    _customers.addAll([abi, ramesh, lakshmi, suresh]);
+
+    final now = DateTime.now();
+    final thisMonth = DateTime(now.year, now.month);
+
+    void addCans(String customerId, int day, int normal, int cool, {int hour = 10}) {
+      _deliveries.add(
+        Delivery.fromLegacyCans(
+          id: _uuid.v4(),
+          customerId: customerId,
+          date: DateTime(thisMonth.year, thisMonth.month, day, hour),
+          normalQty: normal,
+          coolQty: cool,
+          normalUnitPrice: settings.normalPrice,
+          coolUnitPrice: settings.coolPrice,
+        ),
+      );
+    }
+
+    void addCansInMonth(
+      String customerId,
+      DateTime month,
+      int day,
+      int normal,
+      int cool,
+    ) {
+      _deliveries.add(
+        Delivery.fromLegacyCans(
+          id: _uuid.v4(),
+          customerId: customerId,
+          date: DateTime(month.year, month.month, day, 10),
+          normalQty: normal,
+          coolQty: cool,
+          normalUnitPrice: settings.normalPrice,
+          coolUnitPrice: settings.coolPrice,
+        ),
+      );
+    }
+
+    // Current month
+    addCans('c1', 5, 2, 3);
+    addCans('c1', 12, 1, 2);
+    addCans('c2', 8, 3, 1);
+    addCans('c2', 18, 2, 0);
+    addCans('c3', 10, 0, 4);
+    addCans('c4', 15, 4, 2);
+    addCans('c4', 22, 2, 1);
+
+    // Previous months (mixed paid / pending)
+    final prev1 = DateTime(thisMonth.year, thisMonth.month - 1);
+    final prev2 = DateTime(thisMonth.year, thisMonth.month - 2);
+    addCansInMonth('c1', prev1, 10, 2, 2);
+    addCansInMonth('c2', prev1, 14, 3, 1);
+    addCansInMonth('c4', prev1, 20, 2, 3);
+    addCansInMonth('c1', prev2, 8, 1, 1);
+    addCansInMonth('c3', prev2, 16, 2, 2);
+
+    _payments.addAll([
+      Payment(
+        id: _uuid.v4(),
+        customerId: 'c2',
+        date: DateTime(thisMonth.year, thisMonth.month, 6),
+        amount: 2000,
+        method: PaymentMethod.upi,
+      ),
+      Payment(
+        id: _uuid.v4(),
+        customerId: 'c4',
+        date: DateTime(thisMonth.year, thisMonth.month, 12),
+        amount: 500,
+        method: PaymentMethod.cash,
+        notes: 'Partial payment',
+      ),
+      Payment(
+        id: _uuid.v4(),
+        customerId: 'c1',
+        date: DateTime(prev1.year, prev1.month, 25),
+        amount: 1500,
+        method: PaymentMethod.upi,
+      ),
+    ]);
   }
 
   Customer? customerById(String id) {

@@ -9,14 +9,19 @@ class DashboardActionCenter extends StatelessWidget {
     required this.items,
     required this.onItemTap,
     this.onViewCustomers,
+    this.previewCount = 4,
   });
 
   final List<DashboardActionItem> items;
   final void Function(DashboardActionItem item) onItemTap;
   final VoidCallback? onViewCustomers;
+  final int previewCount;
 
   @override
   Widget build(BuildContext context) {
+    final preview = items.take(previewCount).toList();
+    final hasMore = items.length > previewCount;
+
     return Container(
       decoration: DashboardColors.whiteCard,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
@@ -71,21 +76,53 @@ class DashboardActionCenter extends StatelessWidget {
           if (items.isEmpty)
             const _AllClearState()
           else
-            ...List.generate(items.length, (i) {
+            ...List.generate(preview.length, (i) {
               return _ActionRow(
-                item: items[i],
-                onTap: () => onItemTap(items[i]),
-                showDivider: i < items.length - 1,
+                item: preview[i],
+                onTap: () => onItemTap(preview[i]),
+                showDivider: i < preview.length - 1,
               );
             }),
-          if (items.isNotEmpty && onViewCustomers != null) ...[
+          if (hasMore && onViewCustomers != null) ...[
+            const SizedBox(height: 6),
+            Material(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                onTap: onViewCustomers,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'All customers',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: DashboardColors.linkBlue,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 18,
+                        color: DashboardColors.linkBlue,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ] else if (items.isNotEmpty && onViewCustomers != null) ...[
             const SizedBox(height: 4),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: onViewCustomers,
                 child: Text(
-                  'All customers',
+                  'View all customers',
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,

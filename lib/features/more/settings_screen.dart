@@ -24,6 +24,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final TextEditingController _emailController;
   late final TextEditingController _normalPriceController;
   late final TextEditingController _coolPriceController;
+  late final TextEditingController _latController;
+  late final TextEditingController _lngController;
   bool _initialized = false;
 
   @override
@@ -35,6 +37,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _emailController = TextEditingController();
     _normalPriceController = TextEditingController();
     _coolPriceController = TextEditingController();
+    _latController = TextEditingController();
+    _lngController = TextEditingController();
     _normalPriceController.addListener(_onPriceChanged);
     _coolPriceController.addListener(_onPriceChanged);
   }
@@ -64,6 +68,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _emailController.text = s.email;
     _normalPriceController.text = s.normalPrice.toStringAsFixed(0);
     _coolPriceController.text = s.coolPrice.toStringAsFixed(0);
+    _latController.text = s.shopLatitude?.toStringAsFixed(6) ?? '';
+    _lngController.text = s.shopLongitude?.toStringAsFixed(6) ?? '';
     _initialized = true;
   }
 
@@ -75,6 +81,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _save(WaterPlantRepository repo) {
     if (!_formKey.currentState!.validate()) return;
+    final latText = _latController.text.trim();
+    final lngText = _lngController.text.trim();
+    final lat = latText.isEmpty ? null : double.tryParse(latText);
+    final lng = lngText.isEmpty ? null : double.tryParse(lngText);
+
     repo.updateSettings(
       repo.settings.copyWith(
         businessName: _nameController.text.trim(),
@@ -83,6 +94,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         email: _emailController.text.trim(),
         normalPrice: double.parse(_normalPriceController.text),
         coolPrice: double.parse(_coolPriceController.text),
+        shopLatitude: lat,
+        shopLongitude: lng,
+        clearMapPin: lat == null || lng == null,
       ),
     );
     if (!mounted) return;
@@ -162,6 +176,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               icon: Icons.email_outlined,
                               keyboardType: TextInputType.emailAddress,
                               validator: validateEmailOptional,
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ),
+                        const SettingsSectionLabel(
+                          title: 'Shop map pin',
+                          subtitle: 'Optional — for map preview in Menu',
+                        ),
+                        AddEditCustomerFormCard(
+                          children: [
+                            AddEditCustomerField(
+                              label: 'Latitude',
+                              controller: _latController,
+                              hint: 'e.g. 16.990200',
+                              icon: Icons.my_location_outlined,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            ),
+                            AddEditCustomerField(
+                              label: 'Longitude',
+                              controller: _lngController,
+                              hint: 'e.g. 81.778000',
+                              icon: Icons.explore_outlined,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             ),
                             const SizedBox(height: 16),
                           ],

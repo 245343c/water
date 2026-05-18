@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
+import 'package:sri_sai_ro_water/features/bills/widgets/monthly_detail_sheets.dart';
 import 'package:sri_sai_ro_water/features/bills/widgets/monthly_summary_widgets.dart';
 
 class MonthlySummaryScreen extends StatefulWidget {
-  const MonthlySummaryScreen({super.key, required this.customerId});
+  const MonthlySummaryScreen({
+    super.key,
+    required this.customerId,
+    this.initialMonth,
+  });
 
   final String customerId;
+  final DateTime? initialMonth;
 
   @override
   State<MonthlySummaryScreen> createState() => _MonthlySummaryScreenState();
@@ -19,22 +26,13 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
   @override
   void initState() {
     super.initState();
-    _month = DateTime(DateTime.now().year, DateTime.now().month);
-  }
-
-  void _prevMonth() => setState(() => _month = DateTime(_month.year, _month.month - 1));
-
-  void _nextMonth() {
-    final next = DateTime(_month.year, _month.month + 1);
     final now = DateTime.now();
-    if (next.year > now.year || (next.year == now.year && next.month > now.month)) return;
-    setState(() => _month = next);
-  }
-
-  bool get _canGoNext {
-    final next = DateTime(_month.year, _month.month + 1);
-    final now = DateTime.now();
-    return !(next.year > now.year || (next.year == now.year && next.month > now.month));
+    final initial = widget.initialMonth;
+    if (initial != null) {
+      _month = DateTime(initial.year, initial.month);
+    } else {
+      _month = DateTime(now.year, now.month);
+    }
   }
 
   @override
@@ -60,16 +58,13 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
           body: MonthlySummaryScaffold(
             child: Column(
               children: [
-                MonthlySummaryHeader(onBack: () => context.pop()),
+                MonthlySummaryHeader(
+                  onBack: () => context.pop(),
+                  monthLabel: _month.monthYear,
+                ),
                 MonthlySummaryCustomerBar(
                   customer: customer,
                   colorIndex: colorIndex >= 0 ? colorIndex : 0,
-                ),
-                MonthlySummaryMonthNav(
-                  month: _month,
-                  onPrev: _prevMonth,
-                  onNext: _nextMonth,
-                  canGoNext: _canGoNext,
                 ),
                 Expanded(
                   child: ListView(
@@ -79,11 +74,21 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                       MonthlySummaryAccountCard(stats: stats, balance: balance),
                       MonthlyDeliveriesSection(
                         deliveries: deliveries,
-                        onViewAll: () => context.push('/customers/${widget.customerId}/history'),
+                        onViewAll: () => showMonthlyDeliveriesSheet(
+                          context,
+                          customer: customer,
+                          month: _month,
+                          deliveries: deliveries,
+                        ),
                       ),
                       MonthlyPaymentsSection(
                         payments: payments,
-                        onViewAllPayments: () => context.push('/customers/${widget.customerId}/payments'),
+                        onViewAllPayments: () => showMonthlyPaymentsSheet(
+                          context,
+                          customer: customer,
+                          month: _month,
+                          payments: payments,
+                        ),
                       ),
                       MonthlySummaryInfoBanner(month: _month),
                     ],

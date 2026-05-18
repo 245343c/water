@@ -351,22 +351,65 @@ class _CustomerBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _CustomerLine(label: 'Customer Name', value: customer.name),
-        const SizedBox(height: 6),
-        _CustomerLine(label: 'Mobile Number', value: customer.phone),
-        if (customer.email.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          _CustomerLine(label: 'Email', value: customer.email),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFEFF6FF), Color(0xFFF8FAFC), Colors.white],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFBFDBFE)),
+        boxShadow: [
+          BoxShadow(
+            color: MonthlyBillColors.billBlue.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
         ],
-        if (customer.place.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          _CustomerLine(label: 'Place', value: customer.place),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: MonthlyBillColors.billBlue,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Customer Details',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: MonthlyBillColors.titleNavy,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _CustomerLine(label: 'Customer Name', value: customer.name),
+          const SizedBox(height: 8),
+          _CustomerLine(label: 'Mobile Number', value: customer.phone),
+          if (customer.email.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _CustomerLine(label: 'Email', value: customer.email),
+          ],
+          if (customer.place.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _CustomerLine(label: 'Place', value: customer.place),
+          ],
+          const SizedBox(height: 8),
+          _CustomerLine(label: 'Address', value: customer.address),
         ],
-        const SizedBox(height: 6),
-        _CustomerLine(label: 'Address', value: customer.address),
-      ],
+      ),
     );
   }
 }
@@ -435,10 +478,9 @@ class _DeliveryLedger extends StatelessWidget {
   final List<String> productLabels;
 
   // Fixed column widths (px)
-  static const _kSnoW  = 34.0;
-  static const _kDateW = 72.0;
-  static const _kProdW = 68.0;
-  static const _kAmtW  = 84.0;
+  static const _kSnoW  = 32.0;
+  static const _kDateW = 68.0;
+  static const _kAmtW  = 76.0;
 
   // Fixed row heights — applied uniformly across left / middle / right sections
   static const _kHeadH  = 46.0;
@@ -473,7 +515,7 @@ class _DeliveryLedger extends StatelessWidget {
             const Spacer(),
             Text(
               '${deliveries.length} '
-              '${deliveries.length == 1 ? 'delivery' : 'deliveries'}',
+              '${deliveries.length == 1 ? 'day' : 'days'}',
               style: GoogleFonts.poppins(
                 fontSize: 11,
                 color: MonthlyBillColors.labelGrey,
@@ -503,28 +545,6 @@ class _DeliveryLedger extends StatelessWidget {
               : _ledgerTable(),
         ),
 
-        // Scroll hint when product cols overflow
-        if (productLabels.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Icon(
-                Icons.swipe_right_alt_outlined,
-                size: 13,
-                color: MonthlyBillColors.labelGrey.withValues(alpha: 0.55),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                'Swipe products section to view more',
-                style: GoogleFonts.poppins(
-                  fontSize: 10,
-                  color: MonthlyBillColors.labelGrey.withValues(alpha: 0.65),
-                ),
-              ),
-            ],
-          ),
-        ],
       ],
     );
   }
@@ -556,84 +576,72 @@ class _DeliveryLedger extends StatelessWidget {
     final grandTotal =
         deliveries.fold<double>(0, (s, d) => s + d.totalAmount);
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
       children: [
-        // ── Fixed left: # and Date ───────────────────────────────────────
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _LeftHeader(),
-            ...List.generate(
-              deliveries.length,
-              (i) => _LeftRow(
-                serial: i + 1,
-                delivery: deliveries[i],
-                isAlt: i.isOdd,
-              ),
+        _FlexLedgerRow(
+          height: _kHeadH,
+          background: MonthlyBillColors.tableNavy,
+          isHeader: true,
+          cells: [
+            _FlexCell.fixed('#', _kSnoW, TextAlign.center, header: true),
+            _FlexCell.fixed('Date', _kDateW, TextAlign.left, header: true),
+            ...productLabels.map(
+              (l) => _FlexCell.expanded(l, TextAlign.center, header: true),
             ),
-            _LeftTotal(),
+            _FlexCell.fixed('Amount', _kAmtW, TextAlign.right, header: true),
           ],
         ),
-
-        // Vertical divider between left and middle
-        Container(
-          width: 1,
-          color: MonthlyBillColors.tableBorder,
-        ),
-
-        // ── Scrollable middle: one column per product ────────────────────
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: productLabels.isEmpty
-                // No product cols — show just a spacer strip
-                ? SizedBox(
-                    width: 0,
-                    height: _kHeadH +
-                        deliveries.length * _kRowH +
-                        _kTotalH,
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _MiddleHeader(productLabels: productLabels),
-                      ...List.generate(
-                        deliveries.length,
-                        (i) => _MiddleRow(
-                          delivery: deliveries[i],
-                          productLabels: productLabels,
-                          isAlt: i.isOdd,
-                        ),
-                      ),
-                      _MiddleTotal(
-                        deliveries: deliveries,
-                        productLabels: productLabels,
-                      ),
-                    ],
-                  ),
-          ),
-        ),
-
-        // Vertical divider between middle and right
-        Container(
-          width: 1,
-          color: MonthlyBillColors.tableBorder,
-        ),
-
-        // ── Fixed right: Amount ──────────────────────────────────────────
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            _RightHeader(),
-            ...List.generate(
-              deliveries.length,
-              (i) => _RightRow(
-                delivery: deliveries[i],
-                isAlt: i.isOdd,
+        for (var i = 0; i < deliveries.length; i++)
+          _FlexLedgerRow(
+            height: _kRowH,
+            background: i.isOdd ? MonthlyBillColors.rowAlt : Colors.white,
+            cells: [
+              _FlexCell.fixed('${i + 1}', _kSnoW, TextAlign.center, muted: true),
+              _FlexCell.fixed(
+                deliveries[i].date.dayMonth,
+                _kDateW,
+                TextAlign.left,
               ),
+              ...productLabels.map((label) {
+                final qty = _qtyForDelivery(deliveries[i], label);
+                return qty > 0
+                    ? _FlexCell.expanded('$qty', TextAlign.center, isQty: true)
+                    : _FlexCell.expanded('—', TextAlign.center, isDash: true);
+              }),
+              _FlexCell.fixed(
+                CurrencyUtils.format(deliveries[i].totalAmount),
+                _kAmtW,
+                TextAlign.right,
+                isAmount: true,
+              ),
+            ],
+          ),
+        _FlexLedgerRow(
+          height: _kTotalH,
+          background: MonthlyBillColors.tableTotalBg,
+          isTotal: true,
+          cells: [
+            _FlexCell.fixed('', _kSnoW, TextAlign.center, isTotal: true),
+            _FlexCell.fixed('Total', _kDateW, TextAlign.left, isTotal: true),
+            ...productLabels.map((label) {
+              final t = deliveries.fold<int>(
+                0,
+                (s, d) => s + _qtyForDelivery(d, label),
+              );
+              return _FlexCell.expanded(
+                t > 0 ? '$t' : '—',
+                TextAlign.center,
+                isTotal: true,
+                highlight: t > 0,
+              );
+            }),
+            _FlexCell.fixed(
+              CurrencyUtils.format(grandTotal),
+              _kAmtW,
+              TextAlign.right,
+              isTotal: true,
+              isAmount: true,
             ),
-            _RightTotal(grandTotal: grandTotal),
           ],
         ),
       ],
@@ -641,312 +649,136 @@ class _DeliveryLedger extends StatelessWidget {
   }
 }
 
-// ── Left section: # and Date (fixed, never scrolls) ──────────────────────────
+// ── Full-width flex ledger row (auto-fills card width) ────────────────────────
 
-class _LeftHeader extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: _DeliveryLedger._kHeadH,
-      color: MonthlyBillColors.tableNavy,
-      child: Row(
-        children: [
-          _HCell('#', _DeliveryLedger._kSnoW, TextAlign.center),
-          _VDiv(header: true),
-          _HCell('Date', _DeliveryLedger._kDateW, TextAlign.left),
-        ],
-      ),
-    );
-  }
-}
-
-class _LeftRow extends StatelessWidget {
-  const _LeftRow({
-    required this.serial,
-    required this.delivery,
-    required this.isAlt,
+class _FlexCell {
+  const _FlexCell._({
+    required this.text,
+    required this.align,
+    this.width,
+    this.expanded = false,
+    this.header = false,
+    this.muted = false,
+    this.isQty = false,
+    this.isDash = false,
+    this.isAmount = false,
+    this.isTotal = false,
+    this.highlight = false,
   });
-  final int serial;
-  final Delivery delivery;
-  final bool isAlt;
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: _DeliveryLedger._kRowH,
-      color: isAlt ? MonthlyBillColors.rowAlt : Colors.white,
-      child: Row(
-        children: [
-          _DCell(
-            '$serial',
-            _DeliveryLedger._kSnoW,
-            TextAlign.center,
-            muted: true,
-          ),
-          _VDiv(),
-          _DCell(
-            delivery.date.dayMonth,
-            _DeliveryLedger._kDateW,
-            TextAlign.left,
-          ),
-        ],
-      ),
-    );
-  }
-}
+  factory _FlexCell.fixed(
+    String text,
+    double width,
+    TextAlign align, {
+    bool header = false,
+    bool muted = false,
+    bool isQty = false,
+    bool isDash = false,
+    bool isAmount = false,
+    bool isTotal = false,
+    bool highlight = false,
+  }) =>
+      _FlexCell._(
+        text: text,
+        align: align,
+        width: width,
+        header: header,
+        muted: muted,
+        isQty: isQty,
+        isDash: isDash,
+        isAmount: isAmount,
+        isTotal: isTotal,
+        highlight: highlight,
+      );
 
-class _LeftTotal extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: _DeliveryLedger._kTotalH,
-      decoration: const BoxDecoration(
-        color: MonthlyBillColors.tableTotalBg,
-        border: Border(
-          top: BorderSide(color: MonthlyBillColors.tableBorder),
-        ),
-      ),
-      child: Row(
-        children: [
-          _TCell('', _DeliveryLedger._kSnoW, TextAlign.center),
-          _VDiv(),
-          _TCell('Total', _DeliveryLedger._kDateW, TextAlign.left),
-        ],
-      ),
-    );
-  }
-}
+  factory _FlexCell.expanded(
+    String text,
+    TextAlign align, {
+    bool header = false,
+    bool isQty = false,
+    bool isDash = false,
+    bool isTotal = false,
+    bool highlight = false,
+  }) =>
+      _FlexCell._(
+        text: text,
+        align: align,
+        expanded: true,
+        header: header,
+        isQty: isQty,
+        isDash: isDash,
+        isTotal: isTotal,
+        highlight: highlight,
+      );
 
-// ── Middle section: product quantity columns (scrollable) ─────────────────────
-
-class _MiddleHeader extends StatelessWidget {
-  const _MiddleHeader({required this.productLabels});
-  final List<String> productLabels;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: _DeliveryLedger._kHeadH,
-      color: MonthlyBillColors.tableNavy,
-      child: Row(
-        children: productLabels.expand((label) => [
-              _VDiv(header: true),
-              _HCell(label, _DeliveryLedger._kProdW, TextAlign.center),
-            ]).toList(),
-      ),
-    );
-  }
-}
-
-class _MiddleRow extends StatelessWidget {
-  const _MiddleRow({
-    required this.delivery,
-    required this.productLabels,
-    required this.isAlt,
-  });
-  final Delivery delivery;
-  final List<String> productLabels;
-  final bool isAlt;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: _DeliveryLedger._kRowH,
-      color: isAlt ? MonthlyBillColors.rowAlt : Colors.white,
-      child: Row(
-        children: productLabels.expand((label) {
-          final qty = _qtyForDelivery(delivery, label);
-          return [
-            _VDiv(),
-            qty > 0
-                ? _QtyCell(qty, _DeliveryLedger._kProdW)
-                : _DashCell(_DeliveryLedger._kProdW),
-          ];
-        }).toList(),
-      ),
-    );
-  }
-}
-
-class _MiddleTotal extends StatelessWidget {
-  const _MiddleTotal({
-    required this.deliveries,
-    required this.productLabels,
-  });
-  final List<Delivery> deliveries;
-  final List<String> productLabels;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: _DeliveryLedger._kTotalH,
-      decoration: const BoxDecoration(
-        color: MonthlyBillColors.tableTotalBg,
-        border: Border(top: BorderSide(color: MonthlyBillColors.tableBorder)),
-      ),
-      child: Row(
-        children: productLabels.expand((label) {
-          final t = deliveries.fold<int>(
-            0,
-            (s, d) => s + _qtyForDelivery(d, label),
-          );
-          return [
-            _VDiv(),
-            _TCell(
-              t > 0 ? '$t' : '—',
-              _DeliveryLedger._kProdW,
-              TextAlign.center,
-              highlight: t > 0,
-            ),
-          ];
-        }).toList(),
-      ),
-    );
-  }
-}
-
-// ── Right section: Amount column (fixed, never scrolls) ───────────────────────
-
-class _RightHeader extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: _DeliveryLedger._kHeadH,
-      color: MonthlyBillColors.tableNavy,
-      child: _HCell('Amount', _DeliveryLedger._kAmtW, TextAlign.right),
-    );
-  }
-}
-
-class _RightRow extends StatelessWidget {
-  const _RightRow({required this.delivery, required this.isAlt});
-  final Delivery delivery;
-  final bool isAlt;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: _DeliveryLedger._kRowH,
-      color: isAlt ? MonthlyBillColors.rowAlt : Colors.white,
-      child: _AmtCell(
-        CurrencyUtils.format(delivery.totalAmount),
-        _DeliveryLedger._kAmtW,
-      ),
-    );
-  }
-}
-
-class _RightTotal extends StatelessWidget {
-  const _RightTotal({required this.grandTotal});
-  final double grandTotal;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: _DeliveryLedger._kTotalH,
-      decoration: const BoxDecoration(
-        color: MonthlyBillColors.tableTotalBg,
-        border: Border(top: BorderSide(color: MonthlyBillColors.tableBorder)),
-      ),
-      child: _TCell(
-        CurrencyUtils.format(grandTotal),
-        _DeliveryLedger._kAmtW,
-        TextAlign.right,
-        isGrandTotal: true,
-      ),
-    );
-  }
-}
-
-// ── Shared cell widgets ───────────────────────────────────────────────────────
-
-class _HCell extends StatelessWidget {
-  const _HCell(this.label, this.width, this.align);
-  final String label;
-  final double width;
-  final TextAlign align;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      color: MonthlyBillColors.tableNavy,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      alignment: switch (align) {
-        TextAlign.center => Alignment.center,
-        TextAlign.right  => Alignment.centerRight,
-        _                => Alignment.centerLeft,
-      },
-      child: Text(
-        label,
-        textAlign: align,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: GoogleFonts.poppins(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          color: Colors.white,
-          height: 1.3,
-        ),
-      ),
-    );
-  }
-}
-
-class _VDiv extends StatelessWidget {
-  const _VDiv({this.header = false});
-  final bool header;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      color: header
-          ? Colors.white.withValues(alpha: 0.22)
-          : MonthlyBillColors.cardBorder,
-    );
-  }
-}
-
-class _DCell extends StatelessWidget {
-  const _DCell(this.text, this.width, this.align, {this.muted = false});
   final String text;
-  final double width;
   final TextAlign align;
+  final double? width;
+  final bool expanded;
+  final bool header;
   final bool muted;
+  final bool isQty;
+  final bool isDash;
+  final bool isAmount;
+  final bool isTotal;
+  final bool highlight;
+}
+
+class _FlexLedgerRow extends StatelessWidget {
+  const _FlexLedgerRow({
+    required this.height,
+    required this.cells,
+    this.background,
+    this.isHeader = false,
+    this.isTotal = false,
+  });
+
+  final double height;
+  final List<_FlexCell> cells;
+  final Color? background;
+  final bool isHeader;
+  final bool isTotal;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Text(
-          text,
-          textAlign: align,
-          style: GoogleFonts.poppins(
-            fontSize: muted ? 11 : 12,
-            fontWeight: muted ? FontWeight.w400 : FontWeight.w500,
-            color: muted
-                ? MonthlyBillColors.labelGrey
-                : MonthlyBillColors.titleNavy,
-          ),
-        ),
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: background,
+        border: isTotal
+            ? const Border(top: BorderSide(color: MonthlyBillColors.tableBorder))
+            : null,
+      ),
+      child: Row(
+        children: [
+          for (var i = 0; i < cells.length; i++) ...[
+            if (i > 0)
+              Container(
+                width: 1,
+                color: isHeader
+                    ? Colors.white.withValues(alpha: 0.22)
+                    : MonthlyBillColors.tableBorder,
+              ),
+            if (cells[i].expanded)
+              Expanded(child: _FlexCellWidget(cell: cells[i]))
+            else
+              _FlexCellWidget(cell: cells[i]),
+          ],
+        ],
       ),
     );
   }
 }
 
-class _QtyCell extends StatelessWidget {
-  const _QtyCell(this.qty, this.width);
-  final int qty;
-  final double width;
+class _FlexCellWidget extends StatelessWidget {
+  const _FlexCellWidget({required this.cell});
+  final _FlexCell cell;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      child: Center(
+    if (cell.isQty && !cell.header && !cell.isTotal) {
+      final qty = int.tryParse(cell.text) ?? 0;
+      final badge = Center(
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
           decoration: BoxDecoration(
@@ -965,94 +797,55 @@ class _QtyCell extends StatelessWidget {
             ),
           ),
         ),
+      );
+      if (cell.expanded) return badge;
+      return SizedBox(width: cell.width, child: badge);
+    }
+
+    final style = GoogleFonts.poppins(
+      fontSize: cell.header ? 10 : (cell.muted ? 11 : 12),
+      fontWeight: cell.header || cell.isTotal
+          ? FontWeight.w700
+          : (cell.muted ? FontWeight.w400 : FontWeight.w500),
+      color: cell.header
+          ? Colors.white
+          : cell.isDash
+              ? MonthlyBillColors.dashColor
+              : cell.isAmount
+                  ? MonthlyBillColors.amountGreen
+                  : cell.isQty || cell.highlight
+                      ? MonthlyBillColors.qtyBlue
+                      : cell.muted
+                          ? MonthlyBillColors.labelGrey
+                          : MonthlyBillColors.titleNavy,
+    );
+
+    Widget child = Text(
+      cell.text,
+      textAlign: cell.align,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: style,
+    );
+
+    if (cell.isDash) {
+      child = Text('—', textAlign: cell.align, style: style.copyWith(color: MonthlyBillColors.dashColor));
+    }
+
+    final aligned = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Align(
+        alignment: switch (cell.align) {
+          TextAlign.center => Alignment.center,
+          TextAlign.right => Alignment.centerRight,
+          _ => Alignment.centerLeft,
+        },
+        child: child,
       ),
     );
-  }
-}
 
-class _DashCell extends StatelessWidget {
-  const _DashCell(this.width);
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      child: Text(
-        '—',
-        textAlign: TextAlign.center,
-        style: GoogleFonts.poppins(
-          fontSize: 14,
-          color: MonthlyBillColors.dashColor,
-          fontWeight: FontWeight.w400,
-        ),
-      ),
-    );
-  }
-}
-
-class _AmtCell extends StatelessWidget {
-  const _AmtCell(this.amount, this.width);
-  final String amount;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Text(
-          amount,
-          textAlign: TextAlign.right,
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: MonthlyBillColors.amountGreen,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TCell extends StatelessWidget {
-  const _TCell(
-    this.text,
-    this.width,
-    this.align, {
-    this.highlight    = false,
-    this.isGrandTotal = false,
-  });
-  final String text;
-  final double width;
-  final TextAlign align;
-  final bool highlight;
-  final bool isGrandTotal;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isGrandTotal
-        ? MonthlyBillColors.amountGreen
-        : highlight
-            ? MonthlyBillColors.qtyBlue
-            : MonthlyBillColors.titleNavy;
-
-    return SizedBox(
-      width: width,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Text(
-          text,
-          textAlign: align,
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            color: color,
-          ),
-        ),
-      ),
-    );
+    if (cell.expanded) return aligned;
+    return SizedBox(width: cell.width, child: aligned);
   }
 }
 

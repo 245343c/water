@@ -5,16 +5,16 @@ import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/payment.dart';
+import 'package:sri_sai_ro_water/data/models/payment_method.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class PaymentHistoryColors {
-  static const Color screenBg = Color(0xFFF5F7FA);
+  static const Color screenBg = Color(0xFFF3F4F6);
   static const Color titleNavy = Color(0xFF1E3A8A);
-  static const Color valueNavy = Color(0xFF1E40AF);
+  static const Color valueNavy = Color(0xFF111827);
   static const Color labelGrey = Color(0xFF6B7280);
   static const Color statGreen = Color(0xFF16A34A);
   static const Color cardBorder = Color(0xFFE5E7EB);
-  static const Color linkBlue = Color(0xFF1A73E8);
 }
 
 class PaymentHistoryHeader extends StatelessWidget {
@@ -56,14 +56,10 @@ class PaymentHistoryCustomerBar extends StatelessWidget {
     super.key,
     required this.customer,
     required this.colorIndex,
-    required this.totalPaid,
-    required this.paymentCount,
   });
 
   final Customer customer;
   final int colorIndex;
-  final double totalPaid;
-  final int paymentCount;
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +67,7 @@ class PaymentHistoryCustomerBar extends StatelessWidget {
 
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
       child: Row(
         children: [
           CircleAvatar(
@@ -82,7 +78,7 @@ class PaymentHistoryCustomerBar extends StatelessWidget {
               style: GoogleFonts.poppins(
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
-                fontSize: 14,
+                fontSize: 15,
               ),
             ),
           ),
@@ -100,10 +96,107 @@ class PaymentHistoryCustomerBar extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '$paymentCount payment${paymentCount == 1 ? '' : 's'} · ${CurrencyUtils.format(totalPaid)} total',
+                  customer.phone,
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     color: PaymentHistoryColors.labelGrey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PaymentHistoryHeroCard extends StatelessWidget {
+  const PaymentHistoryHeroCard({
+    super.key,
+    required this.totalPaid,
+    required this.paymentCount,
+  });
+
+  final double totalPaid;
+  final int paymentCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF059669), Color(0xFF10B981)],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0xFF10B981).withValues(alpha: 0.35),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 26),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Total Collected',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.white.withValues(alpha: 0.9),
+                  ),
+                ),
+                Text(
+                  CurrencyUtils.format(totalPaid),
+                  style: GoogleFonts.poppins(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    height: 1.1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  '$paymentCount',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  'Payments',
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    color: Colors.white.withValues(alpha: 0.9),
                   ),
                 ),
               ],
@@ -120,53 +213,128 @@ class PaymentHistoryList extends StatelessWidget {
 
   final List<Payment> payments;
 
+  Map<String, List<Payment>> get _grouped {
+    final map = <String, List<Payment>>{};
+    for (final p in payments) {
+      final key = p.date.monthYear;
+      map.putIfAbsent(key, () => []).add(p);
+    }
+    return map;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (payments.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.all(32),
-        child: Center(
-          child: Column(
-            children: [
-              Icon(Icons.payments_outlined, size: 48, color: PaymentHistoryColors.labelGrey.withValues(alpha: 0.5)),
-              const SizedBox(height: 12),
-              Text(
-                'No payments recorded yet',
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: PaymentHistoryColors.labelGrey,
-                ),
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          children: [
+            Icon(
+              Icons.payments_outlined,
+              size: 56,
+              color: PaymentHistoryColors.labelGrey.withValues(alpha: 0.4),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No payments yet',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: PaymentHistoryColors.titleNavy,
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Recorded payments will appear here.',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: PaymentHistoryColors.labelGrey,
+              ),
+            ),
+          ],
         ),
       );
     }
 
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      itemCount: payments.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, i) => _PaymentTile(payment: payments[i]),
+    final groups = _grouped.entries.toList();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final group in groups) ...[
+            _PaymentMonthHeader(label: group.key),
+            ...group.value.map((p) => _PaymentTimelineTile(payment: p)),
+          ],
+        ],
+      ),
     );
   }
 }
 
-class _PaymentTile extends StatelessWidget {
-  const _PaymentTile({required this.payment});
+class _PaymentMonthHeader extends StatelessWidget {
+  const _PaymentMonthHeader({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 16,
+            decoration: BoxDecoration(
+              color: PaymentHistoryColors.statGreen,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: PaymentHistoryColors.titleNavy,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentTimelineTile extends StatelessWidget {
+  const _PaymentTimelineTile({required this.payment});
 
   final Payment payment;
+
+  IconData _methodIcon(PaymentMethod method) {
+    return switch (method) {
+      PaymentMethod.cash => Icons.payments_outlined,
+      PaymentMethod.upi => Icons.qr_code_2_rounded,
+      PaymentMethod.other => Icons.receipt_long_outlined,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: PaymentHistoryColors.cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -174,10 +342,24 @@ class _PaymentTile extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: PaymentHistoryColors.statGreen.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  PaymentHistoryColors.statGreen.withValues(alpha: 0.15),
+                  PaymentHistoryColors.statGreen.withValues(alpha: 0.08),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: PaymentHistoryColors.statGreen.withValues(alpha: 0.25),
+              ),
             ),
-            child: const Icon(Icons.check_circle_outline, color: PaymentHistoryColors.statGreen, size: 24),
+            child: Icon(
+              _methodIcon(payment.method),
+              color: PaymentHistoryColors.statGreen,
+              size: 22,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -185,28 +367,59 @@ class _PaymentTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  payment.date.fullDate,
+                  CurrencyUtils.format(payment.amount),
                   style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: PaymentHistoryColors.valueNavy,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: PaymentHistoryColors.statGreen,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  payment.method.label,
-                  style: GoogleFonts.poppins(fontSize: 12, color: PaymentHistoryColors.labelGrey),
+                  payment.date.fullDate,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: PaymentHistoryColors.labelGrey,
+                  ),
                 ),
               ],
             ),
           ),
-          Text(
-            CurrencyUtils.format(payment.amount),
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: PaymentHistoryColors.statGreen,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  payment.method.label,
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: PaymentHistoryColors.statGreen,
+                  ),
+                ),
+              ),
+              if (payment.notes != null && payment.notes!.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                SizedBox(
+                  width: 100,
+                  child: Text(
+                    payment.notes!,
+                    textAlign: TextAlign.end,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 10,
+                      color: PaymentHistoryColors.labelGrey,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),

@@ -3,10 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
-import 'package:sri_sai_ro_water/core/widgets/monthly_metrics_list.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
-import 'package:sri_sai_ro_water/data/models/monthly_stats.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class DeliveryHistoryColors {
@@ -25,11 +23,9 @@ class DeliveryHistoryHeader extends StatelessWidget {
   const DeliveryHistoryHeader({
     super.key,
     required this.onBack,
-    this.onFilter,
   });
 
   final VoidCallback onBack;
-  final VoidCallback? onFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -53,10 +49,7 @@ class DeliveryHistoryHeader extends StatelessWidget {
               ),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.tune, color: Colors.white, size: 22),
-            onPressed: onFilter,
-          ),
+          const SizedBox(width: 48),
         ],
       ),
     );
@@ -78,19 +71,19 @@ class DeliveryHistoryCustomerBar extends StatelessWidget {
     final bg = CustomersColors.avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
 
     return Container(
-      color: DeliveryHistoryColors.screenBg,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
       child: Row(
         children: [
           CircleAvatar(
-            radius: 24,
+            radius: 22,
             backgroundColor: bg,
             child: Text(
               customer.initials,
               style: GoogleFonts.poppins(
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
-                fontSize: 16,
+                fontSize: 15,
               ),
             ),
           ),
@@ -102,32 +95,58 @@ class DeliveryHistoryCustomerBar extends StatelessWidget {
                 Text(
                   customer.name,
                   style: GoogleFonts.poppins(
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: DeliveryHistoryColors.titleNavy,
                   ),
                 ),
-                const SizedBox(height: 2),
                 Text(
                   customer.phone,
                   style: GoogleFonts.poppins(
-                    fontSize: 13,
+                    fontSize: 12,
                     color: DeliveryHistoryColors.labelGrey,
                   ),
                 ),
               ],
             ),
           ),
-          Material(
-            color: DeliveryHistoryColors.whatsapp.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
-            child: InkWell(
-              onTap: () {},
-              borderRadius: BorderRadius.circular(10),
-              child: const Padding(
-                padding: EdgeInsets.all(8),
-                child: Icon(Icons.chat, color: DeliveryHistoryColors.whatsapp, size: 22),
-              ),
+        ],
+      ),
+    );
+  }
+}
+
+class DeliveryHistoryStatsStrip extends StatelessWidget {
+  const DeliveryHistoryStatsStrip({
+    super.key,
+    required this.deliveryCount,
+    required this.totalAmount,
+  });
+
+  final int deliveryCount;
+  final String totalAmount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: _StatChip(
+              icon: Icons.local_shipping_outlined,
+              label: 'Deliveries',
+              value: '$deliveryCount',
+              color: DeliveryHistoryColors.statBlue,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _StatChip(
+              icon: Icons.payments_outlined,
+              label: 'Total value',
+              value: totalAmount,
+              color: DeliveryHistoryColors.statGreen,
             ),
           ),
         ],
@@ -136,151 +155,202 @@ class DeliveryHistoryCustomerBar extends StatelessWidget {
   }
 }
 
-class DeliveryHistoryMonthNav extends StatelessWidget {
-  const DeliveryHistoryMonthNav({
-    super.key,
-    required this.month,
-    required this.onPrev,
-    required this.onNext,
+class _StatChip extends StatelessWidget {
+  const _StatChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
   });
 
-  final DateTime month;
-  final VoidCallback onPrev;
-  final VoidCallback onNext;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: DeliveryHistoryColors.cardBorder),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        child: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.chevron_left, color: DeliveryHistoryColors.labelGrey),
-              onPressed: onPrev,
-            ),
-            Expanded(
-              child: Text(
-                month.monthYear,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: DeliveryHistoryColors.valueNavy,
-                ),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.chevron_right, color: DeliveryHistoryColors.labelGrey),
-              onPressed: onNext,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class DeliveryHistoryListCard extends StatelessWidget {
-  const DeliveryHistoryListCard({
-    super.key,
-    required this.deliveries,
-  });
-
-  final List<Delivery> deliveries;
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: DeliveryHistoryColors.cardBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 18, color: color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    color: DeliveryHistoryColors.labelGrey,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// All deliveries grouped by month — fills available height.
+class DeliveryHistoryGroupedList extends StatelessWidget {
+  const DeliveryHistoryGroupedList({super.key, required this.deliveries});
+
+  final List<Delivery> deliveries;
+
+  Map<String, List<Delivery>> get _grouped {
+    final map = <String, List<Delivery>>{};
+    for (final d in deliveries) {
+      final key = d.date.monthYear;
+      map.putIfAbsent(key, () => []).add(d);
+    }
+    return map;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (deliveries.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.inbox_outlined,
+                size: 56,
+                color: DeliveryHistoryColors.labelGrey.withValues(alpha: 0.4),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No deliveries yet',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: DeliveryHistoryColors.titleNavy,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Deliveries will appear here after you add them.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  color: DeliveryHistoryColors.labelGrey,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final groups = _grouped.entries.toList();
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: DeliveryHistoryColors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: deliveries.isEmpty
-          ? Padding(
-              padding: const EdgeInsets.all(32),
-              child: Center(
-                child: Text(
-                  'No deliveries this month',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    color: DeliveryHistoryColors.labelGrey,
-                  ),
-                ),
-              ),
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              itemCount: deliveries.length,
-              separatorBuilder: (_, _) => const Divider(
-                height: 1,
-                thickness: 1,
-                color: DeliveryHistoryColors.divider,
-                indent: 16,
-                endIndent: 16,
-              ),
-              itemBuilder: (_, i) => _HistoryRow(delivery: deliveries[i]),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+        physics: const BouncingScrollPhysics(),
+        children: [
+          for (final group in groups) ...[
+            _MonthSectionHeader(
+              label: group.key,
+              count: group.value.length,
             ),
+            for (var i = 0; i < group.value.length; i++)
+              _DeliveryTimelineTile(
+                delivery: group.value[i],
+                isLastInGroup: i == group.value.length - 1,
+              ),
+          ],
+        ],
+      ),
     );
   }
 }
 
-class _HistoryRow extends StatelessWidget {
-  const _HistoryRow({required this.delivery});
+class _MonthSectionHeader extends StatelessWidget {
+  const _MonthSectionHeader({required this.label, required this.count});
 
-  final Delivery delivery;
+  final String label;
+  final int count;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.only(top: 8, bottom: 8),
       child: Row(
         children: [
-          SizedBox(
-            width: 88,
-            child: Text(
-              delivery.date.fullDate,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: DeliveryHistoryColors.valueNavy,
-              ),
+          Container(
+            width: 4,
+            height: 16,
+            decoration: BoxDecoration(
+              color: DeliveryHistoryColors.statBlue,
+              borderRadius: BorderRadius.circular(2),
             ),
           ),
-          Expanded(
-            child: Text(
-              delivery.itemsSummary,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: DeliveryHistoryColors.valueNavy,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
+          const SizedBox(width: 8),
           Text(
-            CurrencyUtils.format(delivery.totalAmount),
+            label,
             style: GoogleFonts.poppins(
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: DeliveryHistoryColors.valueNavy,
+              color: DeliveryHistoryColors.titleNavy,
+            ),
+          ),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              '$count',
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: DeliveryHistoryColors.statBlue,
+              ),
             ),
           ),
         ],
@@ -289,84 +359,101 @@ class _HistoryRow extends StatelessWidget {
   }
 }
 
-class DeliveryHistoryMonthTotalCard extends StatelessWidget {
-  const DeliveryHistoryMonthTotalCard({
-    super.key,
-    required this.stats,
+class _DeliveryTimelineTile extends StatelessWidget {
+  const _DeliveryTimelineTile({
+    required this.delivery,
+    required this.isLastInGroup,
   });
 
-  final MonthlyStats stats;
+  final Delivery delivery;
+  final bool isLastInGroup;
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 8, 16, 12 + bottomInset),
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: DeliveryHistoryColors.cardBorder),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 12,
-              offset: const Offset(0, -2),
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 28,
+            child: Column(
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: DeliveryHistoryColors.statBlue,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: DeliveryHistoryColors.statBlue.withValues(alpha: 0.35),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                ),
+                if (!isLastInGroup)
+                  Expanded(
+                    child: Container(
+                      width: 2,
+                      color: const Color(0xFFBFDBFE),
+                    ),
+                  ),
+              ],
             ),
-          ],
-        ),
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'This Month Total',
-              style: GoogleFonts.poppins(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: DeliveryHistoryColors.titleNavy,
+          ),
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: DeliveryHistoryColors.cardBorder),
               ),
-            ),
-            const SizedBox(height: 10),
-            MonthlyMetricsList(
-              stats: stats,
-              labelColor: DeliveryHistoryColors.labelGrey,
-              valueColor: DeliveryHistoryColors.statBlue,
-              titleNavy: DeliveryHistoryColors.titleNavy,
-              dividerColor: DeliveryHistoryColors.divider,
-              showTotalAndStatus: false,
-            ),
-            Divider(height: 1, color: DeliveryHistoryColors.divider),
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      'Total Amount',
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: DeliveryHistoryColors.labelGrey,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          delivery.date.dayMonth,
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: DeliveryHistoryColors.valueNavy,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          delivery.itemsSummary,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: DeliveryHistoryColors.labelGrey,
+                            height: 1.3,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Text(
-                    CurrencyUtils.format(stats.totalAmount),
+                    CurrencyUtils.format(delivery.totalAmount),
                     style: GoogleFonts.poppins(
-                      fontSize: 18,
+                      fontSize: 15,
                       fontWeight: FontWeight.w800,
-                      color: DeliveryHistoryColors.statGreen,
+                      color: DeliveryHistoryColors.statBlue,
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

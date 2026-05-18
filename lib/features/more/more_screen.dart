@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/more/widgets/more_screen_widgets.dart';
+import 'package:sri_sai_ro_water/features/more/widgets/shop_location_card.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
 class MoreScreen extends StatelessWidget {
@@ -64,6 +65,7 @@ class MoreScreen extends StatelessWidget {
                         settings: repo.settings,
                         onTap: () => context.push('/settings'),
                       ),
+                      ShopLocationCard(settings: repo.settings),
                       MoreMenuTile(
                         icon: Icons.bar_chart_rounded,
                         title: 'Reports & Analytics',

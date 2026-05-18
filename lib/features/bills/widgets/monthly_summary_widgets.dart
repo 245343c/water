@@ -9,6 +9,7 @@ import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/core/widgets/monthly_metrics_list.dart';
 import 'package:sri_sai_ro_water/data/models/monthly_stats.dart';
 import 'package:sri_sai_ro_water/data/models/payment.dart';
+import 'package:sri_sai_ro_water/core/widgets/customer_info_bar.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class MonthlySummaryColors {
@@ -38,12 +39,34 @@ abstract final class MonthlySummaryColors {
           ),
         ],
       );
+
+  static BoxDecoration get premiumPanel => BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFEFF6FF), Color(0xFFF8FAFC), Colors.white],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFBFDBFE)),
+        boxShadow: [
+          BoxShadow(
+            color: statBlue.withValues(alpha: 0.07),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      );
 }
 
 class MonthlySummaryHeader extends StatelessWidget {
-  const MonthlySummaryHeader({super.key, required this.onBack});
+  const MonthlySummaryHeader({
+    super.key,
+    required this.onBack,
+    this.monthLabel,
+  });
 
   final VoidCallback onBack;
+  final String? monthLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -57,14 +80,31 @@ class MonthlySummaryHeader extends StatelessWidget {
             onPressed: onBack,
           ),
           Expanded(
-            child: Text(
-              'Monthly Summary',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Monthly Summary',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (monthLabel != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    monthLabel!,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           const SizedBox(width: 48),
@@ -86,63 +126,9 @@ class MonthlySummaryCustomerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = CustomersColors.avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
-
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: bg,
-            child: Text(
-              customer.initials,
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  customer.name,
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: MonthlySummaryColors.titleNavy,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  customer.phone,
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    color: MonthlySummaryColors.labelGrey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Material(
-            color: MonthlySummaryColors.whatsapp.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
-            child: InkWell(
-              onTap: () {},
-              borderRadius: BorderRadius.circular(10),
-              child: const Padding(
-                padding: EdgeInsets.all(8),
-                child: Icon(Icons.chat, color: MonthlySummaryColors.whatsapp, size: 22),
-              ),
-            ),
-          ),
-        ],
-      ),
+    return CustomerInfoBar(
+      customer: customer,
+      colorIndex: colorIndex,
     );
   }
 }
@@ -209,22 +195,23 @@ class MonthlySummaryStatsCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       child: Container(
-        decoration: MonthlySummaryColors.cardDecoration,
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        decoration: MonthlySummaryColors.premiumPanel,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'This Month Summary',
               style: GoogleFonts.poppins(
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w700,
                 color: MonthlySummaryColors.titleNavy,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             MonthlyMetricsList(
               stats: stats,
+              compact: true,
               labelColor: MonthlySummaryColors.labelGrey,
               valueColor: MonthlySummaryColors.statBlue,
               titleNavy: MonthlySummaryColors.titleNavy,
@@ -254,20 +241,20 @@ class MonthlySummaryAccountCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Container(
-        decoration: MonthlySummaryColors.cardDecoration,
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        decoration: MonthlySummaryColors.premiumPanel,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Account Summary',
               style: GoogleFonts.poppins(
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w700,
                 color: MonthlySummaryColors.titleNavy,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             IntrinsicHeight(
               child: Row(
                 children: [
@@ -312,13 +299,18 @@ class MonthlyDeliveriesSection extends StatelessWidget {
     super.key,
     required this.deliveries,
     this.onViewAll,
+    this.previewCount = 3,
   });
 
   final List<Delivery> deliveries;
   final VoidCallback? onViewAll;
+  final int previewCount;
 
   @override
   Widget build(BuildContext context) {
+    final preview = deliveries.take(previewCount).toList();
+    final hasMore = deliveries.length > previewCount;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Container(
@@ -338,18 +330,36 @@ class MonthlyDeliveriesSection extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (onViewAll != null)
+                if (deliveries.isNotEmpty)
+                  Text(
+                    '${deliveries.length} total',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: MonthlySummaryColors.labelGrey,
+                    ),
+                  ),
+                if (hasMore && onViewAll != null) ...[
+                  const SizedBox(width: 8),
                   GestureDetector(
                     onTap: onViewAll,
-                    child: Text(
-                      'View all',
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: MonthlySummaryColors.linkBlue,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'View all',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: MonthlySummaryColors.linkBlue,
+                        ),
                       ),
                     ),
                   ),
+                ],
               ],
             ),
             const SizedBox(height: 8),
@@ -362,12 +372,12 @@ class MonthlyDeliveriesSection extends StatelessWidget {
                 ),
               )
             else
-              ...List.generate(deliveries.length.clamp(0, 5), (i) {
-                final d = deliveries[i];
+              ...List.generate(preview.length, (i) {
+                final d = preview[i];
                 return Column(
                   children: [
                     _DeliveryRow(delivery: d),
-                    if (i < deliveries.length.clamp(0, 5) - 1)
+                    if (i < preview.length - 1)
                       const Divider(height: 1, color: MonthlySummaryColors.divider),
                   ],
                 );
@@ -428,14 +438,18 @@ class MonthlyPaymentsSection extends StatelessWidget {
     super.key,
     required this.payments,
     this.onViewAllPayments,
+    this.previewCount = 3,
   });
 
   final List<Payment> payments;
   final VoidCallback? onViewAllPayments;
+  final int previewCount;
 
   @override
   Widget build(BuildContext context) {
     final total = payments.fold<double>(0, (s, p) => s + p.amount);
+    final preview = payments.take(previewCount).toList();
+    final hasMore = payments.length > previewCount;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -457,18 +471,36 @@ class MonthlyPaymentsSection extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (onViewAllPayments != null)
+                if (payments.isNotEmpty)
+                  Text(
+                    '${payments.length} total',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: MonthlySummaryColors.labelGrey,
+                    ),
+                  ),
+                if (hasMore && onViewAllPayments != null) ...[
+                  const SizedBox(width: 8),
                   GestureDetector(
                     onTap: onViewAllPayments,
-                    child: Text(
-                      'View all',
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: MonthlySummaryColors.linkBlue,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFECFDF5),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'View all',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: MonthlySummaryColors.statGreen,
+                        ),
                       ),
                     ),
                   ),
+                ],
               ],
             ),
             const SizedBox(height: 8),
@@ -492,12 +524,12 @@ class MonthlyPaymentsSection extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              ...List.generate(payments.length, (i) {
-                final p = payments[i];
+              ...List.generate(preview.length, (i) {
+                final p = preview[i];
                 return Column(
                   children: [
                     _PaymentRow(payment: p),
-                    if (i < payments.length - 1)
+                    if (i < preview.length - 1)
                       const Divider(height: 1, color: MonthlySummaryColors.divider),
                   ],
                 );

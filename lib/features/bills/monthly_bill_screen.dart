@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/services/bill_share_service.dart';
 import 'package:sri_sai_ro_water/core/services/monthly_bill_pdf_service.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
+import 'package:sri_sai_ro_water/core/utils/delivery_day_grouping.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/bills/widgets/monthly_bill_widgets.dart';
 
@@ -49,8 +50,9 @@ class _MonthlyBillScreenState extends State<MonthlyBillScreen> {
         return;
       }
       final settings = repo.settings;
-      final deliveries = List.of(repo.deliveriesForCustomer(widget.customerId, month: _month))
-        ..sort((a, b) => a.date.compareTo(b.date));
+      final deliveries = groupDeliveriesByDay(
+        repo.deliveriesForCustomer(widget.customerId, month: _month),
+      );
       final stats = repo.monthlyStatsForCustomer(widget.customerId, _month);
 
       final file = await MonthlyBillPdfService.buildAndSave(
@@ -110,8 +112,9 @@ class _MonthlyBillScreenState extends State<MonthlyBillScreen> {
         }
 
         final settings = repo.settings;
-        final deliveries = List.of(repo.deliveriesForCustomer(widget.customerId, month: _month))
-          ..sort((a, b) => a.date.compareTo(b.date));
+        final deliveries = groupDeliveriesByDay(
+          repo.deliveriesForCustomer(widget.customerId, month: _month),
+        );
         final stats = repo.monthlyStatsForCustomer(widget.customerId, _month);
 
         return Scaffold(

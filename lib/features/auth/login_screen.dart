@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
-import 'package:sri_sai_ro_water/features/auth/widgets/auth_screen_widgets.dart';
+import 'package:sri_sai_ro_water/features/auth/widgets/login_screen_widgets.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -43,7 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(error, style: GoogleFonts.poppins()),
+          content: Text(error),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -54,82 +54,87 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AuthScreenLayout(
-      title: 'Sign in',
-      subtitle: 'Sri Sai RO Water Plant',
-      child: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          children: [
-            AuthFormCard(
-              children: [
-                const SizedBox(height: 16),
-                AuthTextField(
-                  label: 'Email',
-                  controller: _emailController,
-                  hint: 'you@business.com',
-                  icon: Icons.mail_outline_rounded,
-                  keyboardType: TextInputType.emailAddress,
-                  required: true,
-                  textInputAction: TextInputAction.next,
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Email is required';
-                    if (!v.contains('@')) return 'Enter a valid email';
-                    return null;
-                  },
-                ),
-                AuthTextField(
-                  label: 'Password',
-                  controller: _passwordController,
-                  hint: 'Enter password',
-                  icon: Icons.lock_outline_rounded,
-                  obscureText: _obscurePassword,
-                  required: true,
-                  textInputAction: TextInputAction.done,
-                  onFieldSubmitted: (_) => _submit(),
-                  suffix: IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
+    return LoginPremiumScaffold(
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const LoginHeroSection(),
+              LoginFormCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    LoginTextField(
+                      label: 'Email',
+                      controller: _emailController,
+                      hint: 'you@business.com',
+                      icon: Icons.mail_outline_rounded,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Email is required';
+                        if (!v.contains('@')) return 'Enter a valid email';
+                        return null;
+                      },
                     ),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                  ),
-                  validator: (v) => v == null || v.isEmpty ? 'Password is required' : null,
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 8, 8),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () => context.push(AppRoutes.forgotPassword),
-                      child: Text(
-                        'Forgot password?',
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AuthColors.primaryBtn,
+                    LoginTextField(
+                      label: 'Password',
+                      controller: _passwordController,
+                      hint: 'Enter password',
+                      icon: Icons.lock_outline_rounded,
+                      obscureText: _obscurePassword,
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _submit(),
+                      suffix: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          color: LoginColors.labelGrey,
+                          size: 22,
+                        ),
+                        onPressed: () =>
+                            setState(() => _obscurePassword = !_obscurePassword),
+                      ),
+                      validator: (v) =>
+                          v == null || v.isEmpty ? 'Password is required' : null,
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => context.push(AppRoutes.forgotPassword),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.only(right: 4, bottom: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          'Forgot password?',
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: LoginColors.primaryBtn,
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-            const AuthDemoHint(),
-            AuthPrimaryButton(
-              label: 'Sign in',
-              loading: _loading,
-              onPressed: _submit,
-            ),
-            const AuthTrustNote(),
-            AuthFooterLink(
-              prompt: 'New here? ',
-              actionLabel: 'Create account',
-              onTap: () => context.push(AppRoutes.register),
-            ),
-          ],
+              ),
+              const LoginDemoBox(),
+              LoginSignInButton(
+                loading: _loading,
+                onPressed: _submit,
+              ),
+              const LoginSecureNote(),
+              LoginFooterLink(
+                onCreateAccount: () => context.push(AppRoutes.register),
+              ),
+            ],
+          ),
         ),
       ),
     );

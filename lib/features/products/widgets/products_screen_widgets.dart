@@ -75,12 +75,126 @@ class ProductCategoryChip extends StatelessWidget {
   }
 }
 
-// ─── Product section — icon grid style, no header bar ────────────────────────
-//
-// Layout:
-//   Product name (simple text label)
-//   Grid of variant icon tiles — each tile: circle icon + label + price pill
-//
+// ─── Product catalog card — image box + name + size + price ─────────────────
+
+class ProductCatalogCard extends StatelessWidget {
+  const ProductCatalogCard({super.key, required this.product, required this.onTap});
+
+  final Product product;
+  final VoidCallback onTap;
+
+  bool get _isBottle => product.category == ProductCategory.bottle;
+
+  Color get _accent =>
+      _isBottle ? ProductsColors.statBlue : ProductsColors.statGreen;
+
+  Color get _imageBg =>
+      _isBottle ? ProductsColors.bottleBg : ProductsColors.canBg;
+
+  @override
+  Widget build(BuildContext context) {
+    final file = ProductImageService.fileForPath(product.localImagePath);
+    final icon = _isBottle ? Icons.water_drop_rounded : Icons.local_drink_rounded;
+
+    return Material(
+      color: Colors.white,
+      elevation: 0,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: ProductsColors.cardBorder),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 96,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _imageBg,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                    child: file != null
+                        ? Image.file(file, fit: BoxFit.cover, width: double.infinity, height: 96)
+                        : Center(
+                            child: Icon(icon, size: 44, color: _accent.withValues(alpha: 0.85)),
+                          ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            product.name,
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: ProductsColors.titleNavy,
+                              height: 1.15,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        _CategoryBadge(category: product.category),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      product.variantSummary,
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        color: ProductsColors.labelGrey,
+                        height: 1.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'From ${CurrencyUtils.format(product.startingPrice)}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: _accent,
+                        height: 1.1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Product section — variant grid (detail-style grouping) ──────────────────
 
 class ProductSection extends StatelessWidget {
   const ProductSection({super.key, required this.product, required this.onTap});

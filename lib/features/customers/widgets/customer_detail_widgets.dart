@@ -3,9 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
+import 'package:sri_sai_ro_water/core/widgets/month_wheel_scroll.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
-import 'package:sri_sai_ro_water/core/widgets/monthly_metrics_list.dart';
 import 'package:sri_sai_ro_water/data/models/monthly_stats.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
@@ -71,344 +71,157 @@ class CustomerDetailHeader extends StatelessWidget {
   }
 }
 
-// ─── Profile Section ─────────────────────────────────────────────────────────
+// ─── Total Pending card ───────────────────────────────────────────────────────
 
-class CustomerProfileSection extends StatelessWidget {
-  const CustomerProfileSection({super.key, required this.customer, required this.colorIndex});
-  final Customer customer;
-  final int colorIndex;
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = CustomersColors.avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
-
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 26,
-            backgroundColor: bg,
-            child: Text(
-              customer.initials,
-              style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  customer.name,
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: CustomerDetailColors.titleNavy,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(Icons.phone_outlined, size: 14, color: CustomerDetailColors.statBlue),
-                    const SizedBox(width: 5),
-                    Text(
-                      customer.phone,
-                      style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500, color: CustomerDetailColors.titleNavy),
-                    ),
-                    const SizedBox(width: 10),
-                    const Icon(Icons.chat, color: CustomerDetailColors.whatsapp, size: 18),
-                  ],
-                ),
-                if (customer.email.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Row(children: [
-                    Icon(Icons.mail_outline, size: 13, color: CustomerDetailColors.labelGrey),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        customer.email,
-                        style: GoogleFonts.poppins(fontSize: 12, color: CustomerDetailColors.labelGrey),
-                      ),
-                    ),
-                  ]),
-                ],
-                if (customer.place.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.place_outlined, size: 13, color: CustomerDetailColors.labelGrey),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          customer.place,
-                          style: GoogleFonts.poppins(fontSize: 12, color: CustomerDetailColors.labelGrey),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-                if (customer.address.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.home_outlined, size: 13, color: CustomerDetailColors.labelGrey),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          customer.address,
-                          style: GoogleFonts.poppins(fontSize: 12, height: 1.4, color: CustomerDetailColors.labelGrey),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Balance Hero ─────────────────────────────────────────────────────────────
-
-enum BalanceStatus { paid, pending, overdue }
-
-class CustomerBalanceHero extends StatelessWidget {
-  const CustomerBalanceHero({
+class CustomerPendingCard extends StatelessWidget {
+  const CustomerPendingCard({
     super.key,
-    required this.totalBalance,
-    required this.stats,
-    required this.month,
+    required this.totalPending,
+    required this.previousPending,
+    required this.monthStats,
   });
 
-  final double totalBalance;
-  final MonthlyStats stats;
-  final DateTime month;
+  /// All-time outstanding (previous + this month − payments).
+  final double totalPending;
+  /// Unpaid balance carried from months before the current month.
+  final double previousPending;
+  final MonthlyStats monthStats;
 
-  BalanceStatus get _status {
-    if (totalBalance <= 0) return BalanceStatus.paid;
-    if (stats.isPending) return BalanceStatus.pending;
-    return BalanceStatus.overdue;
-  }
+  bool get _isPaid => totalPending <= 0;
 
   @override
   Widget build(BuildContext context) {
-    final status = _status;
-    final (bgColor, borderColor, textColor, badgeBg, badgeFg, statusLabel) = switch (status) {
-      BalanceStatus.paid => (
-          const Color(0xFFF0FDF4),
-          const Color(0xFF86EFAC),
-          const Color(0xFF15803D),
-          const Color(0xFFDCFCE7),
-          const Color(0xFF16A34A),
-          'PAID',
-        ),
-      BalanceStatus.pending => (
-          const Color(0xFFFFF7ED),
-          const Color(0xFFFDBA74),
-          const Color(0xFFEA580C),
-          const Color(0xFFFFF7ED),
-          const Color(0xFFEA580C),
-          'PENDING',
-        ),
-      BalanceStatus.overdue => (
-          const Color(0xFFFEF2F2),
-          const Color(0xFFFCA5A5),
-          const Color(0xFFDC2626),
-          const Color(0xFFFEE2E2),
-          const Color(0xFFDC2626),
-          'OVERDUE',
-        ),
-    };
+    final double pendingAmount = totalPending.isNegative ? 0.0 : totalPending;
+    final double priorDue = previousPending.isNegative ? 0.0 : previousPending;
+    final double thisMonthBill = monthStats.totalAmount;
+    final double paidThisMonth = monthStats.paidAmount;
+
+    final textColor =
+        _isPaid ? CustomerDetailColors.statGreen : CustomerDetailColors.statOrange;
+    final bgColor = _isPaid ? const Color(0xFFF0FDF4) : const Color(0xFFFFF7ED);
+    final statusLabel = _isPaid ? 'PAID' : 'PENDING';
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor, width: 1.5),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: CustomerDetailColors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: borderColor.withValues(alpha: 0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Outstanding Balance',
-                      style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500, color: textColor.withValues(alpha: 0.75)),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      CurrencyUtils.format(totalBalance.clamp(0, double.infinity)),
-                      style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.w800, color: textColor, height: 1.1),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                decoration: BoxDecoration(
-                  color: badgeBg,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: badgeFg.withValues(alpha: 0.4)),
-                ),
-                child: Text(
-                  statusLabel,
-                  style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w700, color: badgeFg),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          const Divider(height: 1),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _HeroMetric(
-                label: '${month.monthYear} Billed',
-                value: CurrencyUtils.format(stats.totalAmount),
-                color: textColor.withValues(alpha: 0.8),
-              ),
-              Container(width: 1, height: 28, color: borderColor),
-              _HeroMetric(
-                label: 'Paid This Month',
-                value: CurrencyUtils.format(stats.paidAmount),
-                color: CustomerDetailColors.statGreen,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeroMetric extends StatelessWidget {
-  const _HeroMetric({required this.label, required this.value, required this.color});
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(value, style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w800, color: color)),
-          const SizedBox(height: 2),
-          Text(label, style: GoogleFonts.poppins(fontSize: 10, color: CustomerDetailColors.labelGrey)),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Overview Card (with month navigation) ───────────────────────────────────
-
-class CustomerOverviewCard extends StatelessWidget {
-  const CustomerOverviewCard({
-    super.key,
-    required this.month,
-    required this.stats,
-    this.onViewAll,
-    this.onPrevMonth,
-    this.onNextMonth,
-  });
-
-  final DateTime month;
-  final MonthlyStats stats;
-  final VoidCallback? onViewAll;
-  final VoidCallback? onPrevMonth;
-  final VoidCallback? onNextMonth;
-
-  bool get _isCurrentMonth {
-    final now = DateTime.now();
-    return month.year == now.year && month.month == now.month;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-      decoration: CustomerDetailColors.borderedCard,
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Card header ──────────────────────────────────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Deliveries',
-                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: CustomerDetailColors.titleNavy),
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+            decoration: BoxDecoration(
+              color: bgColor.withValues(alpha: 0.35),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(17)),
+            ),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    width: 4,
+                    margin: const EdgeInsets.only(right: 12),
+                    decoration: BoxDecoration(
+                      color: textColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Expanded(
+                    child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Total Pending',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: CustomerDetailColors.labelGrey,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        CurrencyUtils.format(pendingAmount),
+                        style: GoogleFonts.poppins(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          color: textColor,
+                          height: 1.05,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              if (onViewAll != null)
-                GestureDetector(
-                  onTap: onViewAll,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: textColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: textColor.withValues(alpha: 0.35)),
+                  ),
                   child: Text(
-                    'View all',
-                    style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: CustomerDetailColors.linkBlue),
+                    statusLabel,
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: textColor,
+                    ),
                   ),
                 ),
-            ],
+              ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 8),
-
-          // ── Month navigation ─────────────────────────────────────────────
-          Row(
-            children: [
-              _MonthNavBtn(icon: Icons.chevron_left, onTap: onPrevMonth),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+            child: Row(
+              children: [
+              Expanded(
+                child: _PendingBreakdownTile(
+                  label: 'Previous Due',
+                  value: CurrencyUtils.format(priorDue),
+                  icon: Icons.history_rounded,
+                  color: const Color(0xFF7C3AED),
+                  bg: const Color(0xFFF5F3FF),
+                ),
+              ),
               const SizedBox(width: 6),
               Expanded(
-                child: Text(
-                  month.monthYear,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: _isCurrentMonth ? CustomerDetailColors.statBlue : CustomerDetailColors.labelGrey,
-                  ),
+                child: _PendingBreakdownTile(
+                  label: 'This Month',
+                  value: CurrencyUtils.format(thisMonthBill),
+                  icon: Icons.receipt_long_outlined,
+                  color: CustomerDetailColors.statOrange,
+                  bg: const Color(0xFFFFF7ED),
                 ),
               ),
               const SizedBox(width: 6),
-              _MonthNavBtn(
-                icon: Icons.chevron_right,
-                onTap: _isCurrentMonth ? null : onNextMonth,
+              Expanded(
+                child: _PendingBreakdownTile(
+                  label: 'Paid',
+                  value: CurrencyUtils.format(paidThisMonth),
+                  icon: Icons.check_circle_outline_rounded,
+                  color: CustomerDetailColors.statGreen,
+                  bg: const Color(0xFFECFDF5),
+                ),
               ),
             ],
-          ),
-          const SizedBox(height: 12),
-          const Divider(height: 1, color: CustomerDetailColors.cardBorder),
-          const SizedBox(height: 4),
-
-          // ── Metrics ──────────────────────────────────────────────────────
-          MonthlyMetricsList(
-            stats: stats,
-            labelColor: CustomerDetailColors.labelGrey,
-            valueColor: CustomerDetailColors.statBlue,
-            titleNavy: CustomerDetailColors.titleNavy,
-            dividerColor: CustomerDetailColors.cardBorder,
+            ),
           ),
         ],
       ),
@@ -416,27 +229,405 @@ class CustomerOverviewCard extends StatelessWidget {
   }
 }
 
-class _MonthNavBtn extends StatelessWidget {
-  const _MonthNavBtn({required this.icon, required this.onTap});
+class _PendingBreakdownTile extends StatelessWidget {
+  const _PendingBreakdownTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+    required this.bg,
+  });
+
+  final String label;
+  final String value;
   final IconData icon;
-  final VoidCallback? onTap;
+  final Color color;
+  final Color bg;
 
   @override
   Widget build(BuildContext context) {
-    final enabled = onTap != null;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 28,
-        height: 28,
-        decoration: BoxDecoration(
-          color: enabled ? CustomerDetailColors.statBlue.withValues(alpha: 0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: enabled ? CustomerDetailColors.statBlue.withValues(alpha: 0.3) : CustomerDetailColors.cardBorder,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: color,
+              height: 1.1,
+            ),
+          ),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 8,
+              fontWeight: FontWeight.w500,
+              color: CustomerDetailColors.labelGrey,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Monthly Overview ─────────────────────────────────────────────────────────
+
+/// Up to [limit] recent months that have deliveries or payments.
+List<DateTime> monthsWithActivity({
+  required int year,
+  required int throughMonth,
+  required MonthlyStats Function(DateTime month) statsForMonth,
+  int limit = 4,
+}) {
+  final result = <DateTime>[];
+  for (var m = throughMonth; m >= 1; m--) {
+    final month = DateTime(year, m);
+    final stats = statsForMonth(month);
+    if (stats.totalAmount > 0 || stats.paidAmount > 0) {
+      result.add(month);
+      if (result.length >= limit) break;
+    }
+  }
+  return result;
+}
+
+class CustomerMonthlyOverviewSection extends StatelessWidget {
+  const CustomerMonthlyOverviewSection({
+    super.key,
+    required this.statsForMonth,
+    required this.onMonthTap,
+    this.year,
+    this.initialMonth,
+  });
+
+  final MonthlyStats Function(DateTime month) statsForMonth;
+  final void Function(DateTime month) onMonthTap;
+  final int? year;
+  final int? initialMonth;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final y = year ?? now.year;
+    final throughMonth = y == now.year ? now.month : 12;
+    final initial = (initialMonth ?? now.month).clamp(1, throughMonth);
+    final activeMonths = monthsWithActivity(
+      year: y,
+      throughMonth: throughMonth,
+      statsForMonth: statsForMonth,
+      limit: 4,
+    );
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      decoration: CustomerDetailColors.borderedCard,
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: CustomerDetailColors.statBlue,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Monthly Overview',
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: CustomerDetailColors.titleNavy,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$y',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: CustomerDetailColors.labelGrey,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (activeMonths.isEmpty)
+            Container(
+              height: 54,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFD1D5DB)),
+              ),
+              child: Text(
+                'No activity yet — add a delivery to see months here',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: CustomerDetailColors.labelGrey,
+                ),
+              ),
+            )
+          else ...[
+            const MonthWheelTableHeader(),
+            const SizedBox(height: 8),
+            MonthOverviewList(
+              months: activeMonths,
+              itemBuilder: (context, month) {
+                final stats = statsForMonth(month);
+                final isCurrent = month.month == initial;
+                return _MonthlyOverviewRow(
+                  month: month,
+                  stats: stats,
+                  isCurrentMonth: isCurrent,
+                  onTap: () => onMonthTap(month),
+                );
+              },
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Tap a month to open summary',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 10,
+                color: CustomerDetailColors.labelGrey,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+enum _MonthPayStatus { none, paid, partial, pending }
+
+_MonthPayStatus _monthPayStatus(MonthlyStats stats) {
+  final hasActivity = stats.totalAmount > 0 || stats.paidAmount > 0;
+  if (!hasActivity) return _MonthPayStatus.none;
+  if (stats.balance <= 0) return _MonthPayStatus.paid;
+  if (stats.paidAmount > 0) return _MonthPayStatus.partial;
+  return _MonthPayStatus.pending;
+}
+
+class _MonthlyOverviewRow extends StatelessWidget {
+  const _MonthlyOverviewRow({
+    required this.month,
+    required this.stats,
+    required this.isCurrentMonth,
+    required this.onTap,
+  });
+
+  final DateTime month;
+  final MonthlyStats stats;
+  final bool isCurrentMonth;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = _monthPayStatus(stats);
+    final hasActivity = status != _MonthPayStatus.none;
+
+    final (amountColor, rowBg, rowBorder) = switch (status) {
+      _MonthPayStatus.paid => (
+          CustomerDetailColors.statGreen,
+          const Color(0xFFECFDF5),
+          const Color(0xFF86EFAC),
+        ),
+      _MonthPayStatus.partial => (
+          const Color(0xFFD97706),
+          const Color(0xFFFFFBEB),
+          const Color(0xFFFCD34D),
+        ),
+      _MonthPayStatus.pending => (
+          CustomerDetailColors.statOrange,
+          const Color(0xFFFFF7ED),
+          const Color(0xFFFDBA74),
+        ),
+      _MonthPayStatus.none => (
+          CustomerDetailColors.labelGrey,
+          Colors.white,
+          const Color(0xFFE5E7EB),
+        ),
+    };
+
+    final pendingDisplay = stats.balance > 0
+        ? CurrencyUtils.format(stats.balance)
+        : CurrencyUtils.format(0.0);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          decoration: BoxDecoration(
+            color: isCurrentMonth ? rowBg : Colors.white,
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(
+              color: isCurrentMonth ? amountColor.withValues(alpha: 0.45) : rowBorder,
+              width: isCurrentMonth ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 3,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: amountColor,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  month.monthName,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: CustomerDetailColors.titleNavy,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  CurrencyUtils.format(stats.totalAmount),
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: amountColor,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  pendingDisplay,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: amountColor,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 72,
+                child: Center(
+                  child: _StatusBadge(
+                    label: switch (status) {
+                      _MonthPayStatus.none => '—',
+                      _MonthPayStatus.paid => 'PAID',
+                      _MonthPayStatus.partial => 'PART',
+                      _MonthPayStatus.pending => 'PENDING',
+                    },
+                    status: status,
+                    isEmpty: !hasActivity,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 2),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: CustomerDetailColors.labelGrey,
+              ),
+            ],
           ),
         ),
-        child: Icon(icon, size: 18, color: enabled ? CustomerDetailColors.statBlue : CustomerDetailColors.cardBorder),
+      ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({
+    required this.label,
+    required this.status,
+    required this.isEmpty,
+  });
+
+  final String label;
+  final _MonthPayStatus status;
+  final bool isEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isEmpty) {
+      return Text(
+        label,
+        style: GoogleFonts.poppins(
+          fontSize: 10,
+          color: CustomerDetailColors.labelGrey,
+        ),
+      );
+    }
+
+    final (color, bg) = switch (status) {
+      _MonthPayStatus.paid => (
+          CustomerDetailColors.statGreen,
+          const Color(0xFFDCFCE7),
+        ),
+      _MonthPayStatus.partial => (
+          const Color(0xFFD97706),
+          const Color(0xFFFEF3C7),
+        ),
+      _MonthPayStatus.pending => (
+          CustomerDetailColors.statOrange,
+          const Color(0xFFFFF7ED),
+        ),
+      _MonthPayStatus.none => (
+          CustomerDetailColors.labelGrey,
+          const Color(0xFFF3F4F6),
+        ),
+    };
+
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withValues(alpha: 0.4)),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          softWrap: false,
+          style: GoogleFonts.poppins(
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            color: color,
+            height: 1.0,
+          ),
+        ),
       ),
     );
   }
@@ -451,31 +642,44 @@ class QuickActionsSection extends StatelessWidget {
     required this.onRecordPayment,
     required this.onViewBills,
     required this.onCall,
-    required this.onViewHistory,
-    this.customerPhone,
   });
 
   final VoidCallback onAddDelivery;
   final VoidCallback onRecordPayment;
   final VoidCallback onViewBills;
   final VoidCallback onCall;
-  final VoidCallback onViewHistory;
-  final String? customerPhone;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: CustomerDetailColors.cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             'Quick Actions',
-            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700, color: CustomerDetailColors.titleNavy),
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: CustomerDetailColors.titleNavy,
+            ),
           ),
-          const SizedBox(height: 8),
-          _PrimaryAction(label: 'Add Delivery', icon: Icons.water_drop, onTap: onAddDelivery),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
+          AddDeliveryBar(onTap: onAddDelivery),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -500,19 +704,9 @@ class QuickActionsSection extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _SecondaryAction(
-                  label: 'History',
-                  icon: Icons.history_outlined,
-                  iconColor: const Color(0xFF0EA5E9),
-                  bgColor: const Color(0xFFE0F2FE),
-                  onTap: onViewHistory,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _SecondaryAction(
                   label: 'Call',
                   icon: Icons.phone_outlined,
-                  iconColor: const Color(0xFFEA580C),
+                  iconColor: CustomerDetailColors.statOrange,
                   bgColor: const Color(0xFFFFF7ED),
                   onTap: onCall,
                 ),
@@ -525,45 +719,107 @@ class QuickActionsSection extends StatelessWidget {
   }
 }
 
-class _PrimaryAction extends StatelessWidget {
-  const _PrimaryAction({required this.label, required this.icon, required this.onTap});
-  final String label;
-  final IconData icon;
+/// Full-width gradient bar for adding a delivery (animated van).
+class AddDeliveryBar extends StatefulWidget {
+  const AddDeliveryBar({super.key, required this.onTap});
+
   final VoidCallback onTap;
+
+  @override
+  State<AddDeliveryBar> createState() => _AddDeliveryBarState();
+}
+
+class _AddDeliveryBarState extends State<AddDeliveryBar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _drive;
+
+  @override
+  void initState() {
+    super.initState();
+    _drive = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _drive.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      borderRadius: BorderRadius.circular(12),
-      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(14),
+      elevation: 0,
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        onTap: widget.onTap,
+        borderRadius: BorderRadius.circular(14),
         child: Ink(
           decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
             gradient: const LinearGradient(
-              colors: [Color(0xFF1A73E8), Color(0xFF1558B0)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [Color(0xFF1A73E8), Color(0xFF2563EB)],
             ),
-            borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF1A73E8).withValues(alpha: 0.35),
-                blurRadius: 10,
+                color: Color(0xFF1A73E8).withValues(alpha: 0.35),
+                blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
             ],
           ),
-          padding: const EdgeInsets.symmetric(vertical: 13),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.water_drop, color: Colors.white, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
+              AnimatedBuilder(
+                animation: _drive,
+                builder: (context, child) {
+                  return Transform.translate(
+                    offset: Offset(_drive.value * 10, 0),
+                    child: child,
+                  );
+                },
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.22),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: const Icon(
+                    Icons.local_shipping_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Add Delivery',
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              AnimatedBuilder(
+                animation: _drive,
+                builder: (context, _) {
+                  return Opacity(
+                    opacity: 0.55 + _drive.value * 0.45,
+                    child: const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -593,20 +849,26 @@ class _SecondaryAction extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
         decoration: BoxDecoration(
           color: bgColor,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: iconColor.withValues(alpha: 0.2)),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: iconColor.withValues(alpha: 0.18)),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, color: iconColor, size: 22),
-            const SizedBox(height: 5),
+            const SizedBox(height: 6),
             Text(
               label,
               textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: iconColor, height: 1.2),
+              style: GoogleFonts.poppins(
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                color: iconColor,
+                height: 1.15,
+              ),
               maxLines: 2,
             ),
           ],
@@ -750,7 +1012,7 @@ class DeleteCustomerSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
       child: SizedBox(
         width: double.infinity,
         height: 48,

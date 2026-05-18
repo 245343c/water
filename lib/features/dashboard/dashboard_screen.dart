@@ -207,7 +207,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Consumer<WaterPlantRepository>(
       builder: (context, repo, _) {
         final stats = repo.dashboardStats(_month);
-        final actions = repo.dashboardActionItems(limit: 5);
+        final actions = repo.dashboardActionItems(limit: 12);
         final business = repo.settings.businessName;
 
         final overview = DashboardOverviewData(

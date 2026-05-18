@@ -183,9 +183,18 @@ GoRouter createAppRouter(AuthRepository auth) {
       GoRoute(
         path: '/customers/:id/summary',
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => MonthlySummaryScreen(
-          customerId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) {
+          final year = int.tryParse(state.uri.queryParameters['year'] ?? '');
+          final month = int.tryParse(state.uri.queryParameters['month'] ?? '');
+          DateTime? initialMonth;
+          if (year != null && month != null && month >= 1 && month <= 12) {
+            initialMonth = DateTime(year, month);
+          }
+          return MonthlySummaryScreen(
+            customerId: state.pathParameters['id']!,
+            initialMonth: initialMonth,
+          );
+        },
       ),
       GoRoute(
         path: '/customers/:id/bill',
