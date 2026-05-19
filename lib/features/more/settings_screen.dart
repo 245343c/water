@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/data/models/business_settings.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/add_edit_customer_widgets.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/features/more/widgets/settings_screen_widgets.dart';
+import 'package:sri_sai_ro_water/features/more/widgets/shop_location_picker.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -24,9 +24,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final TextEditingController _emailController;
   late final TextEditingController _normalPriceController;
   late final TextEditingController _coolPriceController;
-  late final TextEditingController _latController;
-  late final TextEditingController _lngController;
   bool _initialized = false;
+
+  double? _shopLat;
+  double? _shopLng;
+  bool _homeDelivery = false;
 
   @override
   void initState() {
@@ -37,20 +39,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _emailController = TextEditingController();
     _normalPriceController = TextEditingController();
     _coolPriceController = TextEditingController();
-    _latController = TextEditingController();
-    _lngController = TextEditingController();
-    _normalPriceController.addListener(_onPriceChanged);
-    _coolPriceController.addListener(_onPriceChanged);
-  }
-
-  void _onPriceChanged() {
-    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
-    _normalPriceController.removeListener(_onPriceChanged);
-    _coolPriceController.removeListener(_onPriceChanged);
     _nameController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
@@ -68,23 +60,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _emailController.text = s.email;
     _normalPriceController.text = s.normalPrice.toStringAsFixed(0);
     _coolPriceController.text = s.coolPrice.toStringAsFixed(0);
-    _latController.text = s.shopLatitude?.toStringAsFixed(6) ?? '';
-    _lngController.text = s.shopLongitude?.toStringAsFixed(6) ?? '';
+    _shopLat = s.shopLatitude;
+    _shopLng = s.shopLongitude;
+    _homeDelivery = s.homeDeliveryAvailable;
     _initialized = true;
   }
 
-  double _previewNormal(WaterPlantRepository repo) =>
-      double.tryParse(_normalPriceController.text) ?? repo.settings.normalPrice;
-
-  double _previewCool(WaterPlantRepository repo) =>
-      double.tryParse(_coolPriceController.text) ?? repo.settings.coolPrice;
-
   void _save(WaterPlantRepository repo) {
     if (!_formKey.currentState!.validate()) return;
-    final latText = _latController.text.trim();
-    final lngText = _lngController.text.trim();
-    final lat = latText.isEmpty ? null : double.tryParse(latText);
-    final lng = lngText.isEmpty ? null : double.tryParse(lngText);
 
     repo.updateSettings(
       repo.settings.copyWith(
@@ -94,9 +77,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         email: _emailController.text.trim(),
         normalPrice: double.parse(_normalPriceController.text),
         coolPrice: double.parse(_coolPriceController.text),
-        shopLatitude: lat,
-        shopLongitude: lng,
-        clearMapPin: lat == null || lng == null,
+        shopLatitude: _shopLat,
+        shopLongitude: _shopLng,
+        homeDeliveryAvailable: _homeDelivery,
+        clearMapPin: _shopLat == null || _shopLng == null,
       ),
     );
     if (!mounted) return;
@@ -114,7 +98,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Consumer<WaterPlantRepository>(
       builder: (context, repo, _) {
         _load(repo.settings);
-        final symbol = CurrencyUtils.symbol;
 
         return Scaffold(
           backgroundColor: CustomersColors.screenBg,
@@ -180,37 +163,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             const SizedBox(height: 16),
                           ],
                         ),
-                        const SettingsSectionLabel(
-                          title: 'Shop map pin',
-                          subtitle: 'Optional — for map preview in Menu',
-                        ),
+                        const SettingsSectionLabel(title: 'Customer app'),
                         AddEditCustomerFormCard(
                           children: [
-                            AddEditCustomerField(
-                              label: 'Latitude',
-                              controller: _latController,
-                              hint: 'e.g. 16.990200',
-                              icon: Icons.my_location_outlined,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            SettingsHomeDeliverySwitch(
+                              value: _homeDelivery,
+                              onChanged: (v) => setState(() => _homeDelivery = v),
                             ),
-                            AddEditCustomerField(
-                              label: 'Longitude',
-                              controller: _lngController,
-                              hint: 'e.g. 81.778000',
-                              icon: Icons.explore_outlined,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 8),
                           ],
                         ),
-                        const SettingsSectionLabel(
-                          title: 'Can prices',
-                          subtitle: 'Used for new deliveries only',
+                        const SettingsSectionLabel(title: 'Map location'),
+                        ShopLocationPicker(
+                          minimal: true,
+                          latitude: _shopLat,
+                          longitude: _shopLng,
+                          addressText: _addressController.text,
+                          onChanged: (lat, lng, _) {
+                            setState(() {
+                              _shopLat = lat;
+                              _shopLng = lng;
+                            });
+                          },
                         ),
+                        const SettingsSectionLabel(title: 'Can prices'),
                         AddEditCustomerFormCard(
                           children: [
                             AddEditCustomerField(
-                              label: 'Normal Can Price ($symbol)',
+                              label: 'Normal can price (₹)',
                               controller: _normalPriceController,
                               hint: 'e.g. 20',
                               icon: Icons.water_drop_outlined,
@@ -223,7 +203,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               },
                             ),
                             AddEditCustomerField(
-                              label: 'Cool Can Price ($symbol)',
+                              label: 'Cool can price (₹)',
                               controller: _coolPriceController,
                               hint: 'e.g. 30',
                               icon: Icons.ac_unit_outlined,
@@ -237,10 +217,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                             const SizedBox(height: 16),
                           ],
-                        ),
-                        SettingsPricesPreviewCard(
-                          normalPrice: _previewNormal(repo),
-                          coolPrice: _previewCool(repo),
                         ),
                       ],
                     ),

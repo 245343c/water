@@ -3,8 +3,10 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
+import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/auth/widgets/login_screen_widgets.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
+import 'package:sri_sai_ro_water/routing/route_guard.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -32,6 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = true);
 
     final auth = context.read<AuthRepository>();
+    final repo = context.read<WaterPlantRepository>();
     final error = auth.login(
       email: _emailController.text,
       password: _passwordController.text,
@@ -39,6 +42,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (!mounted) return;
     setState(() => _loading = false);
+
+    if (error == null && auth.currentUser?.isDriver == true) {
+      final driverId = auth.currentUser!.driverId;
+      final driver = driverId != null ? repo.driverById(driverId) : null;
+      if (driver == null || !driver.active) {
+        auth.logout();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This driver account is inactive. Contact admin.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+    }
 
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -49,7 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       return;
     }
-    context.go(AppRoutes.dashboard);
+    context.go(homeRouteForRole(auth.currentUser!));
   }
 
   @override
@@ -62,6 +80,16 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  onPressed: () => context.canPop()
+                      ? context.pop()
+                      : context.go(AppRoutes.welcome),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  color: LoginColors.brandNavy,
+                ),
+              ),
               const LoginHeroSection(),
               LoginFormCard(
                 child: Column(

@@ -6,6 +6,7 @@ class Delivery {
     required this.customerId,
     required this.date,
     required this.lines,
+    this.driverId,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -13,6 +14,9 @@ class Delivery {
   final String customerId;
   DateTime date;
   final List<DeliveryLineItem> lines;
+
+  /// Staff who recorded this delivery (driver or admin user id).
+  final String? driverId;
   final DateTime createdAt;
 
   /// Legacy mock / can-only deliveries.
@@ -24,6 +28,7 @@ class Delivery {
     required int coolQty,
     required double normalUnitPrice,
     required double coolUnitPrice,
+    String? driverId,
     DateTime? createdAt,
   }) {
     final lines = <DeliveryLineItem>[];
@@ -52,6 +57,7 @@ class Delivery {
       customerId: customerId,
       date: date,
       lines: lines,
+      driverId: driverId,
       createdAt: createdAt,
     );
   }
@@ -92,6 +98,7 @@ class Delivery {
       customerId: customerId,
       date: date ?? this.date,
       lines: lines ?? this.lines,
+      driverId: driverId,
       createdAt: createdAt,
     );
   }

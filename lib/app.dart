@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/services/delivery_recording_service.dart';
+import 'package:sri_sai_ro_water/core/services/order_workflow_service.dart';
+import 'package:sri_sai_ro_water/core/services/push_notification_service.dart';
 import 'package:sri_sai_ro_water/core/theme/app_theme.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
+import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
@@ -16,6 +20,10 @@ class SriSaiRoWaterApp extends StatefulWidget {
 class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
   late final AuthRepository _auth;
   late final WaterPlantRepository _repository;
+  late final NotificationRepository _notifications;
+  late final PushNotificationService _push;
+  late final DeliveryRecordingService _deliveryRecording;
+  late final OrderWorkflowService _orderWorkflow;
   late final GoRouter _router;
 
   @override
@@ -23,7 +31,21 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
     super.initState();
     _auth = AuthRepository();
     _repository = WaterPlantRepository();
-    _router = createAppRouter(_auth);
+    _notifications = NotificationRepository();
+    _push = PushNotificationService();
+    _deliveryRecording = DeliveryRecordingService(
+      plant: _repository,
+      notifications: _notifications,
+      push: _push,
+      auth: _auth,
+    );
+    _orderWorkflow = OrderWorkflowService(
+      plant: _repository,
+      notifications: _notifications,
+      push: _push,
+    );
+    _router = createAppRouter(_auth, _repository);
+    _push.initialize();
   }
 
   @override
@@ -31,6 +53,7 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
     _router.dispose();
     _auth.dispose();
     _repository.dispose();
+    _notifications.dispose();
     super.dispose();
   }
 
@@ -40,6 +63,10 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
       providers: [
         ChangeNotifierProvider.value(value: _auth),
         ChangeNotifierProvider.value(value: _repository),
+        ChangeNotifierProvider.value(value: _notifications),
+        Provider.value(value: _push),
+        Provider.value(value: _deliveryRecording),
+        Provider.value(value: _orderWorkflow),
       ],
       child: MaterialApp.router(
         title: 'Sri Sai RO Water',

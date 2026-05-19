@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
+import 'package:sri_sai_ro_water/data/models/payment_allocation_preview.dart';
 import 'package:sri_sai_ro_water/data/models/payment_method.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/payments/widgets/record_payment_widgets.dart';
@@ -26,7 +27,16 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
   bool _amountInitialized = false;
 
   @override
+  void initState() {
+    super.initState();
+    _amountController.addListener(_onAmountChanged);
+  }
+
+  void _onAmountChanged() => setState(() {});
+
+  @override
   void dispose() {
+    _amountController.removeListener(_onAmountChanged);
     _amountController.dispose();
     _notesController.dispose();
     super.dispose();
@@ -40,6 +50,17 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
       lastDate: DateTime.now().add(const Duration(days: 1)),
     );
     if (picked != null) setState(() => _date = picked);
+  }
+
+  String _successMessage(PaymentAllocationPreview preview, double amount) {
+    final parts = <String>['${CurrencyUtils.format(amount)} recorded'];
+    if (preview.appliedToDue > 0) {
+      parts.add('${CurrencyUtils.format(preview.appliedToDue)} cleared oldest due');
+    }
+    if (preview.hasAdvance) {
+      parts.add('${CurrencyUtils.format(preview.advanceCredit)} advance credit');
+    }
+    return parts.join(' · ');
   }
 
   @override
@@ -57,14 +78,16 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
         final month = DateTime.now();
         final monthly = repo.monthlyStatsForCustomer(widget.customerId, month);
         final previousBalance = repo.previousBalanceForMonth(widget.customerId, month);
-        final totalPayable = (previousBalance + monthly.totalAmount - monthly.paidAmount)
-            .clamp(0.0, double.infinity)
-            .toDouble();
+        final totalPayable = repo.customerBalance(widget.customerId);
+        final existingAdvance = repo.customerAdvanceCredit(widget.customerId);
 
         if (!_amountInitialized && totalPayable > 0) {
           _amountInitialized = true;
           _amountController.text = totalPayable.round().toString();
         }
+
+        final enteredAmount = double.tryParse(_amountController.text) ?? 0;
+        final preview = repo.previewPayment(widget.customerId, enteredAmount);
 
         final colorIndex = repo.customers.indexWhere((c) => c.id == widget.customerId);
 
@@ -88,6 +111,7 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
                           totalAmount: monthly.totalAmount,
                           previousBalance: previousBalance,
                           totalPayable: totalPayable,
+                          advanceCredit: existingAdvance,
                         ),
                         RecordPaymentLabeledField(
                           label: 'Enter Payment Amount',
@@ -132,6 +156,7 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
                             },
                           ),
                         ),
+                        RecordPaymentAllocationPreview(preview: preview),
                         RecordPaymentMethodRow(
                           selected: _method,
                           onSelected: (m) => setState(() => _method = m),
@@ -177,6 +202,7 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
                     onPressed: () {
                       if (!_formKey.currentState!.validate()) return;
                       final amount = double.parse(_amountController.text);
+                      final split = repo.previewPayment(widget.customerId, amount);
                       repo.addPayment(
                         customerId: widget.customerId,
                         amount: amount,
@@ -188,7 +214,12 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
                       );
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Payment of ${CurrencyUtils.format(amount)} recorded'),
+                          content: Text(
+                            _successMessage(split, amount),
+                            style: GoogleFonts.poppins(fontSize: 13),
+                          ),
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 4),
                         ),
                       );
                       context.pop();

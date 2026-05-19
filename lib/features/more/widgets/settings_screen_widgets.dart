@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/add_edit_customer_widgets.dart';
 
 class SettingsSectionLabel extends StatelessWidget {
@@ -23,8 +22,9 @@ class SettingsSectionLabel extends StatelessWidget {
           Text(
             title,
             style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
               color: AddEditCustomerColors.labelGrey,
             ),
           ),
@@ -34,7 +34,7 @@ class SettingsSectionLabel extends StatelessWidget {
               subtitle!,
               style: GoogleFonts.poppins(
                 fontSize: 11,
-                height: 1.4,
+                height: 1.35,
                 color: AddEditCustomerColors.labelGrey,
               ),
             ),
@@ -45,65 +45,51 @@ class SettingsSectionLabel extends StatelessWidget {
   }
 }
 
-class SettingsPricesPreviewCard extends StatelessWidget {
-  const SettingsPricesPreviewCard({
+/// Single-line home delivery toggle for settings.
+class SettingsHomeDeliverySwitch extends StatelessWidget {
+  const SettingsHomeDeliverySwitch({
     super.key,
-    required this.normalPrice,
-    required this.coolPrice,
+    required this.value,
+    required this.onChanged,
   });
 
-  final double normalPrice;
-  final double coolPrice;
+  final bool value;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFBFDBFE)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.info_outline_rounded, size: 20, color: Color(0xFF2563EB)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Current rates preview',
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => onChanged(!value),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              Icon(
+                Icons.delivery_dining_rounded,
+                size: 22,
+                color: value ? const Color(0xFF16A34A) : AddEditCustomerColors.labelGrey,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Home delivery',
                   style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
                     color: AddEditCustomerColors.titleNavy,
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'Normal ${CurrencyUtils.format(normalPrice)} · Cool ${CurrencyUtils.format(coolPrice)}',
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF1D4ED8),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'New deliveries use these prices. Existing deliveries keep their original rates.',
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    height: 1.4,
-                    color: AddEditCustomerColors.labelGrey,
-                  ),
-                ),
-              ],
-            ),
+              ),
+              Switch.adaptive(
+                value: value,
+                onChanged: onChanged,
+                activeTrackColor: const Color(0xFF16A34A),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

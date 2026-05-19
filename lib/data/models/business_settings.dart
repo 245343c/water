@@ -8,6 +8,7 @@ class BusinessSettings {
     this.email = '',
     this.shopLatitude,
     this.shopLongitude,
+    this.homeDeliveryAvailable = false,
   });
 
   String businessName;
@@ -20,6 +21,9 @@ class BusinessSettings {
   double? shopLatitude;
   double? shopLongitude;
 
+  /// When true, shop appears in customer app for home delivery orders.
+  bool homeDeliveryAvailable;
+
   bool get hasMapPin => shopLatitude != null && shopLongitude != null;
 
   BusinessSettings copyWith({
@@ -31,6 +35,7 @@ class BusinessSettings {
     double? coolPrice,
     double? shopLatitude,
     double? shopLongitude,
+    bool? homeDeliveryAvailable,
     bool clearMapPin = false,
   }) {
     return BusinessSettings(
@@ -42,6 +47,8 @@ class BusinessSettings {
       coolPrice: coolPrice ?? this.coolPrice,
       shopLatitude: clearMapPin ? null : (shopLatitude ?? this.shopLatitude),
       shopLongitude: clearMapPin ? null : (shopLongitude ?? this.shopLongitude),
+      homeDeliveryAvailable:
+          homeDeliveryAvailable ?? this.homeDeliveryAvailable,
     );
   }
 }

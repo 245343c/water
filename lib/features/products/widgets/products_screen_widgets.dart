@@ -39,6 +39,210 @@ class ProductsScaffold extends StatelessWidget {
   }
 }
 
+// ─── Catalog stats strip ─────────────────────────────────────────────────────
+
+class ProductsCatalogStats extends StatelessWidget {
+  const ProductsCatalogStats({
+    super.key,
+    required this.total,
+    required this.bottles,
+    required this.cans,
+  });
+
+  final int total;
+  final int bottles;
+  final int cans;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      decoration: BoxDecoration(
+        gradient: CustomersColors.headerGradient.gradient,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: CustomersColors.addButton.withValues(alpha: 0.22),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _stat('$total', 'Products'),
+          _divider(),
+          _stat('$bottles', 'Bottles'),
+          _divider(),
+          _stat('$cans', 'Cans'),
+        ],
+      ),
+    );
+  }
+
+  Widget _divider() => Container(
+        width: 1,
+        height: 36,
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        color: Colors.white.withValues(alpha: 0.28),
+      );
+
+  Widget _stat(String value, String label) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              color: Colors.white.withValues(alpha: 0.9),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Premium list row (catalog) ──────────────────────────────────────────────
+
+class ProductListTile extends StatelessWidget {
+  const ProductListTile({super.key, required this.product, required this.onTap});
+
+  final Product product;
+  final VoidCallback onTap;
+
+  bool get _isBottle => product.category == ProductCategory.bottle;
+
+  Color get _accent =>
+      _isBottle ? ProductsColors.statBlue : ProductsColors.statGreen;
+
+  @override
+  Widget build(BuildContext context) {
+    final file = ProductImageService.fileForPath(product.localImagePath);
+    final icon = _isBottle ? Icons.water_drop_rounded : Icons.local_drink_rounded;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: ProductsColors.cardBorder),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    width: 4,
+                    decoration: BoxDecoration(
+                      color: _accent,
+                      borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
+                    ),
+                  ),
+                  ClipRRect(
+                    borderRadius: const BorderRadius.only(topRight: Radius.circular(4)),
+                    child: SizedBox(
+                      width: 88,
+                      child: file != null
+                          ? Image.file(file, fit: BoxFit.cover)
+                          : ColoredBox(
+                              color: _isBottle ? ProductsColors.bottleBg : ProductsColors.canBg,
+                              child: Center(
+                                child: Icon(icon, size: 36, color: _accent),
+                              ),
+                            ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  product.name,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: ProductsColors.titleNavy,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              _CategoryBadge(category: product.category),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            product.variantSummary,
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: ProductsColors.labelGrey,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Text(
+                                CurrencyUtils.format(product.startingPrice),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: _accent,
+                                ),
+                              ),
+                              Text(
+                                ' · ${product.variants.length} size${product.variants.length == 1 ? '' : 's'}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  color: ProductsColors.labelGrey,
+                                ),
+                              ),
+                              const Spacer(),
+                              Icon(Icons.chevron_right_rounded, color: _accent, size: 22),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Category filter chip ─────────────────────────────────────────────────────
 
 class ProductCategoryChip extends StatelessWidget {
@@ -120,7 +324,7 @@ class ProductCatalogCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
-                height: 96,
+                height: 110,
                 child: Container(
                   decoration: BoxDecoration(
                     color: _imageBg,
@@ -129,7 +333,7 @@ class ProductCatalogCard extends StatelessWidget {
                   child: ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
                     child: file != null
-                        ? Image.file(file, fit: BoxFit.cover, width: double.infinity, height: 96)
+                        ? Image.file(file, fit: BoxFit.cover, width: double.infinity, height: 110)
                         : Center(
                             child: Icon(icon, size: 44, color: _accent.withValues(alpha: 0.85)),
                           ),
@@ -149,12 +353,12 @@ class ProductCatalogCard extends StatelessWidget {
                           child: Text(
                             product.name,
                             style: GoogleFonts.poppins(
-                              fontSize: 12,
+                              fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: ProductsColors.titleNavy,
                               height: 1.15,
                             ),
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),

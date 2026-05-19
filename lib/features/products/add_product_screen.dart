@@ -21,6 +21,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final _nameController = TextEditingController();
   final _sizeController = TextEditingController(text: '1 L');
   final _priceController = TextEditingController();
+  final _stockController = TextEditingController();
   final _notesController = TextEditingController();
   final _picker = ImagePicker();
 
@@ -30,10 +31,26 @@ class _AddProductScreenState extends State<AddProductScreen> {
   bool _saving = false;
 
   @override
+  void initState() {
+    super.initState();
+    for (final c in [_nameController, _sizeController, _priceController, _stockController]) {
+      c.addListener(_refreshPreview);
+    }
+  }
+
+  void _refreshPreview() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    for (final c in [_nameController, _sizeController, _priceController, _stockController]) {
+      c.removeListener(_refreshPreview);
+    }
     _nameController.dispose();
     _sizeController.dispose();
     _priceController.dispose();
+    _stockController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -66,15 +83,13 @@ class _AddProductScreenState extends State<AddProductScreen> {
         maxHeight: 1600,
         imageQuality: 85,
       );
-      if (file != null) {
-        setState(() => _imagePath = file.path);
-      }
+      if (file != null) setState(() => _imagePath = file.path);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Could not open ${source == ImageSource.camera ? 'camera' : 'gallery'}. Check permissions.',
+            'Could not open ${source == ImageSource.camera ? 'camera' : 'gallery'}.',
             style: GoogleFonts.poppins(),
           ),
           behavior: SnackBarBehavior.floating,
@@ -89,9 +104,15 @@ class _AddProductScreenState extends State<AddProductScreen> {
     setState(() => _saving = true);
     try {
       final price = double.parse(_priceController.text.replaceAll(',', '').trim());
+      final stockNote = _stockController.text.trim();
+      final notes = [
+        if (_notesController.text.trim().isNotEmpty) _notesController.text.trim(),
+        if (stockNote.isNotEmpty) 'Stock: $stockNote',
+      ].join(' · ');
+
       await repo.addProduct(
         name: _nameController.text,
-        description: _notesController.text,
+        description: notes,
         category: _category,
         variantLabel: _sizeController.text,
         price: price,
@@ -128,6 +149,14 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     child: ListView(
                       padding: const EdgeInsets.only(bottom: 24),
                       children: [
+                        AddProductLivePreview(
+                          name: _nameController.text,
+                          sizeLabel: _sizeController.text,
+                          priceText: _priceController.text,
+                          category: _category,
+                          isCool: _isCoolCan,
+                          imagePath: _imagePath,
+                        ),
                         AddProductPhotoSection(
                           imagePath: _imagePath,
                           onPickCamera: () => _pickImage(ImageSource.camera),
@@ -141,10 +170,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                           child: Text(
-                            'Product details',
+                            'DETAILS',
                             style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.6,
                               color: AddProductColors.labelGrey,
                             ),
                           ),
@@ -152,50 +182,51 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         AddEditCustomerFormCard(
                           children: [
                             AddEditCustomerField(
-                              label: 'Product Name',
+                              label: 'Product name',
                               controller: _nameController,
-                              hint: 'e.g. RO Water 2 L Bottle',
+                              hint: 'e.g. RO Water 1 L Bottle',
                               icon: Icons.inventory_2_outlined,
                               textCapitalization: TextCapitalization.words,
                               required: true,
                               validator: (v) =>
-                                  v == null || v.trim().isEmpty ? 'Product name is required' : null,
+                                  v == null || v.trim().isEmpty ? 'Name is required' : null,
                             ),
-                            if (_category == ProductCategory.can) ...[
-                              const SizedBox(height: 4),
+                            if (_category == ProductCategory.can)
                               AddProductCanTypeSelector(
                                 isCool: _isCoolCan,
                                 onChanged: _onCanTypeChanged,
-                              ),
-                              const SizedBox(height: 8),
-                            ] else
-                              AddEditCustomerField(
-                                label: 'Bottle Size',
+                              )
+                            else
+                              AddProductQuantityField(
                                 controller: _sizeController,
-                                hint: 'e.g. 1/2 L, 1 L, 2 L, 25 L',
-                                icon: Icons.straighten_outlined,
-                                required: true,
-                                validator: (v) =>
-                                    v == null || v.trim().isEmpty ? 'Size is required' : null,
+                                category: _category,
+                                isCool: _isCoolCan,
                               ),
                             AddEditCustomerField(
                               label: 'Price (₹)',
                               controller: _priceController,
-                              hint: 'Enter selling price',
+                              hint: 'Selling price',
                               icon: Icons.currency_rupee,
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
                               required: true,
                               validator: validateProductPrice,
                             ),
                             AddEditCustomerField(
+                              label: 'Stock quantity (optional)',
+                              controller: _stockController,
+                              hint: 'e.g. 50',
+                              icon: Icons.numbers_outlined,
+                              keyboardType: TextInputType.number,
+                              validator: validateStockQty,
+                            ),
+                            AddEditCustomerField(
                               label: 'Notes (optional)',
                               controller: _notesController,
-                              hint: 'Short description for your team',
+                              hint: 'For your team',
                               icon: Icons.notes_outlined,
-                              textCapitalization: TextCapitalization.sentences,
                               maxLines: 2,
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 12),
                           ],
                         ),
                       ],
@@ -203,7 +234,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   ),
                 ),
                 AddEditCustomerSaveButton(
-                  label: _saving ? 'Saving…' : 'Save Product',
+                  label: _saving ? 'Saving…' : 'Save product',
                   onPressed: _saving ? () {} : () => _save(repo),
                 ),
               ],

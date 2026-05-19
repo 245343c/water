@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
-import 'package:sri_sai_ro_water/data/models/product_variant.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/features/products/widgets/products_screen_widgets.dart';
@@ -34,11 +33,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
     var list = repo.searchProducts(_query);
     return switch (_filter) {
       _ProductFilter.all => list,
-      _ProductFilter.bottles => list.where((p) => p.category == ProductCategory.bottle).toList(),
-      _ProductFilter.cans => list.where((p) => p.category == ProductCategory.can).toList(),
+      _ProductFilter.bottles =>
+        list.where((p) => p.category == ProductCategory.bottle).toList(),
+      _ProductFilter.cans =>
+        list.where((p) => p.category == ProductCategory.can).toList(),
     };
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -59,14 +59,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 ),
                 CustomersSearchRow(
                   controller: _search,
-                  hintText: 'Search products...',
+                  hintText: 'Search products…',
                   onChanged: (v) => setState(() => _query = v),
                 ),
                 CustomersListPanel(
                   child: Column(
                     children: [
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                         child: Row(
                           children: [
                             ProductCategoryChip(
@@ -90,18 +90,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         ),
                       ),
                       Expanded(
-                        child:                         products.isEmpty
+                        child: products.isEmpty
                             ? _EmptyProducts(
                                 isSearch: _query.isNotEmpty || _filter != _ProductFilter.all,
                                 onAdd: () => context.push('/products/add'),
                               )
                             : GridView.builder(
-                                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                                padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
                                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 2,
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 12,
-                                  childAspectRatio: 0.78,
+                                  crossAxisSpacing: 14,
+                                  mainAxisSpacing: 14,
+                                  childAspectRatio: 0.72,
                                 ),
                                 itemCount: products.length,
                                 itemBuilder: (context, i) {
@@ -135,63 +135,31 @@ class _EmptyProducts extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isSearch) {
       return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.search_off_rounded,
-              size: 52,
-              color: ProductsColors.labelGrey.withValues(alpha: 0.45),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'No products found',
-              style: GoogleFonts.poppins(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: ProductsColors.labelGrey,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Try a different search term',
-              style: GoogleFonts.poppins(fontSize: 12, color: ProductsColors.labelGrey.withValues(alpha: 0.7)),
-            ),
-          ],
+        child: Text(
+          'No products found',
+          style: GoogleFonts.poppins(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: ProductsColors.labelGrey,
+          ),
         ),
       );
     }
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
-              width: 160,
-              child: Opacity(
-                opacity: 0.85,
-                child: IgnorePointer(
-                  child: ProductCatalogCard(
-                    product: Product(
-                      id: 'preview',
-                      name: 'RO Water Can',
-                      description: '20L',
-                      category: ProductCategory.can,
-                      variants: const [
-                        ProductVariant(id: 'n', label: 'Normal', price: 20),
-                        ProductVariant(id: 'c', label: 'Cool', price: 25, isCool: true),
-                      ],
-                    ),
-                    onTap: () {},
-                  ),
-                ),
-              ),
+            Icon(
+              Icons.inventory_2_outlined,
+              size: 64,
+              color: ProductsColors.statBlue.withValues(alpha: 0.5),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             Text(
-              'No Products Yet',
+              'Your catalog is empty',
               style: GoogleFonts.poppins(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -200,25 +168,23 @@ class _EmptyProducts extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Add bottles or cans — they appear in a\nclean catalog like the preview above.',
+              'Add bottles and water cans with photos and prices.',
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
                 fontSize: 13,
                 color: ProductsColors.labelGrey,
-                height: 1.5,
+                height: 1.45,
               ),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: onAdd,
-              icon: const Icon(Icons.add_rounded, size: 20),
-              label: const Text('Add First Product'),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Add product'),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF1A73E8),
-                foregroundColor: Colors.white,
+                backgroundColor: CustomersColors.addButton,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                textStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
               ),
             ),
           ],

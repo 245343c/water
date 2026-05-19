@@ -84,6 +84,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         final currentMonth = DateTime(now.year, now.month);
         final monthly = repo.monthlyStatsForCustomer(widget.customerId, currentMonth);
         final totalPending = repo.customerBalance(widget.customerId);
+        final advanceCredit = repo.customerAdvanceCredit(widget.customerId);
         final previousPending =
             repo.previousBalanceForMonth(widget.customerId, currentMonth);
         final idx = repo.customers.indexWhere((c) => c.id == widget.customerId);
@@ -108,6 +109,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                       ),
                       CustomerPendingCard(
                         totalPending: totalPending,
+                        advanceCredit: advanceCredit,
                         previousPending: previousPending,
                         monthStats: monthly,
                       ),

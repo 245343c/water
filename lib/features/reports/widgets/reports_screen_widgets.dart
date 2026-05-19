@@ -7,6 +7,8 @@ import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
+enum ReportsPeriodPreset { thisWeek, thisMonth, lastMonth, custom }
+
 abstract final class ReportsColors {
   static const Color screenBg = Color(0xFFF3F4F6);
   static const Color titleNavy = Color(0xFF111827);
@@ -15,12 +17,14 @@ abstract final class ReportsColors {
   static const Color statGreen = Color(0xFF16A34A);
   static const Color statNavy = Color(0xFF1E3A8A);
   static const Color statRed = Color(0xFFDC2626);
+  static const Color statAmber = Color(0xFFD97706);
   static const Color normalCan = Color(0xFF2563EB);
   static const Color coolCan = Color(0xFF16A34A);
   static const Color gridLine = Color(0xFFE5E7EB);
+  static const Color heroStart = Color(0xFF1E3A8A);
+  static const Color heroEnd = Color(0xFF2563EB);
 }
 
-/// One bar bucket for the cans overview chart.
 class ReportsChartBucket {
   const ReportsChartBucket({
     required this.label,
@@ -38,10 +42,14 @@ class ReportsChartBucket {
 abstract final class ReportsFormat {
   static final NumberFormat _count = NumberFormat('#,##,###', 'en_IN');
   static final DateFormat _range = DateFormat('d MMM yyyy');
+  static final DateFormat _short = DateFormat('d MMM');
 
   static String count(int n) => _count.format(n);
+  static String countDouble(double n) => _count.format(n);
   static String dateRange(DateTime start, DateTime end) =>
-      '${_range.format(start)} - ${_range.format(end)}';
+      '${_range.format(start)} – ${_range.format(end)}';
+  static String shortDate(DateTime d) => _short.format(d);
+  static String percent(double ratio) => '${(ratio * 100).round()}%';
 }
 
 class ReportsScaffold extends StatelessWidget {
@@ -71,25 +79,96 @@ class ReportsHeader extends StatelessWidget {
     return Container(
       decoration: CustomersColors.headerGradient,
       padding: EdgeInsets.fromLTRB(4, MediaQuery.paddingOf(context).top + 4, 4, 16),
-      child: Row(
+      child: Column(
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
-            onPressed: onBack,
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
+                onPressed: onBack,
+              ),
+              Expanded(
+                child: Text(
+                  'Reports',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 48),
+            ],
           ),
-          Expanded(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
             child: Text(
-              'Reports',
+              'Sales, deliveries & collections',
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
+                color: Colors.white.withValues(alpha: 0.85),
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),
-          const SizedBox(width: 48),
         ],
+      ),
+    );
+  }
+}
+
+class ReportsPeriodChips extends StatelessWidget {
+  const ReportsPeriodChips({
+    super.key,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final ReportsPeriodPreset selected;
+  final ValueChanged<ReportsPeriodPreset> onSelect;
+
+  static const _labels = {
+    ReportsPeriodPreset.thisWeek: 'This week',
+    ReportsPeriodPreset.thisMonth: 'This month',
+    ReportsPeriodPreset.lastMonth: 'Last month',
+    ReportsPeriodPreset.custom: 'Custom',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: ReportsPeriodPreset.values.map((preset) {
+            final isSelected = selected == preset;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: FilterChip(
+                label: Text(
+                  _labels[preset]!,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? Colors.white : ReportsColors.titleNavy,
+                  ),
+                ),
+                selected: isSelected,
+                onSelected: (_) => onSelect(preset),
+                showCheckmark: false,
+                selectedColor: ReportsColors.heroEnd,
+                backgroundColor: Colors.white,
+                side: BorderSide(
+                  color: isSelected ? ReportsColors.heroEnd : ReportsColors.cardBorder,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
@@ -110,39 +189,52 @@ class ReportsDateRangeBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
+          borderRadius: BorderRadius.circular(14),
+          child: Ink(
+            decoration: _reportsCardDecoration,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: ReportsColors.cardBorder),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
             child: Row(
               children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.date_range_rounded, color: ReportsColors.heroEnd, size: 22),
+                ),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    ReportsFormat.dateRange(start, end),
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: ReportsColors.titleNavy,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Date range',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: ReportsColors.labelGrey,
+                        ),
+                      ),
+                      Text(
+                        ReportsFormat.dateRange(start, end),
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: ReportsColors.titleNavy,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const Icon(Icons.calendar_today_outlined, size: 20, color: ReportsColors.labelGrey),
+                const Icon(Icons.tune_rounded, size: 20, color: ReportsColors.labelGrey),
               ],
             ),
           ),
@@ -152,18 +244,164 @@ class ReportsDateRangeBar extends StatelessWidget {
   }
 }
 
-class ReportsStatsGrid extends StatelessWidget {
-  const ReportsStatsGrid({
+class ReportsHeroSummaryCard extends StatelessWidget {
+  const ReportsHeroSummaryCard({
+    super.key,
+    required this.sales,
+    required this.collected,
+    required this.cans,
+  });
+
+  final double sales;
+  final double collected;
+  final int cans;
+
+  @override
+  Widget build(BuildContext context) {
+    final gap = (sales - collected).clamp(0.0, double.infinity);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [ReportsColors.heroStart, ReportsColors.heroEnd],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: ReportsColors.heroEnd.withValues(alpha: 0.35),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.analytics_rounded, color: Colors.white.withValues(alpha: 0.9), size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Period performance',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withValues(alpha: 0.9),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(
+              CurrencyUtils.format(sales),
+              style: GoogleFonts.poppins(
+                fontSize: 32,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                height: 1,
+              ),
+            ),
+            Text(
+              'Delivery sales in range',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.white.withValues(alpha: 0.85),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _HeroMetric(
+                    label: 'Collected',
+                    value: CurrencyUtils.format(collected),
+                  ),
+                ),
+                Container(width: 1, height: 36, color: Colors.white.withValues(alpha: 0.25)),
+                Expanded(
+                  child: _HeroMetric(
+                    label: 'Outstanding',
+                    value: CurrencyUtils.format(gap),
+                  ),
+                ),
+                Container(width: 1, height: 36, color: Colors.white.withValues(alpha: 0.25)),
+                Expanded(
+                  child: _HeroMetric(
+                    label: 'Cans',
+                    value: ReportsFormat.count(cans),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroMetric extends StatelessWidget {
+  const _HeroMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Column(
+        children: [
+          Text(
+            value,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              color: Colors.white.withValues(alpha: 0.8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ReportsKpiGrid extends StatelessWidget {
+  const ReportsKpiGrid({
     super.key,
     required this.totalCans,
+    required this.normalCans,
+    required this.coolCans,
     required this.totalSales,
-    required this.totalCustomers,
+    required this.collected,
+    required this.activeCustomers,
     required this.pendingAmount,
   });
 
   final int totalCans;
+  final int normalCans;
+  final int coolCans;
   final double totalSales;
-  final int totalCustomers;
+  final double collected;
+  final int activeCustomers;
   final double pendingAmount;
 
   @override
@@ -176,25 +414,48 @@ class ReportsStatsGrid extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         mainAxisSpacing: 10,
         crossAxisSpacing: 10,
-        childAspectRatio: 1.45,
+        childAspectRatio: 1.35,
         children: [
-          _StatCard(
-            label: 'Total Cans Delivered',
+          _KpiCard(
+            icon: Icons.local_drink_rounded,
+            iconColor: ReportsColors.normalCan,
+            label: 'Total cans',
             value: ReportsFormat.count(totalCans),
+            valueColor: ReportsColors.statNavy,
+          ),
+          _KpiCard(
+            icon: Icons.payments_rounded,
+            iconColor: ReportsColors.statGreen,
+            label: 'Collected',
+            value: CurrencyUtils.format(collected),
             valueColor: ReportsColors.statGreen,
           ),
-          _StatCard(
-            label: 'Total Sales',
+          _KpiCard(
+            icon: Icons.water_drop_outlined,
+            iconColor: ReportsColors.normalCan,
+            label: 'Normal · Cool',
+            value: '${ReportsFormat.count(normalCans)} · ${ReportsFormat.count(coolCans)}',
+            valueColor: ReportsColors.titleNavy,
+            valueSize: 16,
+          ),
+          _KpiCard(
+            icon: Icons.groups_rounded,
+            iconColor: ReportsColors.statAmber,
+            label: 'Active customers',
+            value: ReportsFormat.count(activeCustomers),
+            valueColor: ReportsColors.statAmber,
+          ),
+          _KpiCard(
+            icon: Icons.receipt_long_rounded,
+            iconColor: ReportsColors.statGreen,
+            label: 'Delivery sales',
             value: CurrencyUtils.format(totalSales),
             valueColor: ReportsColors.statGreen,
           ),
-          _StatCard(
-            label: 'Total Customers',
-            value: ReportsFormat.count(totalCustomers),
-            valueColor: ReportsColors.statNavy,
-          ),
-          _StatCard(
-            label: 'Pending Amount',
+          _KpiCard(
+            icon: Icons.warning_amber_rounded,
+            iconColor: ReportsColors.statRed,
+            label: 'All-time pending',
             value: CurrencyUtils.format(pendingAmount),
             valueColor: ReportsColors.statRed,
           ),
@@ -204,58 +465,151 @@ class ReportsStatsGrid extends StatelessWidget {
   }
 }
 
-class _StatCard extends StatelessWidget {
-  const _StatCard({
+class _KpiCard extends StatelessWidget {
+  const _KpiCard({
+    required this.icon,
+    required this.iconColor,
     required this.label,
     required this.value,
     required this.valueColor,
+    this.valueSize = 20,
   });
 
+  final IconData icon;
+  final Color iconColor;
   final String label;
   final String value;
   final Color valueColor;
+  final double valueSize;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: ReportsColors.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
+      decoration: _reportsCardDecoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 18, color: iconColor),
+          ),
+          const Spacer(),
           Text(
             label,
             style: GoogleFonts.poppins(
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: FontWeight.w500,
               color: ReportsColors.labelGrey,
-              height: 1.25,
+              height: 1.2,
             ),
           ),
-          const Spacer(),
+          const SizedBox(height: 4),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
               value,
               style: GoogleFonts.poppins(
-                fontSize: 22,
+                fontSize: valueSize,
                 fontWeight: FontWeight.w800,
                 color: valueColor,
                 height: 1,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ReportsInsightStrip extends StatelessWidget {
+  const ReportsInsightStrip({
+    super.key,
+    required this.deliveryCount,
+    required this.avgCansPerDay,
+    required this.collectionRate,
+  });
+
+  final int deliveryCount;
+  final double avgCansPerDay;
+  final double collectionRate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: _reportsCardDecoration,
+        child: Row(
+          children: [
+            _InsightCell(
+              icon: Icons.local_shipping_outlined,
+              label: 'Trips',
+              value: ReportsFormat.count(deliveryCount),
+            ),
+            _verticalDivider(),
+            _InsightCell(
+              icon: Icons.speed_rounded,
+              label: 'Avg cans/day',
+              value: ReportsFormat.countDouble(avgCansPerDay),
+            ),
+            _verticalDivider(),
+            _InsightCell(
+              icon: Icons.pie_chart_outline_rounded,
+              label: 'Collection',
+              value: ReportsFormat.percent(collectionRate),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _verticalDivider() => Container(
+        width: 1,
+        height: 40,
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        color: ReportsColors.cardBorder,
+      );
+}
+
+class _InsightCell extends StatelessWidget {
+  const _InsightCell({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(icon, size: 18, color: ReportsColors.heroEnd),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: ReportsColors.titleNavy,
+            ),
+          ),
+          Text(
+            label,
+            style: GoogleFonts.poppins(fontSize: 10, color: ReportsColors.labelGrey),
           ),
         ],
       ),
@@ -271,55 +625,52 @@ class ReportsCansOverviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(16, 16, 12, 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: ReportsColors.cardBorder),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
+        decoration: _reportsCardDecoration,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Cans Delivered Overview',
-              style: GoogleFonts.poppins(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: ReportsColors.titleNavy,
-              ),
-            ),
-            const SizedBox(height: 12),
             Row(
               children: [
-                _LegendDot(color: ReportsColors.normalCan, label: 'Normal Cans'),
-                const SizedBox(width: 18),
-                _LegendDot(color: ReportsColors.coolCan, label: 'Cool Cans'),
+                Expanded(
+                  child: Text(
+                    'Cans delivered',
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: ReportsColors.titleNavy,
+                    ),
+                  ),
+                ),
+                _LegendDot(color: ReportsColors.normalCan, label: 'Normal'),
+                const SizedBox(width: 12),
+                _LegendDot(color: ReportsColors.coolCan, label: 'Cool'),
               ],
             ),
             const SizedBox(height: 16),
             SizedBox(
-              height: 220,
+              height: 230,
               child: buckets.isEmpty
                   ? Center(
-                      child: Text(
-                        'No deliveries in this period',
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          color: ReportsColors.labelGrey,
-                        ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.bar_chart_rounded, size: 40, color: ReportsColors.labelGrey.withValues(alpha: 0.4)),
+                          const SizedBox(height: 8),
+                          Text(
+                            'No deliveries in this period',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: ReportsColors.labelGrey,
+                            ),
+                          ),
+                        ],
                       ),
                     )
-                  : _ReportsCansLineChart(buckets: buckets),
+                  : _ReportsGroupedBarChart(buckets: buckets),
             ),
           ],
         ),
@@ -340,25 +691,19 @@ class _LegendDot extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(2),
-          ),
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
         ),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: GoogleFonts.poppins(fontSize: 12, color: ReportsColors.labelGrey),
-        ),
+        const SizedBox(width: 5),
+        Text(label, style: GoogleFonts.poppins(fontSize: 11, color: ReportsColors.labelGrey)),
       ],
     );
   }
 }
 
-class _ReportsCansLineChart extends StatelessWidget {
-  const _ReportsCansLineChart({required this.buckets});
+class _ReportsGroupedBarChart extends StatelessWidget {
+  const _ReportsGroupedBarChart({required this.buckets});
 
   final List<ReportsChartBucket> buckets;
 
@@ -369,29 +714,18 @@ class _ReportsCansLineChart extends StatelessWidget {
       return peak > m ? peak : m;
     });
     final chartMax = _reportsNiceMaxY(maxValue);
-    final interval = chartMax / 5;
+    final interval = chartMax / 4;
 
-    final normalSpots = [
-      for (var i = 0; i < buckets.length; i++) FlSpot(i.toDouble(), buckets[i].normal.toDouble()),
-    ];
-    final coolSpots = [
-      for (var i = 0; i < buckets.length; i++) FlSpot(i.toDouble(), buckets[i].cool.toDouble()),
-    ];
-
-    return LineChart(
-      LineChartData(
-        minX: 0,
-        maxX: (buckets.length - 1).toDouble().clamp(0, double.infinity),
-        minY: 0,
+    return BarChart(
+      BarChartData(
         maxY: chartMax,
+        minY: 0,
+        groupsSpace: 14,
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
           horizontalInterval: interval,
-          getDrawingHorizontalLine: (_) => const FlLine(
-            color: ReportsColors.gridLine,
-            strokeWidth: 1,
-          ),
+          getDrawingHorizontalLine: (_) => const FlLine(color: ReportsColors.gridLine, strokeWidth: 1),
         ),
         borderData: FlBorderData(show: false),
         titlesData: FlTitlesData(
@@ -429,77 +763,40 @@ class _ReportsCansLineChart extends StatelessWidget {
             ),
           ),
         ),
-        lineTouchData: LineTouchData(
-          touchTooltipData: LineTouchTooltipData(
+        barTouchData: BarTouchData(
+          touchTooltipData: BarTouchTooltipData(
             getTooltipColor: (_) => ReportsColors.titleNavy,
             tooltipRoundedRadius: 8,
-            getTooltipItems: (spots) => spots.map((spot) {
-              final i = spot.x.toInt();
-              if (i < 0 || i >= buckets.length) return null;
-              final isNormal = spot.bar.color == ReportsColors.normalCan;
-              final label = isNormal ? 'Normal' : 'Cool';
-              return LineTooltipItem(
-                '$label: ${spot.y.toInt()}',
+            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+              final bucket = buckets[group.x.toInt()];
+              final label = rodIndex == 0 ? 'Normal' : 'Cool';
+              final qty = rodIndex == 0 ? bucket.normal : bucket.cool;
+              return BarTooltipItem(
+                '$label: $qty',
                 GoogleFonts.poppins(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
               );
-            }).toList(),
+            },
           ),
         ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: normalSpots,
-            isCurved: true,
-            curveSmoothness: 0.22,
-            color: ReportsColors.normalCan,
-            barWidth: 2.5,
-            dotData: FlDotData(
-              show: true,
-              getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
-                radius: 4,
-                color: Colors.white,
-                strokeWidth: 2,
-                strokeColor: ReportsColors.normalCan,
-              ),
+        barGroups: [
+          for (var i = 0; i < buckets.length; i++)
+            BarChartGroupData(
+              x: i,
+              barRods: [
+                BarChartRodData(
+                  toY: buckets[i].normal.toDouble(),
+                  color: ReportsColors.normalCan,
+                  width: 10,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                ),
+                BarChartRodData(
+                  toY: buckets[i].cool.toDouble(),
+                  color: ReportsColors.coolCan,
+                  width: 10,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                ),
+              ],
             ),
-            belowBarData: BarAreaData(
-              show: true,
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  ReportsColors.normalCan.withValues(alpha: 0.18),
-                  ReportsColors.normalCan.withValues(alpha: 0.02),
-                ],
-              ),
-            ),
-          ),
-          LineChartBarData(
-            spots: coolSpots,
-            isCurved: true,
-            curveSmoothness: 0.22,
-            color: ReportsColors.coolCan,
-            barWidth: 2.5,
-            dotData: FlDotData(
-              show: true,
-              getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
-                radius: 4,
-                color: Colors.white,
-                strokeWidth: 2,
-                strokeColor: ReportsColors.coolCan,
-              ),
-            ),
-            belowBarData: BarAreaData(
-              show: true,
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  ReportsColors.coolCan.withValues(alpha: 0.16),
-                  ReportsColors.coolCan.withValues(alpha: 0.02),
-                ],
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -513,12 +810,11 @@ double _reportsNiceMaxY(int maxValue) {
   return raw < 100 ? 100 : raw;
 }
 
-/// Buckets daily totals into at most [maxBuckets] groups for chart labels.
 List<ReportsChartBucket> reportsChartBuckets(
   Map<DateTime, ({int normal, int cool})> daily,
   DateTime start,
   DateTime end, {
-  int maxBuckets = 5,
+  int maxBuckets = 7,
 }) {
   if (daily.isEmpty) return [];
 
@@ -561,3 +857,16 @@ List<ReportsChartBucket> reportsChartBuckets(
 
   return buckets;
 }
+
+BoxDecoration get _reportsCardDecoration => BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: ReportsColors.cardBorder),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.05),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    );

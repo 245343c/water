@@ -14,13 +14,45 @@ class ReportsScreen extends StatefulWidget {
 class _ReportsScreenState extends State<ReportsScreen> {
   late DateTime _start;
   late DateTime _end;
+  ReportsPeriodPreset _preset = ReportsPeriodPreset.thisMonth;
 
   @override
   void initState() {
     super.initState();
+    _applyPreset(ReportsPeriodPreset.thisMonth, notify: false);
+  }
+
+  void _applyPreset(ReportsPeriodPreset preset, {bool notify = true}) {
     final now = DateTime.now();
-    _start = DateTime(now.year, now.month, 1);
-    _end = DateTime(now.year, now.month + 1, 0);
+    late DateTime start;
+    late DateTime end;
+
+    switch (preset) {
+      case ReportsPeriodPreset.thisWeek:
+        final weekday = now.weekday;
+        start = DateTime(now.year, now.month, now.day).subtract(Duration(days: weekday - 1));
+        end = start.add(const Duration(days: 6));
+      case ReportsPeriodPreset.thisMonth:
+        start = DateTime(now.year, now.month, 1);
+        end = DateTime(now.year, now.month + 1, 0);
+      case ReportsPeriodPreset.lastMonth:
+        start = DateTime(now.year, now.month - 1, 1);
+        end = DateTime(now.year, now.month, 0);
+      case ReportsPeriodPreset.custom:
+        return;
+    }
+
+    if (notify) {
+      setState(() {
+        _preset = preset;
+        _start = start;
+        _end = end;
+      });
+    } else {
+      _preset = preset;
+      _start = start;
+      _end = end;
+    }
   }
 
   Future<void> _pickRange() async {
@@ -32,6 +64,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
     if (picked != null) {
       setState(() {
+        _preset = ReportsPeriodPreset.custom;
         _start = picked.start;
         _end = picked.end;
       });
@@ -45,11 +78,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
         final deliveries = repo.deliveriesInRange(_start, _end);
         final daily = repo.dailyCanTotals(_start, _end);
         final cans = deliveries.fold<int>(0, (s, d) => s + d.normalQty + d.coolQty);
+        final normalCans = deliveries.fold<int>(0, (s, d) => s + d.normalQty);
+        final coolCans = deliveries.fold<int>(0, (s, d) => s + d.coolQty);
         final sales = deliveries.fold<double>(0, (s, d) => s + d.totalAmount);
+        final collected = repo.paymentsTotalInRange(_start, _end);
+        final activeCustomers = repo.activeCustomersInRange(_start, _end);
         var pending = 0.0;
         for (final c in repo.customers) {
           pending += repo.customerBalance(c.id).clamp(0.0, double.infinity);
         }
+        final daysInRange = _end.difference(_start).inDays + 1;
+        final avgCansPerDay = daysInRange > 0 ? cans / daysInRange : 0.0;
         final chartBuckets = reportsChartBuckets(daily, _start, _end);
 
         return Scaffold(
@@ -61,18 +100,42 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 Expanded(
                   child: ListView(
                     children: [
+                      ReportsPeriodChips(
+                        selected: _preset,
+                        onSelect: (p) {
+                          if (p == ReportsPeriodPreset.custom) {
+                            _pickRange();
+                          } else {
+                            _applyPreset(p);
+                          }
+                        },
+                      ),
                       ReportsDateRangeBar(
                         start: _start,
                         end: _end,
                         onTap: _pickRange,
                       ),
-                      ReportsStatsGrid(
+                      ReportsHeroSummaryCard(
+                        sales: sales,
+                        collected: collected,
+                        cans: cans,
+                      ),
+                      ReportsKpiGrid(
                         totalCans: cans,
+                        normalCans: normalCans,
+                        coolCans: coolCans,
                         totalSales: sales,
-                        totalCustomers: repo.customers.length,
+                        collected: collected,
+                        activeCustomers: activeCustomers,
                         pendingAmount: pending,
                       ),
+                      ReportsInsightStrip(
+                        deliveryCount: deliveries.length,
+                        avgCansPerDay: avgCansPerDay,
+                        collectionRate: sales > 0 ? (collected / sales).clamp(0.0, 1.0) : 0,
+                      ),
                       ReportsCansOverviewCard(buckets: chartBuckets),
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),

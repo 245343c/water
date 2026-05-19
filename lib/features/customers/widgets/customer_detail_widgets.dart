@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/core/widgets/month_wheel_scroll.dart';
-import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/data/models/monthly_stats.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
@@ -77,29 +76,52 @@ class CustomerPendingCard extends StatelessWidget {
   const CustomerPendingCard({
     super.key,
     required this.totalPending,
+    required this.advanceCredit,
     required this.previousPending,
     required this.monthStats,
   });
 
-  /// All-time outstanding (previous + this month − payments).
+  /// Outstanding after FIFO (oldest months first).
   final double totalPending;
+  /// Extra paid beyond all bills — applies to future deliveries.
+  final double advanceCredit;
   /// Unpaid balance carried from months before the current month.
   final double previousPending;
   final MonthlyStats monthStats;
 
-  bool get _isPaid => totalPending <= 0;
+  bool get _hasPending => totalPending > 0;
+  bool get _hasAdvance => advanceCredit > 0;
 
   @override
   Widget build(BuildContext context) {
     final double pendingAmount = totalPending.isNegative ? 0.0 : totalPending;
+    final double creditAmount = advanceCredit.isNegative ? 0.0 : advanceCredit;
     final double priorDue = previousPending.isNegative ? 0.0 : previousPending;
     final double thisMonthBill = monthStats.totalAmount;
     final double paidThisMonth = monthStats.paidAmount;
 
-    final textColor =
-        _isPaid ? CustomerDetailColors.statGreen : CustomerDetailColors.statOrange;
-    final bgColor = _isPaid ? const Color(0xFFF0FDF4) : const Color(0xFFFFF7ED);
-    final statusLabel = _isPaid ? 'PAID' : 'PENDING';
+    final textColor = _hasPending
+        ? CustomerDetailColors.statOrange
+        : _hasAdvance
+            ? const Color(0xFF0D9488)
+            : CustomerDetailColors.statGreen;
+    final bgColor = _hasPending
+        ? const Color(0xFFFFF7ED)
+        : _hasAdvance
+            ? const Color(0xFFF0FDFA)
+            : const Color(0xFFF0FDF4);
+    final statusLabel = _hasPending
+        ? 'PENDING'
+        : _hasAdvance
+            ? 'ADVANCE'
+            : 'PAID';
+    final headline = _hasPending
+        ? 'Total Pending'
+        : _hasAdvance
+            ? 'Advance Credit'
+            : 'All Clear';
+    final mainAmount =
+        _hasPending ? pendingAmount : (_hasAdvance ? creditAmount : 0.0);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
@@ -144,16 +166,29 @@ class CustomerPendingCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Total Pending',
+                        headline,
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: CustomerDetailColors.labelGrey,
                         ),
                       ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _hasPending
+                            ? 'Oldest month cleared first when customer pays'
+                            : _hasAdvance
+                                ? 'Extra payment — auto-adjusts on next bill'
+                                : 'No pending balance',
+                        style: GoogleFonts.poppins(
+                          fontSize: 9,
+                          color: CustomerDetailColors.labelGrey.withValues(alpha: 0.85),
+                          height: 1.2,
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       Text(
-                        CurrencyUtils.format(pendingAmount),
+                        CurrencyUtils.format(mainAmount),
                         style: GoogleFonts.poppins(
                           fontSize: 28,
                           fontWeight: FontWeight.w800,
@@ -193,7 +228,7 @@ class CustomerPendingCard extends StatelessWidget {
               children: [
               Expanded(
                 child: _PendingBreakdownTile(
-                  label: 'Previous Due',
+                  label: 'Older months',
                   value: CurrencyUtils.format(priorDue),
                   icon: Icons.history_rounded,
                   color: const Color(0xFF7C3AED),
@@ -203,7 +238,7 @@ class CustomerPendingCard extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: _PendingBreakdownTile(
-                  label: 'This Month',
+                  label: 'This month bill',
                   value: CurrencyUtils.format(thisMonthBill),
                   icon: Icons.receipt_long_outlined,
                   color: CustomerDetailColors.statOrange,
@@ -213,7 +248,7 @@ class CustomerPendingCard extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: _PendingBreakdownTile(
-                  label: 'Paid',
+                  label: 'Paid (this mo.)',
                   value: CurrencyUtils.format(paidThisMonth),
                   icon: Icons.check_circle_outline_rounded,
                   color: CustomerDetailColors.statGreen,
@@ -223,6 +258,28 @@ class CustomerPendingCard extends StatelessWidget {
             ],
             ),
           ),
+          if (_hasAdvance && _hasPending) ...[
+            const Divider(height: 1, color: CustomerDetailColors.cardBorder),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+              child: Row(
+                children: [
+                  Icon(Icons.savings_outlined, size: 18, color: const Color(0xFF0D9488)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Advance ${CurrencyUtils.format(creditAmount)} also on account',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF0F766E),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -311,12 +368,16 @@ class CustomerMonthlyOverviewSection extends StatelessWidget {
     required this.onMonthTap,
     this.year,
     this.initialMonth,
+    this.emptyHint,
+    this.footerHint,
   });
 
   final MonthlyStats Function(DateTime month) statsForMonth;
   final void Function(DateTime month) onMonthTap;
   final int? year;
   final int? initialMonth;
+  final String? emptyHint;
+  final String? footerHint;
 
   @override
   Widget build(BuildContext context) {
@@ -379,7 +440,8 @@ class CustomerMonthlyOverviewSection extends StatelessWidget {
                 border: Border.all(color: const Color(0xFFD1D5DB)),
               ),
               child: Text(
-                'No activity yet — add a delivery to see months here',
+                emptyHint ??
+                    'No activity yet — add a delivery to see months here',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
                   fontSize: 12,
@@ -405,7 +467,7 @@ class CustomerMonthlyOverviewSection extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Tap a month to open summary',
+              footerHint ?? 'Tap a month to open summary',
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
                 fontSize: 10,

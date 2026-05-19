@@ -7,6 +7,8 @@ class CustomerOrder {
     required this.normalQty,
     required this.coolQty,
     required this.status,
+    this.shopId,
+    this.placedByAppUserId,
     this.customerNote,
     this.adminResponse,
     DateTime? createdAt,
@@ -15,6 +17,8 @@ class CustomerOrder {
 
   final String id;
   final String customerId;
+  final String? shopId;
+  final String? placedByAppUserId;
   final int normalQty;
   final int coolQty;
   OrderStatus status;

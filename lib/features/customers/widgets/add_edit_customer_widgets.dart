@@ -194,6 +194,85 @@ class AddEditCustomerField extends StatelessWidget {
   }
 }
 
+/// Divider between sections inside one form card.
+class AddEditCustomerFormDivider extends StatelessWidget {
+  const AddEditCustomerFormDivider({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Row(
+        children: [
+          Expanded(child: Container(height: 1, color: AddEditCustomerColors.fieldBorder)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Icon(Icons.more_horiz, size: 18, color: AddEditCustomerColors.labelGrey.withValues(alpha: 0.6)),
+          ),
+          Expanded(child: Container(height: 1, color: AddEditCustomerColors.fieldBorder)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Subsection title inside the unified customer form card.
+class AddEditCustomerSubsectionHeader extends StatelessWidget {
+  const AddEditCustomerSubsectionHeader({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    this.trailing,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AddEditCustomerColors.primaryBtn.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.sell_outlined, color: AddEditCustomerColors.primaryBtn, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AddEditCustomerColors.titleNavy,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.poppins(fontSize: 11, color: AddEditCustomerColors.labelGrey),
+                ),
+              ],
+            ),
+          ),
+          if (trailing != null) trailing!,
+        ],
+      ),
+    );
+  }
+}
+
 class AddEditCustomerSaveButton extends StatelessWidget {
   const AddEditCustomerSaveButton({
     super.key,

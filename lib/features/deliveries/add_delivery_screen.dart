@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/auth/app_role.dart';
+import 'package:sri_sai_ro_water/core/constants/customer_pricing_keys.dart';
+import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
+import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/delivery_line_item.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
@@ -33,18 +37,23 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
     }
   }
 
-  List<BottleDeliveryInput> _bottleInputs(List<Product> catalog) {
+  List<BottleDeliveryInput> _bottleInputs(Customer customer, WaterPlantRepository repo, List<Product> catalog) {
     final inputs = <BottleDeliveryInput>[];
     for (final product in catalog) {
       for (final variant in product.variants) {
         final key = '${product.id}|${variant.id}';
         final qty = _bottleQty[key] ?? 0;
         if (qty > 0) {
+          final unitPrice = repo.customerUnitPrice(
+            customer,
+            productId: product.id,
+            variantId: variant.id,
+          );
           inputs.add(
             BottleDeliveryInput(
               label: variant.label,
               quantity: qty,
-              unitPrice: variant.price,
+              unitPrice: unitPrice,
               productId: product.id,
             ),
           );
@@ -54,24 +63,37 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
     return inputs;
   }
 
-  List<DeliveryPriceLine> _priceLines(WaterPlantRepository repo, List<Product> catalog) {
-    final settings = repo.settings;
+  List<DeliveryPriceLine> _priceLines(
+    WaterPlantRepository repo,
+    Customer customer,
+    List<Product> catalog,
+  ) {
     final lines = <DeliveryPriceLine>[];
     if (_normal > 0) {
+      final unit = repo.customerUnitPrice(
+        customer,
+        productId: CustomerPricingKeys.canProductId,
+        variantId: CustomerPricingKeys.normalVariantId,
+      );
       lines.add(
         DeliveryPriceLine(
           name: 'Normal Cans',
-          calc: '$_normal x ${settings.normalPrice}',
-          amount: _normal * settings.normalPrice,
+          calc: '$_normal x $unit',
+          amount: _normal * unit,
         ),
       );
     }
     if (_cool > 0) {
+      final unit = repo.customerUnitPrice(
+        customer,
+        productId: CustomerPricingKeys.canProductId,
+        variantId: CustomerPricingKeys.coolVariantId,
+      );
       lines.add(
         DeliveryPriceLine(
           name: 'Cool Cans',
-          calc: '$_cool x ${settings.coolPrice}',
-          amount: _cool * settings.coolPrice,
+          calc: '$_cool x $unit',
+          amount: _cool * unit,
         ),
       );
     }
@@ -80,11 +102,16 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
         final key = '${product.id}|${variant.id}';
         final qty = _bottleQty[key] ?? 0;
         if (qty > 0) {
+          final unit = repo.customerUnitPrice(
+            customer,
+            productId: product.id,
+            variantId: variant.id,
+          );
           lines.add(
             DeliveryPriceLine(
               name: variant.label,
-              calc: '$qty x ${variant.price}',
-              amount: qty * variant.price,
+              calc: '$qty x $unit',
+              amount: qty * unit,
             ),
           );
         }
@@ -96,9 +123,16 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
   double _total(List<DeliveryPriceLine> lines) =>
       lines.fold<double>(0, (sum, l) => sum + l.amount);
 
-  bool _hasItems(List<Product> catalog) {
-    if (_normal + _cool > 0) return true;
-    return _bottleInputs(catalog).isNotEmpty;
+  bool _hasItems({
+    required bool showNormalCans,
+    required bool showCoolCans,
+    required List<Product> catalog,
+    required Customer customer,
+    required WaterPlantRepository repo,
+  }) {
+    if (showNormalCans && _normal > 0) return true;
+    if (showCoolCans && _cool > 0) return true;
+    return _bottleInputs(customer, repo, catalog).isNotEmpty;
   }
 
   @override
@@ -113,8 +147,10 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
           );
         }
 
-        final bottleCatalog = repo.bottleCatalog;
-        final priceLines = _priceLines(repo, bottleCatalog);
+        final bottleCatalog = repo.bottleCatalogForCustomer(customer);
+        final showNormalCans = repo.customerUsesNormalCans(customer);
+        final showCoolCans = repo.customerUsesCoolCans(customer);
+        final priceLines = _priceLines(repo, customer, bottleCatalog);
         final total = _total(priceLines);
         final colorIndex = repo.customers.indexWhere((c) => c.id == widget.customerId);
 
@@ -132,42 +168,59 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
                         colorIndex: colorIndex >= 0 ? colorIndex : 0,
                       ),
                       AddDeliveryDateRow(date: _date, onTap: _pickDate),
-                      const AddDeliverySectionTitle(
-                        title: '20L Water Cans',
-                        subtitle: 'Normal & cool refill cans',
-                      ),
-                      AddDeliveryCanStepper(
-                        label: 'Normal Water Cans',
-                        value: _normal,
-                        onChanged: (v) => setState(() => _normal = v),
-                      ),
-                      AddDeliveryCanStepper(
-                        label: 'Cool Water Cans',
-                        value: _cool,
-                        onChanged: (v) => setState(() => _cool = v),
-                      ),
-                      const AddDeliverySectionTitle(
-                        title: 'Water Bottles',
-                        subtitle: 'From your product catalog',
-                      ),
-                      AddDeliveryBottleCatalog(
-                        products: bottleCatalog,
-                        quantities: _bottleQty,
-                        onChanged: (key, qty) => setState(() => _bottleQty[key] = qty),
-                      ),
+                      if (showNormalCans || showCoolCans) ...[
+                        const AddDeliverySectionTitle(
+                          title: '20L Water Cans',
+                          subtitle: 'Customer rates applied',
+                        ),
+                        if (showNormalCans)
+                          AddDeliveryCanStepper(
+                            label: 'Normal Water Cans',
+                            value: _normal,
+                            onChanged: (v) => setState(() => _normal = v),
+                          ),
+                        if (showCoolCans)
+                          AddDeliveryCanStepper(
+                            label: 'Cool Water Cans',
+                            value: _cool,
+                            onChanged: (v) => setState(() => _cool = v),
+                          ),
+                      ],
+                      if (bottleCatalog.isNotEmpty) ...[
+                        const AddDeliverySectionTitle(
+                          title: 'Water Bottles',
+                          subtitle: 'Products assigned to this customer',
+                        ),
+                        AddDeliveryBottleCatalog(
+                          products: bottleCatalog,
+                          quantities: _bottleQty,
+                          onChanged: (key, qty) => setState(() => _bottleQty[key] = qty),
+                        ),
+                      ],
                       AddDeliveryPriceSection(lines: priceLines, total: total),
                     ],
                   ),
                 ),
                 AddDeliverySaveButton(
-                  enabled: _hasItems(bottleCatalog),
+                  enabled: _hasItems(
+                    showNormalCans: showNormalCans,
+                    showCoolCans: showCoolCans,
+                    catalog: bottleCatalog,
+                    customer: customer,
+                    repo: repo,
+                  ),
                   onPressed: () {
+                    final auth = context.read<AuthRepository>();
+                    final staffId = auth.currentUser?.role == AppRole.driver
+                        ? auth.currentUser?.driverId
+                        : auth.currentUser?.id;
                     final delivery = repo.addDelivery(
                       customerId: widget.customerId,
                       date: _date,
                       normalQty: _normal,
                       coolQty: _cool,
-                      bottles: _bottleInputs(bottleCatalog),
+                      bottles: _bottleInputs(customer, repo, bottleCatalog),
+                      driverId: staffId,
                     );
                     context.pushReplacement(
                       '/customers/${widget.customerId}/delivery/success',

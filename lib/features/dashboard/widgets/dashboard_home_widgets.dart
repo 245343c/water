@@ -69,11 +69,15 @@ class DashboardHeader extends StatelessWidget {
     required this.title,
     this.adminImagePath,
     this.onAdminTap,
+    this.onNotificationsTap,
+    this.notificationCount = 0,
   });
 
   final String title;
   final String? adminImagePath;
   final VoidCallback? onAdminTap;
+  final VoidCallback? onNotificationsTap;
+  final int notificationCount;
 
   @override
   Widget build(BuildContext context) {
@@ -122,7 +126,17 @@ class DashboardHeader extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 10),
+          if (onNotificationsTap != null) ...[
+            IconButton(
+              onPressed: onNotificationsTap,
+              icon: Badge(
+                isLabelVisible: notificationCount > 0,
+                label: Text('$notificationCount'),
+                child: const Icon(Icons.notifications_outlined, color: Colors.white, size: 26),
+              ),
+            ),
+          ],
+          const SizedBox(width: 4),
 
           // Admin avatar — large enough to tap and see photo clearly
           GestureDetector(

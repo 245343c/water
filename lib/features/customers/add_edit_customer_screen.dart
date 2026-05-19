@@ -3,9 +3,11 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
+import 'package:sri_sai_ro_water/data/models/customer_product_price.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/customer_delete_dialog.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/add_edit_customer_widgets.dart';
+import 'package:sri_sai_ro_water/features/customers/widgets/customer_pricing_widgets.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
@@ -28,6 +30,8 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
   late final TextEditingController _placeController;
   late final TextEditingController _addressController;
   bool _loaded = false;
+  bool _pricingReady = false;
+  List<CustomerProductPrice> _productPrices = [];
 
   @override
   void initState() {
@@ -39,14 +43,27 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
     _addressController = TextEditingController();
   }
 
-  void _loadCustomer(Customer? customer) {
-    if (_loaded || customer == null) return;
-    _nameController.text = customer.name;
-    _phoneController.text = customer.phone;
-    _emailController.text = customer.email;
-    _placeController.text = customer.place;
-    _addressController.text = customer.address;
+  void _loadCustomer(Customer? customer, WaterPlantRepository repo) {
+    if (_loaded) return;
+    if (customer != null) {
+      _nameController.text = customer.name;
+      _phoneController.text = customer.phone;
+      _emailController.text = customer.email;
+      _placeController.text = customer.place;
+      _addressController.text = customer.address;
+      _productPrices = customer.productPrices.isEmpty
+          ? repo.defaultCustomerPricing()
+          : List<CustomerProductPrice>.from(customer.productPrices);
+    }
     _loaded = true;
+  }
+
+  void _initPricingForNewCustomer(WaterPlantRepository repo) {
+    if (_pricingReady) return;
+    if (!widget.isEditing) {
+      _productPrices = repo.defaultCustomerPricing();
+    }
+    _pricingReady = true;
   }
 
   @override
@@ -80,6 +97,7 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
             email: data.email,
             place: data.place,
             address: data.address,
+            productPrices: _productPrices,
           ),
         );
       }
@@ -90,6 +108,7 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
         email: data.email,
         place: data.place,
         address: data.address,
+        productPrices: _productPrices,
       );
     }
 
@@ -126,7 +145,8 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
     return Consumer<WaterPlantRepository>(
       builder: (context, repo, _) {
         final customer = widget.isEditing ? repo.customerById(widget.customerId!) : null;
-        _loadCustomer(customer);
+        _loadCustomer(customer, repo);
+        _initPricingForNewCustomer(repo);
 
         if (widget.isEditing && customer == null) {
           return Scaffold(
@@ -169,19 +189,19 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
                     child: ListView(
                       padding: const EdgeInsets.only(bottom: 24),
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                          child: Text(
-                            'Customer details',
-                            style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AddEditCustomerColors.labelGrey,
-                            ),
-                          ),
-                        ),
                         AddEditCustomerFormCard(
                           children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                              child: Text(
+                                'Customer details',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AddEditCustomerColors.labelGrey,
+                                ),
+                              ),
+                            ),
                             AddEditCustomerField(
                               label: 'Full Name',
                               controller: _nameController,
@@ -233,6 +253,37 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
                               required: true,
                               validator: (v) =>
                                   v == null || v.trim().isEmpty ? 'Address is required' : null,
+                            ),
+                            const AddEditCustomerFormDivider(),
+                            AddEditCustomerSubsectionHeader(
+                              title: 'Product rates',
+                              subtitle: 'Used when recording deliveries for this customer',
+                              trailing: TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _productPrices = repo.defaultCustomerPricing();
+                                  });
+                                },
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AddEditCustomerColors.primaryBtn,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: Text(
+                                  'Shop rates',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            CustomerPricingEditor(
+                              repo: repo,
+                              entries: _productPrices,
+                              embedded: true,
+                              onChanged: (list) => setState(() => _productPrices = list),
                             ),
                             const SizedBox(height: 16),
                           ],

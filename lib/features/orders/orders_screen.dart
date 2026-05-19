@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/data/models/order_status.dart';
+import 'package:sri_sai_ro_water/core/services/order_workflow_service.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/features/orders/widgets/orders_screen_widgets.dart';
@@ -59,16 +60,19 @@ class _OrdersScreenState extends State<OrdersScreen> {
       customerName: customer.name,
       customerPhone: customer.phone,
       onAccept: () {
-        repo.respondToOrder(order.id, OrderStatus.accepted, adminResponse: 'Order confirmed');
+        context.read<OrderWorkflowService>().acceptOrder(orderId: order.id);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Order accepted for ${customer.name}', style: GoogleFonts.poppins()),
+            content: Text(
+              'Order accepted — driver notified to deliver to ${customer.name}',
+              style: GoogleFonts.poppins(),
+            ),
             behavior: SnackBarBehavior.floating,
           ),
         );
       },
       onReject: (reason) {
-        repo.respondToOrder(order.id, OrderStatus.rejected, adminResponse: reason);
+        context.read<OrderWorkflowService>().rejectOrder(orderId: order.id, reason: reason);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Order declined', style: GoogleFonts.poppins()),

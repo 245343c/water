@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/services/product_image_service.dart';
+import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/add_edit_customer_widgets.dart';
 import 'package:sri_sai_ro_water/features/products/widgets/products_screen_widgets.dart';
@@ -23,6 +24,113 @@ class AddProductHeader extends StatelessWidget {
   }
 }
 
+/// Live preview of what will be saved.
+class AddProductLivePreview extends StatelessWidget {
+  const AddProductLivePreview({
+    super.key,
+    required this.name,
+    required this.sizeLabel,
+    required this.priceText,
+    required this.category,
+    required this.isCool,
+    this.imagePath,
+  });
+
+  final String name;
+  final String sizeLabel;
+  final String priceText;
+  final ProductCategory category;
+  final bool isCool;
+  final String? imagePath;
+
+  @override
+  Widget build(BuildContext context) {
+    final isBottle = category == ProductCategory.bottle;
+    final accent = isCool
+        ? ProductsColors.coolAccent
+        : (isBottle ? ProductsColors.statBlue : ProductsColors.statGreen);
+    final price = double.tryParse(priceText.replaceAll(',', '').trim());
+    final file = ProductImageService.fileForPath(imagePath);
+    final displayName = name.trim().isEmpty ? 'Product name' : name.trim();
+    final displaySize = sizeLabel.trim().isEmpty
+        ? (isBottle ? 'Size' : (isCool ? 'Cool can' : 'Normal can'))
+        : sizeLabel.trim();
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [accent.withValues(alpha: 0.12), Colors.white],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              width: 64,
+              height: 64,
+              child: file != null
+                  ? Image.file(file, fit: BoxFit.cover)
+                  : ColoredBox(
+                      color: accent.withValues(alpha: 0.1),
+                      child: Icon(
+                        isBottle ? Icons.water_drop_rounded : Icons.local_drink_rounded,
+                        color: accent,
+                        size: 32,
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Preview',
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: AddProductColors.labelGrey,
+                  ),
+                ),
+                Text(
+                  displayName,
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AddProductColors.titleNavy,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  displaySize,
+                  style: GoogleFonts.poppins(fontSize: 12, color: AddProductColors.labelGrey),
+                ),
+                Text(
+                  price != null ? CurrencyUtils.format(price) : '₹ —',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: accent,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class AddProductPhotoSection extends StatelessWidget {
   const AddProductPhotoSection({
     super.key,
@@ -41,117 +149,64 @@ class AddProductPhotoSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final file = ProductImageService.fileForPath(imagePath);
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AddProductColors.fieldBorder),
-        boxShadow: const [
-          BoxShadow(color: Color(0x0D000000), blurRadius: 12, offset: Offset(0, 4)),
-        ],
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
-            child: AspectRatio(
-              aspectRatio: 16 / 10,
-              child: file != null
-                  ? Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Image.file(file, fit: BoxFit.cover),
-                        Positioned(
-                          top: 10,
-                          right: 10,
-                          child: Material(
-                            color: Colors.black54,
-                            borderRadius: BorderRadius.circular(20),
-                            child: InkWell(
-                              onTap: onRemove,
-                              borderRadius: BorderRadius.circular(20),
-                              child: const Padding(
-                                padding: EdgeInsets.all(8),
-                                child: Icon(Icons.close, color: Colors.white, size: 20),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : Material(
-                      color: ProductsColors.bottleBg,
-                      child: InkWell(
-                        onTap: onPickCamera,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              width: 64,
-                              height: 64,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: ProductsColors.statBlue.withValues(alpha: 0.2),
-                                    blurRadius: 12,
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.add_a_photo_outlined,
-                                size: 32,
-                                color: ProductsColors.statBlue,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Add product photo',
-                              style: GoogleFonts.poppins(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: ProductsColors.titleNavy,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Take a clear photo from your shop',
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                color: AddProductColors.labelGrey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+          Text(
+            'PHOTO',
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+              color: AddProductColors.labelGrey,
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _PhotoActionButton(
-                    icon: Icons.photo_camera_outlined,
-                    label: 'Camera',
-                    onTap: onPickCamera,
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              GestureDetector(
+                onTap: onPickCamera,
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: ProductsColors.bottleBg,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AddProductColors.fieldBorder),
+                    image: file != null
+                        ? DecorationImage(image: FileImage(file), fit: BoxFit.cover)
+                        : null,
                   ),
+                  child: file == null
+                      ? const Icon(Icons.add_a_photo_outlined, color: ProductsColors.statBlue)
+                      : null,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _PhotoActionButton(
-                    icon: Icons.photo_library_outlined,
-                    label: 'Gallery',
-                    onTap: onPickGallery,
-                    outlined: true,
-                  ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _PhotoBtn(icon: Icons.photo_camera_outlined, label: 'Camera', onTap: onPickCamera),
+                    const SizedBox(height: 8),
+                    _PhotoBtn(
+                      icon: Icons.photo_library_outlined,
+                      label: 'Gallery',
+                      onTap: onPickGallery,
+                      outlined: true,
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              if (file != null)
+                IconButton(
+                  onPressed: onRemove,
+                  icon: const Icon(Icons.close_rounded, size: 20),
+                  color: AddProductColors.labelGrey,
+                ),
+            ],
           ),
         ],
       ),
@@ -159,8 +214,8 @@ class AddProductPhotoSection extends StatelessWidget {
   }
 }
 
-class _PhotoActionButton extends StatelessWidget {
-  const _PhotoActionButton({
+class _PhotoBtn extends StatelessWidget {
+  const _PhotoBtn({
     required this.icon,
     required this.label,
     required this.onTap,
@@ -176,29 +231,26 @@ class _PhotoActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: outlined ? Colors.white : AddProductColors.primaryBtn,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         child: Container(
-          height: 44,
+          height: 36,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             border: outlined ? Border.all(color: AddProductColors.fieldBorder) : null,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                size: 20,
-                color: outlined ? ProductsColors.statBlue : Colors.white,
-              ),
-              const SizedBox(width: 8),
+              Icon(icon, size: 16, color: outlined ? ProductsColors.statBlue : Colors.white),
+              const SizedBox(width: 6),
               Text(
                 label,
                 style: GoogleFonts.poppins(
-                  fontSize: 14,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: outlined ? ProductsColors.statBlue : Colors.white,
                 ),
@@ -229,10 +281,11 @@ class AddProductCategorySelector extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Product type',
+            'TYPE',
             style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
               color: AddProductColors.labelGrey,
             ),
           ),
@@ -240,21 +293,21 @@ class AddProductCategorySelector extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _TypeCard(
+                child: _TypeChip(
                   icon: Icons.water_drop_outlined,
-                  title: 'Bottles',
-                  subtitle: '½ L, 1 L, 2 L, 25 L…',
+                  label: 'Bottle',
                   selected: selected == ProductCategory.bottle,
+                  accent: ProductsColors.statBlue,
                   onTap: () => onSelected(ProductCategory.bottle),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: _TypeCard(
+                child: _TypeChip(
                   icon: Icons.local_drink_outlined,
-                  title: 'Big Cans',
-                  subtitle: 'Normal & Cool 20L',
+                  label: 'Can',
                   selected: selected == ProductCategory.can,
+                  accent: ProductsColors.statGreen,
                   onTap: () => onSelected(ProductCategory.can),
                 ),
               ),
@@ -266,58 +319,46 @@ class AddProductCategorySelector extends StatelessWidget {
   }
 }
 
-class _TypeCard extends StatelessWidget {
-  const _TypeCard({
+class _TypeChip extends StatelessWidget {
+  const _TypeChip({
     required this.icon,
-    required this.title,
-    required this.subtitle,
+    required this.label,
     required this.selected,
+    required this.accent,
     required this.onTap,
   });
 
   final IconData icon;
-  final String title;
-  final String subtitle;
+  final String label;
   final bool selected;
+  final Color accent;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? ProductsColors.bottleBg : Colors.white,
-      borderRadius: BorderRadius.circular(14),
+      color: selected ? accent.withValues(alpha: 0.1) : Colors.white,
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Ink(
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: selected ? ProductsColors.statBlue : AddProductColors.fieldBorder,
-              width: selected ? 1.5 : 1,
-            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: selected ? accent : AddProductColors.fieldBorder, width: selected ? 2 : 1),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
           child: Column(
             children: [
-              Icon(
-                icon,
-                size: 28,
-                color: selected ? ProductsColors.statBlue : AddProductColors.labelGrey,
-              ),
-              const SizedBox(height: 8),
+              Icon(icon, color: selected ? accent : AddProductColors.labelGrey),
+              const SizedBox(height: 4),
               Text(
-                title,
+                label,
                 style: GoogleFonts.poppins(
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: AddProductColors.titleNavy,
                 ),
-              ),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(fontSize: 10, color: AddProductColors.labelGrey),
               ),
             ],
           ),
@@ -340,25 +381,15 @@ class AddProductCanTypeSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      padding: const EdgeInsets.only(top: 4),
       child: Row(
         children: [
           Expanded(
-            child: _CanChip(
-              label: 'Normal Can',
-              icon: Icons.water_drop_outlined,
-              selected: !isCool,
-              onTap: () => onChanged(false),
-            ),
+            child: _CanChip(label: 'Normal', selected: !isCool, onTap: () => onChanged(false)),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: _CanChip(
-              label: 'Cool Can',
-              icon: Icons.ac_unit_rounded,
-              selected: isCool,
-              onTap: () => onChanged(true),
-            ),
+            child: _CanChip(label: 'Cool', selected: isCool, onTap: () => onChanged(true)),
           ),
         ],
       ),
@@ -367,15 +398,9 @@ class AddProductCanTypeSelector extends StatelessWidget {
 }
 
 class _CanChip extends StatelessWidget {
-  const _CanChip({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
+  const _CanChip({required this.label, required this.selected, required this.onTap});
 
   final String label;
-  final IconData icon;
   final bool selected;
   final VoidCallback onTap;
 
@@ -383,35 +408,57 @@ class _CanChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: selected ? ProductsColors.canBg : Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: selected ? ProductsColors.statGreen : AddProductColors.fieldBorder,
             ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 18, color: selected ? ProductsColors.statGreen : AddProductColors.labelGrey),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AddProductColors.titleNavy,
-                ),
-              ),
-            ],
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AddProductColors.titleNavy,
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class AddProductQuantityField extends StatelessWidget {
+  const AddProductQuantityField({
+    super.key,
+    required this.controller,
+    required this.category,
+    required this.isCool,
+  });
+
+  final TextEditingController controller;
+  final ProductCategory category;
+  final bool isCool;
+
+  @override
+  Widget build(BuildContext context) {
+    if (category == ProductCategory.can) {
+      return const SizedBox.shrink();
+    }
+    return AddEditCustomerField(
+      label: 'Size / quantity',
+      controller: controller,
+      hint: 'e.g. 1 L, 2 L, 20 L',
+      icon: Icons.straighten_outlined,
+      required: true,
+      validator: (v) => v == null || v.trim().isEmpty ? 'Size is required' : null,
     );
   }
 }
@@ -420,5 +467,12 @@ String? validateProductPrice(String? value) {
   if (value == null || value.trim().isEmpty) return 'Price is required';
   final parsed = double.tryParse(value.replaceAll(',', '').trim());
   if (parsed == null || parsed <= 0) return 'Enter a valid price';
+  return null;
+}
+
+String? validateStockQty(String? value) {
+  if (value == null || value.trim().isEmpty) return null;
+  final n = int.tryParse(value.trim());
+  if (n == null || n < 0) return 'Enter a valid quantity';
   return null;
 }

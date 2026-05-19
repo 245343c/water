@@ -9,10 +9,13 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/widgets/month_year_wheel_picker.dart';
+import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
+import 'package:sri_sai_ro_water/features/notifications/notifications_screen.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/features/dashboard/widgets/dashboard_action_center.dart';
 import 'package:sri_sai_ro_water/features/dashboard/widgets/dashboard_home_widgets.dart';
+import 'package:sri_sai_ro_water/features/dashboard/widgets/dashboard_listing_badge.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -204,8 +207,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<WaterPlantRepository>(
-      builder: (context, repo, _) {
+    return Consumer2<WaterPlantRepository, NotificationRepository>(
+      builder: (context, repo, notifications, _) {
         final stats = repo.dashboardStats(_month);
         final actions = repo.dashboardActionItems(limit: 12);
         final business = repo.settings.businessName;
@@ -233,11 +236,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     title: business,
                     adminImagePath: repo.adminImagePath,
                     onAdminTap: () => _pickAdminImage(repo),
+                    notificationCount: notifications.unreadCountForAdmin(),
+                    onNotificationsTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
+                    ),
                   ),
                   Expanded(
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                       children: [
+                        DashboardListingBadge(
+                          homeDeliveryAvailable:
+                              repo.settings.homeDeliveryAvailable,
+                        ),
+                        const SizedBox(height: 14),
                         DashboardQuickActions(
                           onAddDelivery: openAddDelivery,
                           onAddCustomer: () => context.push('/customers/add'),

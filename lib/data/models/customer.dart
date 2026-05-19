@@ -1,3 +1,6 @@
+import 'package:sri_sai_ro_water/data/models/customer_billing_mode.dart';
+import 'package:sri_sai_ro_water/data/models/customer_product_price.dart';
+
 class Customer {
   Customer({
     required this.id,
@@ -7,6 +10,9 @@ class Customer {
     this.email = '',
     this.place = '',
     this.paymentFrequency = 'Monthly',
+    this.productPrices = const [],
+    this.billingMode = CustomerBillingMode.monthlyContract,
+    this.appUserId,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -17,7 +23,14 @@ class Customer {
   String email;
   String place;
   String paymentFrequency;
+  final List<CustomerProductPrice> productPrices;
+  final CustomerBillingMode billingMode;
+  final String? appUserId;
   final DateTime createdAt;
+
+  bool get isAppOnDemand => billingMode == CustomerBillingMode.appOnDemand;
+  bool get isMonthlyContract =>
+      billingMode == CustomerBillingMode.monthlyContract;
 
   String get initials {
     final parts = name.trim().split(RegExp(r'\s+'));
@@ -35,6 +48,9 @@ class Customer {
     String? email,
     String? place,
     String? paymentFrequency,
+    List<CustomerProductPrice>? productPrices,
+    CustomerBillingMode? billingMode,
+    String? appUserId,
   }) {
     return Customer(
       id: id,
@@ -44,7 +60,18 @@ class Customer {
       email: email ?? this.email,
       place: place ?? this.place,
       paymentFrequency: paymentFrequency ?? this.paymentFrequency,
+      productPrices: productPrices ?? this.productPrices,
+      billingMode: billingMode ?? this.billingMode,
+      appUserId: appUserId ?? this.appUserId,
       createdAt: createdAt,
     );
+  }
+
+  CustomerProductPrice? priceEntry(String productId, String variantId) {
+    final key = '$productId|$variantId';
+    for (final p in productPrices) {
+      if (p.key == key) return p;
+    }
+    return null;
   }
 }

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
+import 'package:sri_sai_ro_water/data/models/payment_allocation_preview.dart';
 import 'package:sri_sai_ro_water/data/models/payment_method.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
@@ -121,12 +122,14 @@ class RecordPaymentSummaryBox extends StatelessWidget {
     required this.totalAmount,
     required this.previousBalance,
     required this.totalPayable,
+    this.advanceCredit = 0,
   });
 
   final DateTime month;
   final double totalAmount;
   final double previousBalance;
   final double totalPayable;
+  final double advanceCredit;
 
   @override
   Widget build(BuildContext context) {
@@ -164,15 +167,46 @@ class RecordPaymentSummaryBox extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: _miniColumn('Previous Balance', CurrencyUtils.format(previousBalance)),
+                    child: _miniColumn('Older due', CurrencyUtils.format(previousBalance)),
                   ),
                   const VerticalDivider(width: 1, thickness: 1, color: RecordPaymentColors.summaryBorder),
                   Expanded(
-                    child: _miniColumn('Total Payable', CurrencyUtils.format(totalPayable.clamp(0, double.infinity))),
+                    child: _miniColumn(
+                      'Total due',
+                      CurrencyUtils.format(totalPayable.clamp(0, double.infinity)),
+                    ),
                   ),
                 ],
               ),
             ),
+            if (advanceCredit > 0) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDFA),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF99F6E4)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.savings_outlined, size: 18, color: Color(0xFF0D9488)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Advance on account: ${CurrencyUtils.format(advanceCredit)}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF0F766E),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -357,6 +391,134 @@ class RecordPaymentDateField extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Live preview: how this payment splits across FIFO due vs advance.
+class RecordPaymentAllocationPreview extends StatelessWidget {
+  const RecordPaymentAllocationPreview({super.key, required this.preview});
+
+  final PaymentAllocationPreview preview;
+
+  @override
+  Widget build(BuildContext context) {
+    final amount = preview.appliedToDue + preview.advanceCredit;
+    if (amount <= 0) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFEFF6FF), Color(0xFFF8FAFC)],
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFBFDBFE)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: RecordPaymentColors.selectedBorder.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.account_tree_outlined,
+                    size: 18,
+                    color: RecordPaymentColors.selectedBorder,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Payment split (oldest month first)',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: RecordPaymentColors.titleNavy,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (preview.appliedToDue > 0)
+              _splitRow(
+                icon: Icons.receipt_long_outlined,
+                label: 'Clears pending bills',
+                value: CurrencyUtils.format(preview.appliedToDue),
+                color: RecordPaymentColors.totalGreen,
+              ),
+            if (preview.appliedToDue > 0 && preview.hasAdvance) const SizedBox(height: 8),
+            if (preview.hasAdvance)
+              _splitRow(
+                icon: Icons.savings_outlined,
+                label: 'Saved as advance credit',
+                value: CurrencyUtils.format(preview.advanceCredit),
+                color: const Color(0xFF0D9488),
+              ),
+            if (preview.pendingAfter > 0) ...[
+              const SizedBox(height: 10),
+              const Divider(height: 1, color: RecordPaymentColors.fieldBorder),
+              const SizedBox(height: 8),
+              Text(
+                'Remaining due after payment: ${CurrencyUtils.format(preview.pendingAfter)}',
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: RecordPaymentColors.labelGrey,
+                ),
+              ),
+            ],
+            if (preview.clearsAllDue && preview.hasAdvance) ...[
+              const SizedBox(height: 8),
+              Text(
+                'All months paid — extra stays on account for next bill',
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  color: const Color(0xFF0F766E),
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _splitRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.poppins(fontSize: 12, color: RecordPaymentColors.labelGrey),
+          ),
+        ),
+        Text(
+          value,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 }

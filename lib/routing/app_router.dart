@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
+import 'package:sri_sai_ro_water/features/admin/drivers_screen.dart';
 import 'package:sri_sai_ro_water/features/auth/forgot_password_screen.dart';
 import 'package:sri_sai_ro_water/features/auth/login_screen.dart';
 import 'package:sri_sai_ro_water/features/auth/register_screen.dart';
@@ -13,23 +14,50 @@ import 'package:sri_sai_ro_water/features/customers/customer_detail_screen.dart'
 import 'package:sri_sai_ro_water/features/customers/customers_screen.dart';
 import 'package:sri_sai_ro_water/features/dashboard/dashboard_screen.dart';
 import 'package:sri_sai_ro_water/features/deliveries/add_delivery_screen.dart';
+import 'package:sri_sai_ro_water/features/deliveries/delivery_history_screen.dart';
+import 'package:sri_sai_ro_water/features/deliveries/delivery_success_screen.dart';
+import 'package:sri_sai_ro_water/features/driver/driver_customer_detail_screen.dart';
+import 'package:sri_sai_ro_water/features/driver/driver_customers_screen.dart';
+import 'package:sri_sai_ro_water/features/driver/driver_profile_screen.dart';
+import 'package:sri_sai_ro_water/features/driver/driver_route_screen.dart';
+import 'package:sri_sai_ro_water/features/more/more_screen.dart';
+import 'package:sri_sai_ro_water/features/more/settings_screen.dart';
+import 'package:sri_sai_ro_water/features/orders/orders_screen.dart';
+import 'package:sri_sai_ro_water/features/payments/payment_history_screen.dart';
+import 'package:sri_sai_ro_water/features/payments/record_payment_screen.dart';
 import 'package:sri_sai_ro_water/features/products/add_product_screen.dart';
 import 'package:sri_sai_ro_water/features/products/product_detail_screen.dart';
 import 'package:sri_sai_ro_water/features/products/products_screen.dart';
-import 'package:sri_sai_ro_water/features/deliveries/delivery_history_screen.dart';
-import 'package:sri_sai_ro_water/features/deliveries/delivery_success_screen.dart';
-import 'package:sri_sai_ro_water/features/more/more_screen.dart';
-import 'package:sri_sai_ro_water/features/orders/orders_screen.dart';
-import 'package:sri_sai_ro_water/features/more/settings_screen.dart';
-import 'package:sri_sai_ro_water/features/payments/payment_history_screen.dart';
-import 'package:sri_sai_ro_water/features/payments/record_payment_screen.dart';
 import 'package:sri_sai_ro_water/features/reports/reports_screen.dart';
+import 'package:sri_sai_ro_water/features/auth/role_picker_screen.dart';
+import 'package:sri_sai_ro_water/features/customer/customer_contract_account_screen.dart';
+import 'package:sri_sai_ro_water/features/customer/customer_home_screen.dart';
+import 'package:sri_sai_ro_water/features/customer/customer_month_readonly_screen.dart';
+import 'package:sri_sai_ro_water/features/customer/customer_login_screen.dart';
+import 'package:sri_sai_ro_water/features/customer/customer_onboarding_screen.dart';
+import 'package:sri_sai_ro_water/features/customer/customer_orders_screen.dart';
+import 'package:sri_sai_ro_water/features/customer/customer_profile_screen.dart';
+import 'package:sri_sai_ro_water/features/customer/customer_shop_screen.dart';
+import 'package:sri_sai_ro_water/features/shell/customer_shell.dart';
+import 'package:sri_sai_ro_water/features/shell/driver_shell.dart';
 import 'package:sri_sai_ro_water/features/shell/main_shell.dart';
+import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
+import 'package:sri_sai_ro_water/routing/route_guard.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final shellNavigatorKey = GlobalKey<NavigatorState>();
+final driverShellNavigatorKey = GlobalKey<NavigatorState>();
+final customerShellNavigatorKey = GlobalKey<NavigatorState>();
 
 class AppRoutes {
+  static const welcome = '/welcome';
+  static const customerLogin = '/customer/login';
+  static const customerOnboarding = '/customer/onboarding';
+  static const customerHome = '/customer/home';
+  static const customerAccount = '/customer/account';
+  static const customerOrders = '/customer/orders';
+  static const customerProfile = '/customer/profile';
+  static const customerMonthDetail = '/customer/month';
   static const login = '/login';
   static const register = '/register';
   static const forgotPassword = '/forgot-password';
@@ -40,26 +68,114 @@ class AppRoutes {
   static const products = '/products';
   static const more = '/more';
   static const reports = '/reports';
+  static const drivers = '/drivers';
+
+  static const driverRoute = '/driver/route';
+  /// Legacy paths — redirected to [driverRoute].
+  static const driverToday = '/driver/today';
+  static const driverOrders = '/driver/orders';
+  static const driverCustomers = '/driver/customers';
+  static const driverProfile = '/driver/profile';
 }
 
-GoRouter createAppRouter(AuthRepository auth) {
+GoRouter createAppRouter(
+  AuthRepository auth,
+  WaterPlantRepository plant,
+) {
   return GoRouter(
     navigatorKey: rootNavigatorKey,
-    initialLocation: AppRoutes.login,
+    initialLocation: AppRoutes.welcome,
     refreshListenable: auth,
-    redirect: (context, state) {
-      final loggedIn = auth.isAuthenticated;
-      final location = state.matchedLocation;
-      final onAuth = location == AppRoutes.login ||
-          location == AppRoutes.register ||
-          location == AppRoutes.forgotPassword ||
-          location.startsWith(AppRoutes.resetPassword);
-
-      if (!loggedIn && !onAuth) return AppRoutes.login;
-      if (loggedIn && onAuth) return AppRoutes.dashboard;
-      return null;
-    },
+    redirect: (context, state) => redirectForRole(
+      user: auth.currentUser,
+      location: state.matchedLocation,
+      customerProfile: plant.customerProfileByUserId,
+    ),
     routes: [
+      GoRoute(
+        path: AppRoutes.welcome,
+        builder: (context, state) => const RolePickerScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.customerLogin,
+        builder: (context, state) => const CustomerLoginScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.customerOnboarding,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const CustomerOnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/customer/shop/:id',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => CustomerShopScreen(
+          shopId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.customerMonthDetail,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final customerId = state.uri.queryParameters['customerId'] ?? '';
+          final year = int.tryParse(state.uri.queryParameters['year'] ?? '');
+          final month = int.tryParse(state.uri.queryParameters['month'] ?? '');
+          DateTime? initial;
+          if (year != null && month != null && month >= 1 && month <= 12) {
+            initial = DateTime(year, month);
+          }
+          return CustomerMonthReadonlyScreen(
+            customerId: customerId,
+            initialMonth: initial,
+          );
+        },
+      ),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) {
+          return CustomerShell(navigationShell: navigationShell);
+        },
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.customerHome,
+                pageBuilder: (context, state) => const NoTransitionPage(
+                  child: CustomerHomeScreen(),
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.customerAccount,
+                pageBuilder: (context, state) => const NoTransitionPage(
+                  child: CustomerContractAccountScreen(),
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.customerOrders,
+                pageBuilder: (context, state) => const NoTransitionPage(
+                  child: CustomerOrdersScreen(),
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.customerProfile,
+                pageBuilder: (context, state) => const NoTransitionPage(
+                  child: CustomerProfileScreen(),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
       GoRoute(
         path: AppRoutes.login,
         builder: (context, state) => const LoginScreen(),
@@ -135,6 +251,50 @@ GoRouter createAppRouter(AuthRepository auth) {
             ],
           ),
         ],
+      ),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) {
+          return DriverShell(navigationShell: navigationShell);
+        },
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.driverRoute,
+                pageBuilder: (context, state) => const NoTransitionPage(
+                  child: DriverRouteScreen(),
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.driverCustomers,
+                pageBuilder: (context, state) => const NoTransitionPage(
+                  child: DriverCustomersScreen(),
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.driverProfile,
+                pageBuilder: (context, state) => const NoTransitionPage(
+                  child: DriverProfileScreen(),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/driver/customers/:id',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => DriverCustomerDetailScreen(
+          customerId: state.pathParameters['id']!,
+        ),
       ),
       GoRoute(
         path: '/customers/add',
@@ -238,6 +398,11 @@ GoRouter createAppRouter(AuthRepository auth) {
         path: '/settings',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.drivers,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const DriversScreen(),
       ),
     ],
   );
