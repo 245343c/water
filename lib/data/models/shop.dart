@@ -24,6 +24,10 @@ class Shop {
     this.homeDeliveryAvailable = false,
     this.normalPrice = 20,
     this.coolPrice = 30,
+    this.coverImageUrl,
+    this.tagline = '',
+    this.rating = 4.5,
+    this.reviewCount = 0,
   });
 
   final String id;
@@ -34,6 +38,12 @@ class Shop {
   final String place;
   final double? latitude;
   final double? longitude;
+  /// Remote/network URL for cover image (from admin profile).
+  final String? coverImageUrl;
+  /// Short tagline shown on home card.
+  final String tagline;
+  final double rating;
+  final int reviewCount;
   final ShopSubscriptionStatus subscriptionStatus;
   final DateTime? trialEndsAt;
   final bool isListed;
@@ -66,6 +76,7 @@ class Shop {
       homeDeliveryAvailable: s.homeDeliveryAvailable,
       normalPrice: s.normalPrice,
       coolPrice: s.coolPrice,
+      tagline: 'Pure RO water · Fast home delivery',
     );
   }
 }

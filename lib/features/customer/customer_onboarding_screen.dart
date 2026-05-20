@@ -61,7 +61,7 @@ class _CustomerOnboardingScreenState extends State<CustomerOnboardingScreen> {
     if (_lat == null || _lng == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please set your delivery location on the map'),
+          content: Text('Set your delivery location on the map'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -76,9 +76,9 @@ class _CustomerOnboardingScreenState extends State<CustomerOnboardingScreen> {
     setState(() => _saving = true);
     final profile = CustomerAppProfile(
       userId: user.id,
-      name: _nameController.text.trim(),
+      name: _capitalizeWords(_nameController.text.trim()),
       phone: user.phone,
-      address: _addressController.text.trim(),
+      address: _capitalizeSentence(_addressController.text.trim()),
       latitude: _lat!,
       longitude: _lng!,
       email: _emailController.text.trim(),
@@ -94,23 +94,68 @@ class _CustomerOnboardingScreenState extends State<CustomerOnboardingScreen> {
     context.go(AppRoutes.customerHome);
   }
 
+  static String _capitalizeWords(String s) {
+    if (s.isEmpty) return s;
+    return s.split(RegExp(r'\s+')).map((w) {
+      if (w.isEmpty) return w;
+      return w[0].toUpperCase() + w.substring(1);
+    }).join(' ');
+  }
+
+  static String _capitalizeSentence(String s) {
+    if (s.isEmpty) return s;
+    return s[0].toUpperCase() + s.substring(1);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bottom = customerBottomInset(context, extra: 12);
+
     return Scaffold(
       backgroundColor: CustomerColors.screenBg,
-      body: CustomerScaffold(
+      body: SafeArea(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            CustomerHeader(
-              title: 'Delivery setup',
-              subtitle: 'Address + map pin for home delivery',
-              onBack: () => context.pop(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 4, 16, 0),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => context.canPop() ? context.pop() : context.go(AppRoutes.customerHome),
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    color: CustomerColors.titleNavy,
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Delivery address',
+                          style: GoogleFonts.poppins(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: CustomerColors.titleNavy,
+                          ),
+                        ),
+                        Text(
+                          'We deliver RO water to this location',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: CustomerColors.labelGrey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
             Expanded(
               child: Form(
                 key: _formKey,
                 child: ListView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                   children: [
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -120,39 +165,50 @@ class _CustomerOnboardingScreenState extends State<CustomerOnboardingScreen> {
                           CustomerTextField(
                             label: 'Your name',
                             controller: _nameController,
+                            hint: 'e.g. Ramesh Kumar',
+                            icon: Icons.person_outline_rounded,
+                            textCapitalization: TextCapitalization.words,
                             required: true,
                             validator: (v) => v == null || v.trim().isEmpty
                                 ? 'Name is required'
                                 : null,
                           ),
                           CustomerTextField(
-                            label: 'Delivery address',
+                            label: 'Full address',
                             controller: _addressController,
+                            hint: 'House no., street, area, city',
+                            icon: Icons.home_outlined,
                             maxLines: 2,
+                            textCapitalization: TextCapitalization.sentences,
                             required: true,
                             validator: (v) => v == null || v.trim().length < 8
-                                ? 'Enter full address'
+                                ? 'Enter your full address'
                                 : null,
                           ),
                           CustomerTextField(
                             label: 'Email (optional)',
                             controller: _emailController,
+                            hint: 'you@email.com',
+                            icon: Icons.mail_outline_rounded,
                             keyboardType: TextInputType.emailAddress,
+                            textCapitalization: TextCapitalization.none,
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     Text(
-                      'Pin on map *',
+                      'DELIVERY LOCATION ON MAP',
                       style: GoogleFonts.poppins(
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
+                        letterSpacing: 0.6,
                         color: CustomerColors.labelGrey,
                       ),
                     ),
                     const SizedBox(height: 8),
                     ShopLocationPicker(
+                      minimal: true,
                       latitude: _lat,
                       longitude: _lng,
                       addressText: _addressController.text,
@@ -164,15 +220,27 @@ class _CustomerOnboardingScreenState extends State<CustomerOnboardingScreen> {
                         });
                       },
                     ),
-                    const SizedBox(height: 20),
-                    CustomerPrimaryButton(
-                      label: 'Save & find shops',
-                      loading: _saving,
-                      icon: Icons.check_circle_outline_rounded,
-                      onPressed: _save,
-                    ),
                   ],
                 ),
+              ),
+            ),
+            Container(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, bottom),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 12,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: CustomerPrimaryButton(
+                label: 'Save & continue',
+                loading: _saving,
+                icon: Icons.check_rounded,
+                onPressed: _save,
               ),
             ),
           ],

@@ -268,6 +268,15 @@ class AuthRepository extends ChangeNotifier {
     return null;
   }
 
+  /// Permanently removes the customer account (app store requirement).
+  void deleteCustomerAccount(String userId) {
+    _accounts.removeWhere((a) => a.user.id == userId);
+    if (_currentUser?.id == userId) {
+      _currentUser = null;
+    }
+    notifyListeners();
+  }
+
   void markCustomerOnboardingComplete(String userId, {required String name}) {
     final index = _accounts.indexWhere((a) => a.user.id == userId);
     if (index < 0) return;

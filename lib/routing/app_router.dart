@@ -33,10 +33,12 @@ import 'package:sri_sai_ro_water/features/auth/role_picker_screen.dart';
 import 'package:sri_sai_ro_water/features/customer/customer_contract_account_screen.dart';
 import 'package:sri_sai_ro_water/features/customer/customer_home_screen.dart';
 import 'package:sri_sai_ro_water/features/customer/customer_month_readonly_screen.dart';
+import 'package:sri_sai_ro_water/features/customer/customer_monthly_bill_screen.dart';
 import 'package:sri_sai_ro_water/features/customer/customer_login_screen.dart';
 import 'package:sri_sai_ro_water/features/customer/customer_onboarding_screen.dart';
 import 'package:sri_sai_ro_water/features/customer/customer_orders_screen.dart';
 import 'package:sri_sai_ro_water/features/customer/customer_profile_screen.dart';
+import 'package:sri_sai_ro_water/features/customer/customer_promotions_screen.dart';
 import 'package:sri_sai_ro_water/features/customer/customer_shop_screen.dart';
 import 'package:sri_sai_ro_water/features/shell/customer_shell.dart';
 import 'package:sri_sai_ro_water/features/shell/driver_shell.dart';
@@ -56,8 +58,10 @@ class AppRoutes {
   static const customerHome = '/customer/home';
   static const customerAccount = '/customer/account';
   static const customerOrders = '/customer/orders';
+  static const customerPromotions = '/customer/promotions';
   static const customerProfile = '/customer/profile';
   static const customerMonthDetail = '/customer/month';
+  static const customerMonthlyBill = '/customer/monthly-bill';
   static const login = '/login';
   static const register = '/register';
   static const forgotPassword = '/forgot-password';
@@ -117,6 +121,7 @@ GoRouter createAppRouter(
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) {
           final customerId = state.uri.queryParameters['customerId'] ?? '';
+          final shopId = state.uri.queryParameters['shopId'];
           final year = int.tryParse(state.uri.queryParameters['year'] ?? '');
           final month = int.tryParse(state.uri.queryParameters['month'] ?? '');
           DateTime? initial;
@@ -125,6 +130,26 @@ GoRouter createAppRouter(
           }
           return CustomerMonthReadonlyScreen(
             customerId: customerId,
+            shopId: shopId,
+            initialMonth: initial,
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.customerMonthlyBill,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final customerId = state.uri.queryParameters['customerId'] ?? '';
+          final shopId = state.uri.queryParameters['shopId'] ?? WaterPlantRepository.defaultShopId;
+          final year = int.tryParse(state.uri.queryParameters['year'] ?? '');
+          final month = int.tryParse(state.uri.queryParameters['month'] ?? '');
+          DateTime? initial;
+          if (year != null && month != null && month >= 1 && month <= 12) {
+            initial = DateTime(year, month);
+          }
+          return CustomerMonthlyBillScreen(
+            customerId: customerId,
+            shopId: shopId,
             initialMonth: initial,
           );
         },
@@ -160,6 +185,16 @@ GoRouter createAppRouter(
                 path: AppRoutes.customerOrders,
                 pageBuilder: (context, state) => const NoTransitionPage(
                   child: CustomerOrdersScreen(),
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.customerPromotions,
+                pageBuilder: (context, state) => const NoTransitionPage(
+                  child: CustomerPromotionsScreen(),
                 ),
               ),
             ],

@@ -406,6 +406,53 @@ class CustomerPrimaryButton extends StatelessWidget {
   }
 }
 
+/// Compact home greeting — no stats strip.
+class CustomerHomeGreeting extends StatelessWidget {
+  const CustomerHomeGreeting({super.key, required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: CustomerColors.headerGradient,
+      padding: EdgeInsets.fromLTRB(
+        20,
+        MediaQuery.paddingOf(context).top + 16,
+        20,
+        20,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Hello, $name',
+            style: GoogleFonts.poppins(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Find a shop and order RO water',
+            style: GoogleFonts.poppins(
+              color: Colors.white.withValues(alpha: 0.92),
+              fontSize: 13,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Bottom inset above system navigation / gesture bar.
+double customerBottomInset(BuildContext context, {double extra = 0}) =>
+    MediaQuery.paddingOf(context).bottom + extra;
+
 class CustomerTextField extends StatelessWidget {
   const CustomerTextField({
     super.key,
@@ -417,6 +464,7 @@ class CustomerTextField extends StatelessWidget {
     this.validator,
     this.maxLines = 1,
     this.required = false,
+    this.textCapitalization = TextCapitalization.none,
   });
 
   final String label;
@@ -427,6 +475,7 @@ class CustomerTextField extends StatelessWidget {
   final String? Function(String?)? validator;
   final int maxLines;
   final bool required;
+  final TextCapitalization textCapitalization;
 
   @override
   Widget build(BuildContext context) {
@@ -449,6 +498,7 @@ class CustomerTextField extends StatelessWidget {
             keyboardType: keyboardType,
             maxLines: maxLines,
             validator: validator,
+            textCapitalization: textCapitalization,
             style: GoogleFonts.poppins(fontSize: 14),
             decoration: InputDecoration(
               hintText: hint,

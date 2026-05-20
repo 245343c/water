@@ -1,21 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/bills/widgets/monthly_detail_sheets.dart';
 import 'package:sri_sai_ro_water/features/bills/widgets/monthly_summary_widgets.dart';
 import 'package:sri_sai_ro_water/features/customer/widgets/customer_theme.dart';
+import 'package:sri_sai_ro_water/routing/app_router.dart';
 
 /// Read-only month detail for contract customers (no admin actions).
 class CustomerMonthReadonlyScreen extends StatefulWidget {
   const CustomerMonthReadonlyScreen({
     super.key,
     required this.customerId,
+    this.shopId,
     this.initialMonth,
   });
 
   final String customerId;
+  final String? shopId;
   final DateTime? initialMonth;
 
   @override
@@ -56,6 +60,8 @@ class _CustomerMonthReadonlyScreenState extends State<CustomerMonthReadonlyScree
             repo.paymentsForCustomer(widget.customerId, month: _month);
         final colorIndex =
             repo.customers.indexWhere((c) => c.id == widget.customerId);
+        final shopId = widget.shopId ?? repo.shopIdForCustomer(widget.customerId);
+        final shop = repo.shopById(shopId);
 
         return Scaffold(
           backgroundColor: MonthlySummaryColors.screenBg,
@@ -66,6 +72,21 @@ class _CustomerMonthReadonlyScreenState extends State<CustomerMonthReadonlyScree
                   onBack: () => context.pop(),
                   monthLabel: _month.monthYear,
                 ),
+                if (shop != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        shop.name,
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: CustomerColors.accent,
+                        ),
+                      ),
+                    ),
+                  ),
                 MonthlySummaryCustomerBar(
                   customer: customer,
                   colorIndex: colorIndex >= 0 ? colorIndex : 0,
@@ -74,6 +95,18 @@ class _CustomerMonthReadonlyScreenState extends State<CustomerMonthReadonlyScree
                   child: ListView(
                     padding: const EdgeInsets.only(bottom: 24),
                     children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                        child: CustomerPrimaryButton(
+                          label: 'View full monthly bill (PDF layout)',
+                          icon: Icons.description_outlined,
+                          onPressed: () => context.push(
+                            '${AppRoutes.customerMonthlyBill}?customerId=${widget.customerId}'
+                            '&shopId=$shopId&year=${_month.year}&month=${_month.month}',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       MonthlySummaryStatsCard(stats: stats),
                       MonthlySummaryAccountCard(stats: stats, balance: balance),
                       MonthlyDeliveriesSection(

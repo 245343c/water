@@ -21,6 +21,8 @@ import 'package:sri_sai_ro_water/data/models/payment_method.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/data/models/product_variant.dart';
+import 'package:sri_sai_ro_water/data/models/promotion.dart';
+import 'package:sri_sai_ro_water/data/models/customer_shop_billing.dart';
 import 'package:sri_sai_ro_water/core/services/product_image_service.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/core/utils/payment_allocation.dart';
@@ -39,6 +41,9 @@ class WaterPlantRepository extends ChangeNotifier {
   final List<Product> _products = [];
   final List<Driver> _drivers = [];
   final List<Shop> _shops = [];
+  final List<Promotion> _promotions = [];
+  /// CRM customer id → marketplace shop id (multi-shop bulk billing).
+  final Map<String, String> _customerShopIds = {};
   final Map<String, CustomerAppProfile> _customerProfiles = {};
   final Map<String, String> _routeNotes = {};
   List<String> _todaysRouteIds = [];
@@ -131,6 +136,54 @@ class WaterPlantRepository extends ChangeNotifier {
     return null;
   }
 
+  String shopIdForCustomer(String customerId) =>
+      _customerShopIds[customerId] ?? defaultShopId;
+
+  /// All monthly-contract CRM rows for this app user (one per shop).
+  List<CustomerShopBilling> shopBillingsForAppUser(String userId) {
+    final profile = customerProfileByUserId(userId);
+    final linkedId = crmCustomerIdForAppUser(userId);
+    final digits = normalizePhone(profile?.phone ?? '');
+    if (digits.isEmpty && linkedId == null) return [];
+
+    final matches = <Customer>[];
+    for (final c in _customers) {
+      if (!c.isMonthlyContract) continue;
+      if (linkedId != null && c.id == linkedId) {
+        matches.add(c);
+        continue;
+      }
+      if (digits.isNotEmpty && normalizePhone(c.phone) == digits) {
+        matches.add(c);
+      }
+    }
+
+    final seen = <String>{};
+    final billings = <CustomerShopBilling>[];
+    for (final c in matches) {
+      if (!seen.add(c.id)) continue;
+      final shop = shopById(shopIdForCustomer(c.id));
+      if (shop != null) {
+        billings.add(CustomerShopBilling(shop: shop, customer: c));
+      }
+    }
+
+    billings.sort((a, b) {
+      if (a.shop.id == defaultShopId) return -1;
+      if (b.shop.id == defaultShopId) return 1;
+      return a.shop.name.compareTo(b.shop.name);
+    });
+    return billings;
+  }
+
+  double totalPendingForAppUser(String userId) {
+    var total = 0.0;
+    for (final b in shopBillingsForAppUser(userId)) {
+      total += customerBalance(b.customer.id);
+    }
+    return total;
+  }
+
   /// Bulk / monthly contract customer — only after CRM link on login (not phone guess).
   bool isMonthlyContractAppUser(String userId, {String? phone}) {
     final linked = linkedCrmCustomerForAppUser(userId);
@@ -179,8 +232,8 @@ class WaterPlantRepository extends ChangeNotifier {
 
     _syncShopFromSettings();
     _seedMarketplaceShops();
-
     _seedProducts();
+    _seedPromotions();
 
     _drivers.addAll([
       const Driver(
@@ -239,6 +292,8 @@ class WaterPlantRepository extends ChangeNotifier {
     );
 
     _customers.addAll([abi, ramesh, lakshmi, suresh]);
+    _customerShopIds[abi.id] = defaultShopId;
+    _seedAbiMultiShopAccounts(abi);
 
     final now = DateTime.now();
     final thisMonth = DateTime(now.year, now.month);
@@ -321,6 +376,88 @@ class WaterPlantRepository extends ChangeNotifier {
     ]);
 
     _seedDriverDemoData(now, thisMonth);
+  }
+
+  /// Bulk demo user (Abi) buys from 4 shops — separate CRM + deliveries per shop.
+  void _seedAbiMultiShopAccounts(Customer abiTemplate) {
+    final pairs = [
+      ('c1-shop2', 'shop-2', 22.0, 32.0),
+      ('c1-shop3', 'shop-3', 19.0, 29.0),
+      ('c1-shop4', 'shop-4', 20.0, 30.0),
+    ];
+
+    final now = DateTime.now();
+    final thisMonth = DateTime(now.year, now.month);
+    final prev1 = DateTime(thisMonth.year, thisMonth.month - 1);
+
+    void addCansShop(
+      String customerId,
+      String shopId,
+      DateTime month,
+      int day,
+      int normal,
+      int cool,
+    ) {
+      final shop = shopById(shopId);
+      if (shop == null) return;
+      _deliveries.add(
+        Delivery.fromLegacyCans(
+          id: _uuid.v4(),
+          customerId: customerId,
+          date: DateTime(month.year, month.month, day, 10),
+          normalQty: normal,
+          coolQty: cool,
+          normalUnitPrice: shop.normalPrice,
+          coolUnitPrice: shop.coolPrice,
+        ),
+      );
+    }
+
+    for (final (id, shopId, _, _) in pairs) {
+      if (_customers.any((c) => c.id == id)) continue;
+      _customerShopIds[id] = shopId;
+      _customers.add(
+        Customer(
+          id: id,
+          name: abiTemplate.name,
+          phone: abiTemplate.phone,
+          billingMode: CustomerBillingMode.monthlyContract,
+          email: abiTemplate.email,
+          place: abiTemplate.place,
+          address: abiTemplate.address,
+          productPrices: abiTemplate.productPrices,
+        ),
+      );
+      // Current month — different cadence per shop
+      addCansShop(id, shopId, thisMonth, 3 + id.hashCode % 5, 2, 1);
+      addCansShop(id, shopId, thisMonth, 10 + id.hashCode % 4, 3, 2);
+      addCansShop(id, shopId, thisMonth, 18 + id.hashCode % 3, 1, 0);
+      // Previous month
+      addCansShop(id, shopId, prev1, 8, 4, 2);
+      addCansShop(id, shopId, prev1, 20, 2, 1);
+    }
+
+    // Partial payment at one shop; prev month paid at main shop already seeded
+    _payments.add(
+      Payment(
+        id: _uuid.v4(),
+        customerId: 'c1-shop2',
+        date: DateTime(thisMonth.year, thisMonth.month, 8),
+        amount: 400,
+        method: PaymentMethod.upi,
+        notes: 'Partial — Aqua Pure',
+      ),
+    );
+    _payments.add(
+      Payment(
+        id: _uuid.v4(),
+        customerId: 'c1-shop4',
+        date: DateTime(prev1.year, prev1.month, 28),
+        amount: 900,
+        method: PaymentMethod.cash,
+        notes: 'Crystal Clear — full month',
+      ),
+    );
   }
 
   void _seedDriverDemoData(DateTime now, DateTime thisMonth) {
@@ -1219,10 +1356,11 @@ class WaterPlantRepository extends ChangeNotifier {
   void _seedMarketplaceShops() {
     if (_shops.length > 1) return;
     _shops.addAll([
-      Shop(
+      const Shop(
         id: 'shop-2',
         name: 'Aqua Pure RO Center',
         address: 'MG Road, Rajahmundry, Andhra Pradesh',
+        place: 'MG Road',
         phone: '+91 91234 00001',
         latitude: 16.9850,
         longitude: 81.7820,
@@ -1230,11 +1368,15 @@ class WaterPlantRepository extends ChangeNotifier {
         homeDeliveryAvailable: true,
         normalPrice: 22,
         coolPrice: 32,
+        tagline: 'Mineral-filtered · TDS tested daily',
+        rating: 4.7,
+        reviewCount: 128,
       ),
-      Shop(
+      const Shop(
         id: 'shop-3',
         name: 'Blue Drop Water Plant',
         address: 'Kakinada Highway, Rajahmundry',
+        place: 'Kakinada Highway',
         phone: '+91 91234 00002',
         latitude: 16.9950,
         longitude: 81.7700,
@@ -1242,6 +1384,105 @@ class WaterPlantRepository extends ChangeNotifier {
         homeDeliveryAvailable: true,
         normalPrice: 19,
         coolPrice: 29,
+        tagline: 'Budget-friendly · Same-day delivery',
+        rating: 4.4,
+        reviewCount: 89,
+      ),
+      const Shop(
+        id: 'shop-4',
+        name: 'Crystal Clear Water Co.',
+        address: 'Godavari Nagar, Rajahmundry',
+        place: 'Godavari Nagar',
+        phone: '+91 91234 00003',
+        latitude: 16.9780,
+        longitude: 81.7850,
+        subscriptionStatus: ShopSubscriptionStatus.active,
+        homeDeliveryAvailable: true,
+        normalPrice: 20,
+        coolPrice: 30,
+        tagline: 'ISO certified · Free monthly can service',
+        rating: 4.9,
+        reviewCount: 214,
+      ),
+      const Shop(
+        id: 'shop-5',
+        name: 'Neer Amrit Water Plant',
+        address: 'Danavaipeta, Rajahmundry',
+        place: 'Danavaipeta',
+        phone: '+91 91234 00004',
+        latitude: 16.9830,
+        longitude: 81.7760,
+        subscriptionStatus: ShopSubscriptionStatus.active,
+        homeDeliveryAvailable: true,
+        normalPrice: 18,
+        coolPrice: 28,
+        tagline: 'Pure water · Affordable monthly plans',
+        rating: 4.6,
+        reviewCount: 73,
+      ),
+    ]);
+  }
+
+  List<Promotion> get promotions => List.unmodifiable(_promotions);
+
+  void _seedPromotions() {
+    if (_promotions.isNotEmpty) return;
+    final now = DateTime.now();
+    _promotions.addAll([
+      Promotion(
+        id: 'promo-1',
+        shopId: defaultShopId,
+        shopName: settings.businessName,
+        headline: '🎉 Summer Special — Free Cool Can!',
+        body: 'Order 10 normal cans this month and get 1 cool can absolutely free. Valid till end of June.',
+        mediaType: PromotionMediaType.image,
+        badge: 'FREE CAN',
+        ctaLabel: 'Claim offer',
+        createdAt: now.subtract(const Duration(hours: 2)),
+      ),
+      Promotion(
+        id: 'promo-2',
+        shopId: 'shop-2',
+        shopName: 'Aqua Pure RO Center',
+        headline: '💧 New Customer Offer',
+        body: 'First-time customers get 2 cans free on their first order. Use code AQUAFIRST at checkout.',
+        mediaType: PromotionMediaType.image,
+        badge: 'NEW',
+        ctaLabel: 'Order now',
+        createdAt: now.subtract(const Duration(hours: 5)),
+      ),
+      Promotion(
+        id: 'promo-3',
+        shopId: 'shop-4',
+        shopName: 'Crystal Clear Water Co.',
+        headline: '🏆 ISO Certified — Best Quality',
+        body: 'TDS level tested daily. Our water meets the highest purity standards. Monthly plans starting ₹180.',
+        mediaType: PromotionMediaType.video,
+        badge: 'QUALITY',
+        ctaLabel: 'View plans',
+        createdAt: now.subtract(const Duration(days: 1)),
+      ),
+      Promotion(
+        id: 'promo-4',
+        shopId: 'shop-3',
+        shopName: 'Blue Drop Water Plant',
+        headline: '⚡ Same-Day Delivery',
+        body: 'Order before 12 PM and get delivery by 6 PM. No extra charge. Available in all areas.',
+        mediaType: PromotionMediaType.image,
+        badge: 'FAST',
+        ctaLabel: 'Order now',
+        createdAt: now.subtract(const Duration(days: 1, hours: 3)),
+      ),
+      Promotion(
+        id: 'promo-5',
+        shopId: 'shop-5',
+        shopName: 'Neer Amrit Water Plant',
+        headline: '📅 Monthly Plan — Save 15%',
+        body: 'Subscribe to our monthly plan and save up to 15% compared to per-can pricing. Min 20 cans/month.',
+        mediaType: PromotionMediaType.image,
+        badge: 'SAVE 15%',
+        ctaLabel: 'Subscribe',
+        createdAt: now.subtract(const Duration(days: 2)),
       ),
     ]);
   }

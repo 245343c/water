@@ -19,13 +19,17 @@ bool isCustomerOnboardingRoute(String location) =>
 
 bool isCustomerShellRoute(String location) =>
     location.startsWith('/customer/home') ||
+    location.startsWith('/customer/account') ||
     location.startsWith('/customer/orders') ||
+    location.startsWith('/customer/promotions') ||
     location.startsWith('/customer/profile');
 
 bool isCustomerRoute(String location) =>
     isCustomerShellRoute(location) ||
     isCustomerOnboardingRoute(location) ||
-    location.startsWith('/customer/shop/');
+    location.startsWith('/customer/shop/') ||
+    location.startsWith('/customer/month') ||
+    location.startsWith('/customer/monthly-bill');
 
 /// Driver shell lives under `/driver/...` (note trailing slash — not `/drivers`).
 bool isDriverShellRoute(String location) => location.startsWith('/driver/');

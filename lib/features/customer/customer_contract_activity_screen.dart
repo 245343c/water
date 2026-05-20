@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
@@ -8,6 +9,7 @@ import 'package:sri_sai_ro_water/data/models/payment.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customer/widgets/customer_theme.dart';
+import 'package:sri_sai_ro_water/routing/app_router.dart';
 
 class CustomerContractActivityScreen extends StatelessWidget {
   const CustomerContractActivityScreen({super.key});
@@ -17,15 +19,16 @@ class CustomerContractActivityScreen extends StatelessWidget {
     final auth = context.watch<AuthRepository>();
     final repo = context.watch<WaterPlantRepository>();
     final userId = auth.currentUser?.id;
-    final crm = userId != null ? repo.linkedCrmCustomerForAppUser(userId) : null;
+    final billings =
+        userId != null ? repo.shopBillingsForAppUser(userId) : [];
 
-    if (crm == null) {
+    if (billings.isEmpty) {
       return Scaffold(
         backgroundColor: CustomerColors.screenBg,
         body: CustomerScaffold(
           child: Column(
             children: [
-              const CustomerHeader(title: 'Activity', subtitle: 'This month'),
+              const _ActivityHeader(subtitle: 'Deliveries & payments'),
               const Expanded(
                 child: CustomerEmptyState(
                   icon: Icons.history_rounded,
@@ -41,45 +44,141 @@ class CustomerContractActivityScreen extends StatelessWidget {
 
     final now = DateTime.now();
     final month = DateTime(now.year, now.month);
-    final deliveries = repo.deliveriesForCustomer(crm.id, month: month);
-    final payments = repo.paymentsForCustomer(crm.id, month: month);
-    final deliveryTotal =
-        deliveries.fold<double>(0, (s, d) => s + d.totalAmount);
-    final paymentTotal = payments.fold<double>(0, (s, p) => s + p.amount);
+
+    var deliveryCount = 0;
+    var deliveryTotal = 0.0;
+    var paymentTotal = 0.0;
+    final allDeliveries = <({Delivery d, String shopName})>[];
+    final allPayments = <({Payment p, String shopName})>[];
+
+    for (final b in billings) {
+      final shopName = b.shop.name;
+      final dels = repo.deliveriesForCustomer(b.customer.id, month: month);
+      final pays = repo.paymentsForCustomer(b.customer.id, month: month);
+      deliveryCount += dels.length;
+      deliveryTotal += dels.fold<double>(0, (s, d) => s + d.totalAmount);
+      paymentTotal += pays.fold<double>(0, (s, p) => s + p.amount);
+      for (final d in dels) {
+        allDeliveries.add((d: d, shopName: shopName));
+      }
+      for (final p in pays) {
+        allPayments.add((p: p, shopName: shopName));
+      }
+    }
+
+    allDeliveries.sort((a, b) => b.d.date.compareTo(a.d.date));
+    allPayments.sort((a, b) => b.p.date.compareTo(a.p.date));
 
     return Scaffold(
       backgroundColor: CustomerColors.screenBg,
       body: CustomerScaffold(
         child: Column(
           children: [
-            CustomerHeader(
-              title: 'Activity',
-              subtitle: month.monthYear,
-            ),
+            _ActivityHeader(subtitle: month.monthYear),
             Expanded(
               child: ListView(
+                padding: const EdgeInsets.only(bottom: 24),
                 children: [
-                  CustomerHeroStats(
-                    leftLabel: 'Deliveries',
-                    leftValue: '${deliveries.length}',
-                    centerLabel: 'Cans value',
-                    centerValue: CurrencyUtils.format(deliveryTotal),
-                    rightLabel: 'Paid',
-                    rightValue: CurrencyUtils.format(paymentTotal),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          _miniStat('$deliveryCount', 'Deliveries', Colors.white),
+                          _vDiv(),
+                          _miniStat(
+                            CurrencyUtils.format(deliveryTotal),
+                            'Can value',
+                            Colors.white,
+                          ),
+                          _vDiv(),
+                          _miniStat(
+                            CurrencyUtils.format(paymentTotal),
+                            'Paid',
+                            Colors.white,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
+                  if (billings.length > 1)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                      child: Text(
+                        'Activity across ${billings.length} shops',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: CustomerColors.labelGrey,
+                        ),
+                      ),
+                    ),
                   CustomerSectionTitle(
-                    title: 'Deliveries (${deliveries.length})',
+                    title: 'Deliveries (${allDeliveries.length})',
                   ),
-                  if (deliveries.isEmpty)
-                    _empty('No deliveries this month')
+                  if (allDeliveries.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: CustomerEmptyState(
+                        icon: Icons.local_shipping_outlined,
+                        title: 'No deliveries this month',
+                        message: 'Your shops will record cans when delivered.',
+                      ),
+                    )
                   else
-                    ...deliveries.take(12).map(_deliveryTile),
-                  CustomerSectionTitle(title: 'Payments (${payments.length})'),
-                  if (payments.isEmpty)
-                    _empty('No payments this month')
+                    ...allDeliveries.map(
+                      (e) => _DeliveryTile(delivery: e.d, shopName: e.shopName),
+                    ),
+                  CustomerSectionTitle(
+                    title: 'Payments (${allPayments.length})',
+                  ),
+                  if (allPayments.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'No payments recorded this month',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: CustomerColors.labelGrey,
+                        ),
+                      ),
+                    )
                   else
-                    ...payments.take(12).map(_paymentTile),
-                  const SizedBox(height: 24),
+                    ...allPayments.map(
+                      (e) => _PaymentTile(payment: e.p, shopName: e.shopName),
+                    ),
+                  const SizedBox(height: 8),
+                  ...billings.map(
+                    (b) => Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                      child: OutlinedButton.icon(
+                        onPressed: () => context.push(
+                          '${AppRoutes.customerMonthDetail}?customerId=${b.customer.id}'
+                          '&shopId=${b.shop.id}&year=${month.year}&month=${month.month}',
+                        ),
+                        icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                        label: Text(
+                          '${b.shop.name} — month details',
+                          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: CustomerColors.accent,
+                          minimumSize: const Size.fromHeight(44),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -89,47 +188,124 @@ class CustomerContractActivityScreen extends StatelessWidget {
     );
   }
 
-  static Widget _empty(String msg) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: CustomerColors.cardDecoration,
-        child: Text(
-          msg,
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            color: CustomerColors.labelGrey,
+  static Widget _vDiv() => Container(
+        width: 1,
+        height: 36,
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+        color: Colors.white24,
+      );
+
+  static Widget _miniStat(String value, String label, Color color) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+            textAlign: TextAlign.center,
           ),
-        ),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              color: color.withValues(alpha: 0.8),
+            ),
+          ),
+        ],
       ),
     );
   }
+}
 
-  static Widget _deliveryTile(Delivery d) {
+class _ActivityHeader extends StatelessWidget {
+  const _ActivityHeader({required this.subtitle});
+
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: CustomerColors.headerGradient,
+      padding: EdgeInsets.fromLTRB(
+        20,
+        MediaQuery.paddingOf(context).top + 16,
+        20,
+        20,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Orders',
+            style: GoogleFonts.poppins(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          Text(
+            subtitle,
+            style: GoogleFonts.poppins(
+              color: Colors.white.withValues(alpha: 0.85),
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DeliveryTile extends StatelessWidget {
+  const _DeliveryTile({required this.delivery, required this.shopName});
+
+  final Delivery delivery;
+  final String shopName;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: CustomerColors.cardDecoration,
         child: Row(
           children: [
-            const Icon(Icons.local_shipping_rounded, color: CustomerColors.accent),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: CustomerColors.accent.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.local_shipping_rounded,
+                  color: CustomerColors.accent, size: 22),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${d.normalQty + d.coolQty} cans',
+                    shopName,
                     style: GoogleFonts.poppins(
+                      fontSize: 10,
                       fontWeight: FontWeight.w600,
-                      fontSize: 13,
+                      color: CustomerColors.accent,
                     ),
                   ),
                   Text(
-                    d.date.dayMonth,
+                    delivery.itemsSummary,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    '${delivery.date.day}/${delivery.date.month}/${delivery.date.year}',
                     style: GoogleFonts.poppins(
                       fontSize: 11,
                       color: CustomerColors.labelGrey,
@@ -139,10 +315,11 @@ class CustomerContractActivityScreen extends StatelessWidget {
               ),
             ),
             Text(
-              CurrencyUtils.format(d.totalAmount),
+              CurrencyUtils.format(delivery.totalAmount),
               style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w700,
-                color: CustomerColors.accent,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: CustomerColors.titleNavy,
               ),
             ),
           ],
@@ -150,30 +327,54 @@ class CustomerContractActivityScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  static Widget _paymentTile(Payment p) {
+class _PaymentTile extends StatelessWidget {
+  const _PaymentTile({required this.payment, required this.shopName});
+
+  final Payment payment;
+  final String shopName;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: CustomerColors.cardDecoration,
         child: Row(
           children: [
-            const Icon(Icons.payments_rounded, color: CustomerColors.success),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF16A34A).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.payments_rounded,
+                  color: Color(0xFF16A34A), size: 22),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    p.method.label,
+                    shopName,
                     style: GoogleFonts.poppins(
+                      fontSize: 10,
                       fontWeight: FontWeight.w600,
-                      fontSize: 13,
+                      color: CustomerColors.accent,
                     ),
                   ),
                   Text(
-                    p.date.dayMonth,
+                    payment.method.label,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    '${payment.date.day}/${payment.date.month}/${payment.date.year}',
                     style: GoogleFonts.poppins(
                       fontSize: 11,
                       color: CustomerColors.labelGrey,
@@ -183,10 +384,11 @@ class CustomerContractActivityScreen extends StatelessWidget {
               ),
             ),
             Text(
-              CurrencyUtils.format(p.amount),
+              CurrencyUtils.format(payment.amount),
               style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w700,
-                color: CustomerColors.success,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF16A34A),
               ),
             ),
           ],

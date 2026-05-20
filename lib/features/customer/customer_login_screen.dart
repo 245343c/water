@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -91,68 +93,282 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final top = MediaQuery.paddingOf(context).top;
+
     return Scaffold(
-      backgroundColor: CustomerColors.screenBg,
-      body: CustomerScaffold(
-        child: Column(
-          children: [
-            CustomerHeader(
-              title: 'Sign in',
-              subtitle: 'OTP on your mobile · Bulk customers use shop-registered number',
-              onBack: () => context.canPop()
-                  ? context.pop()
-                  : context.go(AppRoutes.welcome),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: CustomerColors.cardDecoration,
-                    child: Column(
-                      children: [
-                        CustomerTextField(
-                          label: 'Mobile number',
-                          controller: _phoneController,
-                          hint: '9876543210 (retail) or 9632580741 (bulk)',
-                          icon: Icons.phone_android_rounded,
-                          keyboardType: TextInputType.phone,
-                        ),
-                        if (_otpSent) ...[
-                          CustomerTextField(
-                            label: 'OTP code',
-                            controller: _otpController,
-                            hint: '6 digits',
-                            icon: Icons.sms_outlined,
-                            keyboardType: TextInputType.number,
-                          ),
-                          if (_demoOtp != null)
-                            Text(
-                              'Demo OTP: $_demoOtp',
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: CustomerColors.accent,
+      backgroundColor: const Color(0xFF0F172A),
+      body: Stack(
+        children: [
+          // Premium illustrated background
+          SizedBox.expand(
+            child: CustomPaint(painter: _CustomerLoginBgPainter()),
+          ),
+          SafeArea(
+            child: SingleChildScrollView(
+              child: SizedBox(
+                height: size.height - top,
+                child: Column(
+                  children: [
+                    const SizedBox(height: 8),
+                    // Back button
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back_rounded,
+                            color: Colors.white),
+                        onPressed: () => context.canPop()
+                            ? context.pop()
+                            : context.go(AppRoutes.welcome),
+                      ),
+                    ),
+                    // Hero section
+                    Expanded(
+                      flex: 4,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 28),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: const Icon(
+                                Icons.water_drop_rounded,
+                                color: Colors.white,
+                                size: 36,
                               ),
                             ),
-                        ],
-                      ],
+                            const SizedBox(height: 20),
+                            Text(
+                              'Order\npure water',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontSize: 36,
+                                fontWeight: FontWeight.w800,
+                                height: 1.1,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              'Home delivery · Fresh RO water · Fast & reliable',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white.withValues(alpha: 0.75),
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  CustomerPrimaryButton(
-                    label: _otpSent ? 'Verify & continue' : 'Send OTP',
-                    loading: _loading,
-                    icon: _otpSent ? Icons.verified_rounded : Icons.send_rounded,
-                    onPressed: _otpSent ? _verify : _sendOtp,
-                  ),
-                ],
+                    // Login card
+                    Container(
+                      margin: const EdgeInsets.fromLTRB(0, 0, 0, 0),
+                      padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(32),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 24,
+                            offset: const Offset(0, -8),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'Sign in',
+                            style: GoogleFonts.poppins(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: CustomerColors.titleNavy,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Enter your mobile number to receive OTP',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: CustomerColors.labelGrey,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          CustomerTextField(
+                            label: 'Mobile number',
+                            controller: _phoneController,
+                            hint: '9876543210',
+                            icon: Icons.phone_android_rounded,
+                            keyboardType: TextInputType.phone,
+                          ),
+                          if (_otpSent) ...[
+                            const SizedBox(height: 12),
+                            CustomerTextField(
+                              label: 'OTP code',
+                              controller: _otpController,
+                              hint: '6-digit code',
+                              icon: Icons.sms_outlined,
+                              keyboardType: TextInputType.number,
+                            ),
+                            if (_demoOtp != null) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                'Demo OTP: $_demoOtp',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: CustomerColors.accent,
+                                ),
+                              ),
+                            ],
+                          ],
+                          const SizedBox(height: 20),
+                          CustomerPrimaryButton(
+                            label: _otpSent ? 'Verify & continue' : 'Send OTP',
+                            loading: _loading,
+                            icon: _otpSent
+                                ? Icons.verified_rounded
+                                : Icons.send_rounded,
+                            onPressed: _otpSent ? _verify : _sendOtp,
+                          ),
+                          const SizedBox(height: 14),
+                          Center(
+                            child: Text(
+                              'Bulk customers use shop-registered number',
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                color: CustomerColors.labelGrey,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+}
+
+/// Illustrated background: night-sky gradient, water-plant silhouette,
+/// delivery van, water cans, and soft wave.
+class _CustomerLoginBgPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // Sky gradient
+    final bg = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF0F172A), Color(0xFF1E3A8A), Color(0xFF1D4ED8)],
+        stops: [0, 0.55, 1],
+      ).createShader(Rect.fromLTWH(0, 0, w, h));
+    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), bg);
+
+    // Stars
+    final starPaint = Paint()..color = Colors.white.withValues(alpha: 0.6);
+    final rnd = math.Random(42);
+    for (var i = 0; i < 35; i++) {
+      final x = rnd.nextDouble() * w;
+      final y = rnd.nextDouble() * h * 0.45;
+      final r = rnd.nextDouble() * 1.5 + 0.5;
+      canvas.drawCircle(Offset(x, y), r, starPaint);
+    }
+
+    // Orbs
+    final orbPaint = Paint()..color = Colors.white.withValues(alpha: 0.06);
+    canvas.drawCircle(Offset(w * 0.9, h * 0.1), w * 0.35, orbPaint);
+    canvas.drawCircle(Offset(w * 0.05, h * 0.22), w * 0.22, orbPaint);
+
+    // Waves
+    _drawWave(canvas, w, h, 0.75, 0.09, const Color(0xFF1E40AF));
+    _drawWave(canvas, w, h, 0.82, 0.07, const Color(0xFF1D4ED8));
+
+    // Water cans
+    _drawCan(canvas, Offset(w * 0.15, h * 0.52), 26, const Color(0xFF60A5FA));
+    _drawCan(canvas, Offset(w * 0.28, h * 0.48), 20, const Color(0xFF93C5FD));
+    _drawCan(canvas, Offset(w * 0.78, h * 0.50), 28, const Color(0xFF3B82F6));
+    _drawCan(canvas, Offset(w * 0.90, h * 0.46), 18, const Color(0xFF60A5FA));
+
+    // Delivery van
+    _drawVan(canvas, Offset(w * 0.35, h * 0.60), w * 0.32);
+  }
+
+  void _drawWave(Canvas canvas, double w, double h, double yFrac, double amp,
+      Color color) {
+    final paint = Paint()
+      ..color = color.withValues(alpha: 0.22)
+      ..style = PaintingStyle.fill;
+    final path = Path()..moveTo(0, h * yFrac);
+    for (var x = 0.0; x <= w; x += 3) {
+      final y = h * yFrac + math.sin((x / w) * math.pi * 4) * (h * amp);
+      path.lineTo(x, y);
+    }
+    path.lineTo(w, h);
+    path.lineTo(0, h);
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+  void _drawCan(Canvas canvas, Offset center, double r, Color color) {
+    final paint = Paint()..color = color.withValues(alpha: 0.35);
+    final body = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: center, width: r, height: r * 2.2),
+      Radius.circular(r * 0.3),
+    );
+    canvas.drawRRect(body, paint);
+    // Highlight
+    final hi = Paint()..color = Colors.white.withValues(alpha: 0.15);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+            center: Offset(center.dx - r * 0.2, center.dy - r * 0.3),
+            width: r * 0.25,
+            height: r * 1.0),
+        Radius.circular(r * 0.12),
+      ),
+      hi,
+    );
+  }
+
+  void _drawVan(Canvas canvas, Offset origin, double w) {
+    final h = w * 0.5;
+    final paint = Paint()..color = Colors.white.withValues(alpha: 0.15);
+    // Body
+    final body = RRect.fromRectAndRadius(
+      Rect.fromLTWH(origin.dx, origin.dy, w, h * 0.65),
+      const Radius.circular(6),
+    );
+    canvas.drawRRect(body, paint);
+    // Cabin
+    final cabin = RRect.fromRectAndRadius(
+      Rect.fromLTWH(origin.dx + w * 0.62, origin.dy - h * 0.3, w * 0.38, h * 0.62),
+      const Radius.circular(5),
+    );
+    canvas.drawRRect(cabin, paint);
+    // Wheels
+    final wheel = Paint()..color = Colors.white.withValues(alpha: 0.25);
+    canvas.drawCircle(Offset(origin.dx + w * 0.2, origin.dy + h * 0.65), h * 0.18, wheel);
+    canvas.drawCircle(Offset(origin.dx + w * 0.78, origin.dy + h * 0.65), h * 0.18, wheel);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter o) => false;
 }

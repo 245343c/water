@@ -1,12 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/services/shop_map_launcher.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
-import 'package:sri_sai_ro_water/core/widgets/shop_map_preview.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/data/models/product_variant.dart';
@@ -191,10 +191,6 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
       );
     }
 
-    final hasPin = shop.hasMapPin;
-    final center = hasPin
-        ? LatLng(shop.latitude!, shop.longitude!)
-        : const LatLng(16.9902, 81.7780);
     final total = _orderTotal(shop, products);
     final itemCount = _totalItems(products);
 
@@ -225,33 +221,7 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
                           color: Colors.white,
                         ),
                       ),
-                      background: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          if (hasPin)
-                            ShopMapPreview(
-                              center: center,
-                              zoom: 15,
-                              showMarker: true,
-                              interactive: false,
-                              height: 220,
-                            )
-                          else
-                            Container(decoration: CustomerColors.headerGradient),
-                          DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.transparent,
-                                  Colors.black.withValues(alpha: 0.55),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      background: _ShopHeroBackground(shop: shop),
                     ),
                   ),
                   SliverToBoxAdapter(
@@ -668,6 +638,176 @@ class _ProductOrderCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Shop hero: illustrated background with shop name letter + tagline.
+/// Shows shop image if coverImageUrl is set, otherwise premium illustrated card.
+class _ShopHeroBackground extends StatelessWidget {
+  const _ShopHeroBackground({required this.shop});
+
+  final Shop shop;
+
+  // Gradient palette derived from shop ID
+  static const _palettes = [
+    [Color(0xFF0F172A), Color(0xFF1E3A8A)],
+    [Color(0xFF134E4A), Color(0xFF0D9488)],
+    [Color(0xFF4C1D95), Color(0xFF7C3AED)],
+    [Color(0xFF7C2D12), Color(0xFFEA580C)],
+    [Color(0xFF1E3A8A), Color(0xFF2563EB)],
+  ];
+
+  List<Color> _palette() {
+    final idx = shop.id.codeUnits.fold(0, (s, c) => s + c) % _palettes.length;
+    return _palettes[idx];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = _palette();
+    final letter = shop.name.isNotEmpty ? shop.name[0].toUpperCase() : '?';
+
+    if (shop.coverImageUrl != null) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.network(shop.coverImageUrl!, fit: BoxFit.cover),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.6)],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: colors,
+            ),
+          ),
+          child: CustomPaint(painter: _ShopHeroPainter()),
+        ),
+        Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 2),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  letter,
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (shop.tagline.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    shop.tagline,
+                    style: GoogleFonts.poppins(
+                      color: Colors.white.withValues(alpha: 0.95),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 4),
+              if (shop.rating > 0)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.star_rounded, color: Color(0xFFFBBF24), size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      shop.rating.toStringAsFixed(1),
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (shop.reviewCount > 0)
+                      Text(
+                        ' (${shop.reviewCount})',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 11,
+                        ),
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+        // Gradient overlay for title legibility
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.5)],
+                stops: const [0.55, 1.0],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ShopHeroPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = Colors.white.withValues(alpha: 0.06);
+    for (var i = 0; i < 3; i++) {
+      final r = size.width * (0.18 + i * 0.14);
+      canvas.drawCircle(Offset(size.width * 0.92, size.height * (0.1 + i * 0.3)), r, paint);
+    }
+    // Bottom wave
+    final wavePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.07)
+      ..style = PaintingStyle.fill;
+    final path = Path()..moveTo(0, size.height * 0.65);
+    for (var x = 0.0; x <= size.width; x += 3) {
+      final y = size.height * 0.65 + math.sin((x / size.width) * math.pi * 4) * 12;
+      path.lineTo(x, y);
+    }
+    path.lineTo(size.width, size.height);
+    path.lineTo(0, size.height);
+    path.close();
+    canvas.drawPath(path, wavePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter o) => false;
 }
 
 class _OrderBottomBar extends StatelessWidget {
