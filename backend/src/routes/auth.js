@@ -4,8 +4,21 @@ const { body, validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const User = require('../models/User');
+const Customer = require('../models/Customer');
 const { sendTokenResponse } = require('../utils/jwt');
 const { protect } = require('../middleware/auth');
+
+function phoneDigits(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  return digits.length >= 10 ? digits.slice(-10) : digits;
+}
+
+async function findCustomerByPhone(phone) {
+  const last10 = phoneDigits(phone);
+  if (last10.length < 10) return null;
+  const customers = await Customer.find({ status: { $ne: 'deleted' } });
+  return customers.find((c) => phoneDigits(c.phone) === last10) || null;
+}
 
 // POST /api/auth/login — admin or driver
 router.post(
@@ -91,6 +104,128 @@ router.post(
     }
   },
 );
+
+// POST /api/auth/customer/request-otp — send OTP to registered customer phone (dev returns OTP)
+router.post('/customer/request-otp', async (req, res) => {
+  try {
+    const digits = phoneDigits(req.body.phone);
+    if (digits.length < 10) {
+      return res.status(400).json({ success: false, message: 'Valid 10-digit mobile number required' });
+    }
+
+    const customer = await findCustomerByPhone(digits);
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: 'This mobile number is not added by a water plant admin.',
+      });
+    }
+
+    const demoOtp = process.env.CUSTOMER_DEMO_OTP || '123456';
+    const otp =
+      process.env.NODE_ENV === 'production'
+        ? Math.floor(100000 + Math.random() * 900000).toString()
+        : demoOtp;
+
+    global._customerOtpStore = global._customerOtpStore || {};
+    global._customerOtpStore[digits] = {
+      otp,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+      customerId: customer.customerId,
+      shopId: customer.shopId,
+    };
+
+    const payload = {
+      success: true,
+      message: 'OTP sent',
+    };
+    if (process.env.NODE_ENV !== 'production') {
+      payload.otp = otp;
+    }
+    res.status(200).json(payload);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST /api/auth/customer/verify-otp — verify OTP and sign in customer
+router.post('/customer/verify-otp', async (req, res) => {
+  try {
+    const digits = phoneDigits(req.body.phone);
+    const { otp } = req.body;
+    if (digits.length < 10 || !otp) {
+      return res.status(400).json({ success: false, message: 'Phone and OTP required' });
+    }
+
+    global._customerOtpStore = global._customerOtpStore || {};
+    const pending = global._customerOtpStore[digits];
+    if (!pending) {
+      return res.status(400).json({ success: false, message: 'Send OTP to your phone first' });
+    }
+    if (Date.now() > pending.expiresAt) {
+      delete global._customerOtpStore[digits];
+      return res.status(400).json({ success: false, message: 'OTP expired. Request again' });
+    }
+    if (String(otp).trim() !== pending.otp) {
+      return res.status(400).json({ success: false, message: 'Invalid OTP' });
+    }
+    delete global._customerOtpStore[digits];
+
+    const customer = await Customer.findOne({
+      customerId: pending.customerId,
+      shopId: pending.shopId,
+    });
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: 'This mobile number is not added by a water plant admin.',
+      });
+    }
+
+    let user = null;
+    if (customer.appUserId) {
+      user = await User.findOne({ uid: customer.appUserId, role: 'customer' });
+    }
+    if (!user) {
+      user = await User.findOne({ phone: digits, role: 'customer' });
+    }
+
+    if (!user) {
+      const uid = uuidv4();
+      user = await User.create({
+        uid,
+        role: 'customer',
+        name: customer.name,
+        email: `${digits}@customer.srisai.local`,
+        phone: digits,
+        authProvider: 'phone_otp',
+        profileCompleted: true,
+        customerProfileId: customer.customerId,
+        isActive: true,
+      });
+    }
+
+    const samePhoneCustomers = await Customer.find({ shopId: customer.shopId });
+    for (const row of samePhoneCustomers) {
+      if (phoneDigits(row.phone) === digits) {
+        row.appUserId = user.uid;
+        row.customerType = 'app_customer';
+        await row.save({ validateBeforeSave: false });
+      }
+    }
+
+    user.lastLoginAt = new Date();
+    user.name = customer.name;
+    user.phone = digits;
+    user.customerProfileId = customer.customerId;
+    user.profileCompleted = true;
+    await user.save({ validateBeforeSave: false });
+
+    sendTokenResponse(res, user);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 // POST /api/auth/customer/google — customer Google login (verifies idToken in production)
 router.post('/customer/google', async (req, res) => {

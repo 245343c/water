@@ -392,6 +392,16 @@ class AuthRepository extends IAuthRepository {
     return demoOtp;
   }
 
+  Future<String?> requestCustomerOtpAsync(String phone) async {
+    if (!useBackend) return requestCustomerOtp(phone);
+    try {
+      return await _api.requestCustomerOtp(phone);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      return null;
+    }
+  }
+
   /// Returns error message or null on success.
   String? verifyCustomerOtp({
     required String phone,
@@ -436,6 +446,24 @@ class AuthRepository extends IAuthRepository {
     _currentUser = user;
     notifyListeners();
     return null;
+  }
+
+  Future<String?> verifyCustomerOtpAsync({
+    required String phone,
+    required String otp,
+  }) async {
+    if (!useBackend) {
+      return verifyCustomerOtp(phone: phone, otp: otp);
+    }
+    try {
+      final result = await _api.verifyCustomerOtp(phone: phone, otp: otp);
+      _currentUser = result.user;
+      notifyListeners();
+      return null;
+    } catch (e) {
+      if (e is ApiException) return e.message;
+      return e.toString();
+    }
   }
 
   /// Permanently removes the customer account (app store requirement).

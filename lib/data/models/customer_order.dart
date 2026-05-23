@@ -13,19 +13,23 @@ class CustomerOrder {
     this.adminResponse,
     DateTime? createdAt,
     this.respondedAt,
+    this.driverAcceptedAt,
+    this.deliveryStartedAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
   final String id;
   final String customerId;
   final String? shopId;
   final String? placedByAppUserId;
-  final int normalQty;
-  final int coolQty;
+  int normalQty;
+  int coolQty;
   OrderStatus status;
-  final String? customerNote;
+  String? customerNote;
   String? adminResponse;
   final DateTime createdAt;
   DateTime? respondedAt;
+  DateTime? driverAcceptedAt;
+  DateTime? deliveryStartedAt;
 
   int get totalCans => normalQty + coolQty;
 
@@ -37,4 +41,12 @@ class CustomerOrder {
   }
 
   bool get isPending => status == OrderStatus.pending;
+
+  bool get canCustomerEdit => status == OrderStatus.pending;
+
+  bool get canCustomerCancel => status == OrderStatus.pending;
+
+  bool get isDriverAssigned => driverAcceptedAt != null;
+
+  bool get isOutForDelivery => deliveryStartedAt != null;
 }

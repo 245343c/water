@@ -7,6 +7,7 @@ const mongoose = require('mongoose');
 const User = require('../src/models/User');
 const Shop = require('../src/models/Shop');
 const Driver = require('../src/models/Driver');
+const Customer = require('../src/models/Customer');
 
 const SHOP_ID = 'shop-1';
 
@@ -94,9 +95,27 @@ async function seed() {
     }
   }
 
+  await Customer.findOneAndUpdate(
+    { customerId: 'cust-demo-1', shopId: SHOP_ID },
+    {
+      customerId: 'cust-demo-1',
+      shopId: SHOP_ID,
+      name: 'Demo Customer',
+      phone: '+91 99999 99999',
+      address: 'Sample Street, Rajahmundry',
+      place: 'Rajahmundry',
+      customerType: 'manual_customer',
+      billingMode: 'on_demand',
+      status: 'active',
+    },
+    { upsert: true, new: true },
+  );
+  console.log('Customer seeded for OTP login: +91 99999 99999 (OTP: 123456)');
+
   console.log('\nSeed complete. Login credentials:');
   console.log('  Admin:  admin@srisai.com / admin123');
   console.log('  Driver: driver@srisai.com / driver123');
+  console.log('  Customer OTP: 9999999999 / 123456');
 
   await mongoose.disconnect();
 }

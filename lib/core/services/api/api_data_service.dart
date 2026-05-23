@@ -130,6 +130,18 @@ class ApiDataService {
 
   Future<Map<String, dynamic>> getMyOrders() => _client.get('/orders/customer/mine');
 
+  Future<Map<String, dynamic>> updateMyPendingOrder(
+    String id, {
+    required int normalQty,
+    required int coolQty,
+    String? customerNote,
+  }) =>
+      _client.patch('/orders/$id/customer', {
+        'normalQty': normalQty,
+        'coolQty': coolQty,
+        if (customerNote != null) 'customerNote': customerNote,
+      });
+
   Future<Map<String, dynamic>> cancelMyOrder(String id) =>
       _client.delete('/orders/$id');
 

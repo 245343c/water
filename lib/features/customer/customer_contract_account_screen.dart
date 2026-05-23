@@ -16,19 +16,32 @@ import 'package:sri_sai_ro_water/routing/app_router.dart';
 
 /// Monthly account — billing per linked shop.
 class CustomerContractAccountScreen extends StatelessWidget {
-  const CustomerContractAccountScreen({super.key});
+  const CustomerContractAccountScreen({
+    super.key,
+    this.focusShopId,
+    this.showBackButton = false,
+  });
+
+  final String? focusShopId;
+  final bool showBackButton;
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthRepository>();
     final repo = context.watch<WaterPlantRepository>();
     final userId = auth.currentUser?.id;
-    final billings = userId != null
+    var billings = userId != null
         ? repo.shopBillingsForAppUser(userId)
         : <CustomerShopBilling>[];
-    final totalPending = userId != null
-        ? repo.totalPendingForAppUser(userId)
-        : 0.0;
+    if (focusShopId != null) {
+      billings = billings.where((b) => b.shop.id == focusShopId).toList();
+    }
+    final totalPending = focusShopId == null
+        ? (userId != null ? repo.totalPendingForAppUser(userId) : 0.0)
+        : billings.fold<double>(
+            0,
+            (sum, b) => sum + repo.customerBalance(b.customer.id),
+          );
 
     return CustomerScaffold(
       child: Column(
@@ -36,7 +49,13 @@ class CustomerContractAccountScreen extends StatelessWidget {
         children: [
           _AccountTopHeader(
             shopCount: billings.length,
-            totalPending: totalPending,
+            title: focusShopId == null ? 'Account' : 'Plant details',
+            subtitle: focusShopId == null
+                ? null
+                : billings.isEmpty
+                ? 'Monthly account'
+                : billings.first.shop.name,
+            onBack: showBackButton ? () => context.pop() : null,
           ),
           Expanded(
             child: ListView(
@@ -44,7 +63,6 @@ class CustomerContractAccountScreen extends StatelessWidget {
                 bottom: customerBottomInset(context, extra: 16),
               ),
               children: [
-                const _ReadOnlyBanner(),
                 if (billings.isEmpty)
                   const Padding(
                     padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -80,11 +98,15 @@ class CustomerContractAccountScreen extends StatelessWidget {
 class _AccountTopHeader extends StatelessWidget {
   const _AccountTopHeader({
     required this.shopCount,
-    required this.totalPending,
+    required this.title,
+    this.subtitle,
+    this.onBack,
   });
 
   final int shopCount;
-  final double totalPending;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
@@ -105,13 +127,34 @@ class _AccountTopHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Account',
-            style: GoogleFonts.poppins(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-            ),
+          Row(
+            children: [
+              if (onBack != null) ...[
+                IconButton(
+                  onPressed: onBack,
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: Colors.white,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 38,
+                    minHeight: 38,
+                  ),
+                ),
+                const SizedBox(width: 4),
+              ],
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 4),
           Text(
@@ -123,51 +166,6 @@ class _AccountTopHeader extends StatelessWidget {
               fontSize: 13,
             ),
           ),
-          if (shopCount > 0) ...[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.account_balance_wallet_outlined,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Total outstanding',
-                          style: GoogleFonts.poppins(
-                            color: Colors.white.withValues(alpha: 0.75),
-                            fontSize: 11,
-                          ),
-                        ),
-                        Text(
-                          CurrencyUtils.format(
-                            totalPending.clamp(0.0, double.infinity),
-                          ),
-                          style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -299,10 +297,6 @@ class _ShopBillingSection extends StatelessWidget {
             pending: pending,
             onViewBill: () => context.push(
               '${AppRoutes.customerMonthlyBill}?customerId=${crm.id}'
-              '&shopId=${shop.id}&year=${now.year}&month=${now.month}',
-            ),
-            onMonthHistory: () => context.push(
-              '${AppRoutes.customerMonthDetail}?customerId=${crm.id}'
               '&shopId=${shop.id}&year=${now.year}&month=${now.month}',
             ),
           ),
@@ -471,7 +465,6 @@ class _ShopMonthlyBillCard extends StatelessWidget {
     required this.stats,
     required this.pending,
     required this.onViewBill,
-    required this.onMonthHistory,
   });
 
   final Shop shop;
@@ -479,7 +472,6 @@ class _ShopMonthlyBillCard extends StatelessWidget {
   final MonthlyStats stats;
   final double pending;
   final VoidCallback onViewBill;
-  final VoidCallback onMonthHistory;
 
   static const _months = [
     'Jan',
@@ -577,52 +569,25 @@ class _ShopMonthlyBillCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: onViewBill,
-                    icon: const Icon(Icons.description_outlined, size: 18),
-                    label: Text(
-                      'View bill',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.white54),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
+            OutlinedButton.icon(
+              onPressed: onViewBill,
+              icon: const Icon(Icons.description_outlined, size: 18),
+              label: Text(
+                'View bill',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: onMonthHistory,
-                    icon: const Icon(Icons.calendar_month_rounded, size: 18),
-                    label: Text(
-                      'Details',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF1D4ED8),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white54),
+                minimumSize: const Size.fromHeight(44),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ],
+              ),
             ),
           ],
         ),
@@ -631,8 +596,8 @@ class _ShopMonthlyBillCard extends StatelessWidget {
   }
 }
 
-class _ReadOnlyBanner extends StatelessWidget {
-  const _ReadOnlyBanner();
+class ReadOnlyBanner extends StatelessWidget {
+  const ReadOnlyBanner({super.key});
 
   @override
   Widget build(BuildContext context) {

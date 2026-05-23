@@ -114,7 +114,11 @@ class DriverRouteScreen extends StatelessWidget {
                           ),
                         ),
                         ...acceptedOrders.map(
-                          (o) => DriverAcceptedOrderCard(order: o, repo: repo),
+                          (o) => DriverAcceptedOrderCard(
+                            order: o,
+                            repo: repo,
+                            driverId: driverId,
+                          ),
                         ),
                       ],
                       DriverSectionTitle(

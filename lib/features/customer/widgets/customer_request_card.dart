@@ -14,18 +14,25 @@ class CustomerRequestCard extends StatelessWidget {
     required this.order,
     required this.shopName,
     this.delivery,
+    this.onEdit,
+    this.onCancel,
   });
 
   final CustomerOrder order;
   final String shopName;
   final Delivery? delivery;
+  final VoidCallback? onEdit;
+  final VoidCallback? onCancel;
 
   _RequestState get _state {
     if (delivery != null) return _RequestState.delivered;
+    if (order.isOutForDelivery) return _RequestState.outForDelivery;
+    if (order.isDriverAssigned) return _RequestState.driverAssigned;
     return switch (order.status) {
       OrderStatus.pending => _RequestState.pending,
       OrderStatus.accepted => _RequestState.accepted,
       OrderStatus.rejected => _RequestState.rejected,
+      OrderStatus.cancelled => _RequestState.cancelled,
     };
   }
 
@@ -183,6 +190,66 @@ class CustomerRequestCard extends StatelessWidget {
                           ],
                         ),
                       ),
+                      if (order.canCustomerEdit &&
+                          (onEdit != null || onCancel != null)) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            if (onEdit != null)
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: onEdit,
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    size: 18,
+                                  ),
+                                  label: Text(
+                                    'Edit',
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: CustomerColors.accent,
+                                    side: const BorderSide(
+                                      color: CustomerColors.cardBorder,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (onEdit != null && onCancel != null)
+                              const SizedBox(width: 8),
+                            if (onCancel != null)
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: onCancel,
+                                  icon: const Icon(
+                                    Icons.cancel_outlined,
+                                    size: 18,
+                                  ),
+                                  label: Text(
+                                    'Cancel',
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFFDC2626),
+                                    side: const BorderSide(
+                                      color: Color(0xFFFECACA),
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -198,14 +265,22 @@ class CustomerRequestCard extends StatelessWidget {
     if (delivery != null) {
       return 'Delivered and added to your monthly account.';
     }
+    if (order.isOutForDelivery) {
+      return 'Driver started delivery. Your water is on the way.';
+    }
+    if (order.isDriverAssigned) {
+      return 'Driver accepted this request and will start delivery soon.';
+    }
     return switch (order.status) {
       OrderStatus.pending => 'Waiting for $shopName to confirm your request.',
       OrderStatus.accepted =>
-        order.adminResponse ?? 'Confirmed. Driver will deliver soon.',
+        order.adminResponse ?? 'Confirmed. Waiting for driver assignment.',
       OrderStatus.rejected =>
         order.adminResponse == null || order.adminResponse!.trim().isEmpty
             ? '$shopName declined this request.'
             : 'Declined: ${order.adminResponse}',
+      OrderStatus.cancelled =>
+        'You cancelled this request before confirmation.',
     };
   }
 
@@ -253,7 +328,15 @@ class _RequestPill extends StatelessWidget {
   }
 }
 
-enum _RequestState { pending, accepted, rejected, delivered }
+enum _RequestState {
+  pending,
+  accepted,
+  driverAssigned,
+  outForDelivery,
+  rejected,
+  cancelled,
+  delivered,
+}
 
 class _RequestStyle {
   const _RequestStyle({
@@ -282,10 +365,28 @@ class _RequestStyle {
         icon: Icons.check_circle_rounded,
         messageIcon: Icons.local_shipping_rounded,
       ),
+      _RequestState.driverAssigned => const _RequestStyle(
+        label: 'Driver Assigned',
+        color: Color(0xFF0D9488),
+        icon: Icons.assignment_ind_rounded,
+        messageIcon: Icons.local_shipping_rounded,
+      ),
+      _RequestState.outForDelivery => const _RequestStyle(
+        label: 'Out for Delivery',
+        color: Color(0xFF2563EB),
+        icon: Icons.delivery_dining_rounded,
+        messageIcon: Icons.route_rounded,
+      ),
       _RequestState.rejected => const _RequestStyle(
         label: 'Declined',
         color: Color(0xFFDC2626),
         icon: Icons.cancel_rounded,
+        messageIcon: Icons.info_outline_rounded,
+      ),
+      _RequestState.cancelled => const _RequestStyle(
+        label: 'Cancelled',
+        color: Color(0xFF6B7280),
+        icon: Icons.cancel_schedule_send_rounded,
         messageIcon: Icons.info_outline_rounded,
       ),
       _RequestState.delivered => const _RequestStyle(

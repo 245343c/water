@@ -118,21 +118,21 @@ class _CustomerHomeHeader extends StatelessWidget {
                     Text(
                       greeting,
                       style: GoogleFonts.poppins(
-                        color: Colors.white.withValues(alpha: 0.82),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
                       name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
                         color: Colors.white,
-                        fontSize: 26,
+                        fontSize: 22,
                         fontWeight: FontWeight.w800,
-                        height: 1.1,
+                        height: 1.15,
                       ),
                     ),
                   ],
@@ -265,7 +265,7 @@ class _ShopCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () => context.push('/customer/shop/${shop.id}'),
+        onTap: () => context.go('/customer/account?shopId=${shop.id}'),
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: CustomerColors.cardDecoration,
@@ -311,19 +311,26 @@ class _ShopCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                    Row(
                       children: [
-                        _MiniChip(
-                          icon: Icons.local_shipping_rounded,
-                          label: 'Delivery available',
-                          color: CustomerColors.success,
+                        Expanded(
+                          child: _ShopActionButton(
+                            label: 'Details',
+                            icon: Icons.info_outline_rounded,
+                            outlined: true,
+                            onTap: () => context.go(
+                              '/customer/account?shopId=${shop.id}',
+                            ),
+                          ),
                         ),
-                        _MiniChip(
-                          icon: Icons.water_drop_rounded,
-                          label: 'RO water',
-                          color: CustomerColors.accent,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _ShopActionButton(
+                            label: 'Order Water',
+                            icon: Icons.water_drop_outlined,
+                            onTap: () =>
+                                context.push('/customer/shop/${shop.id}'),
+                          ),
                         ),
                       ],
                     ),
@@ -343,39 +350,55 @@ class _ShopCard extends StatelessWidget {
   }
 }
 
-class _MiniChip extends StatelessWidget {
-  const _MiniChip({
-    required this.icon,
+class _ShopActionButton extends StatelessWidget {
+  const _ShopActionButton({
     required this.label,
-    required this.color,
+    required this.icon,
+    required this.onTap,
+    this.outlined = false,
   });
 
-  final IconData icon;
   final String label;
-  final Color color;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool outlined;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
+    final fg = outlined ? CustomerColors.accent : Colors.white;
+    return Material(
+      color: outlined ? Colors.white : CustomerColors.accent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          height: 42,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: CustomerColors.accent),
           ),
-        ],
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 17, color: fg),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: fg,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

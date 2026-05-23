@@ -482,6 +482,20 @@ class WaterPlantRepository extends IWaterPlantRepository {
     return matches.isEmpty ? null : matches.first;
   }
 
+  CustomerOrder? latestOpenOrderForAppUserShop({
+    required String appUserId,
+    required String shopId,
+  }) {
+    for (final order in ordersForAppUser(appUserId)) {
+      if (order.shopId == shopId &&
+          order.status == OrderStatus.pending &&
+          order.placedByAppUserId == appUserId) {
+        return order;
+      }
+    }
+    return null;
+  }
+
   Customer? customerById(String id) {
     try {
       return _customers.firstWhere((c) => c.id == id);
@@ -1181,6 +1195,105 @@ class WaterPlantRepository extends IWaterPlantRepository {
     order.status = status;
     order.adminResponse = adminResponse;
     order.respondedAt = DateTime.now();
+    notifyListeners();
+  }
+
+  Future<void> updatePendingAppOrder({
+    required String orderId,
+    required String appUserId,
+    required int normalQty,
+    required int coolQty,
+    String? customerNote,
+    String? productSummary,
+  }) async {
+    final order = orderById(orderId);
+    if (order == null) return;
+    if (order.status != OrderStatus.pending ||
+        order.placedByAppUserId != appUserId) {
+      throw StateError('Only pending requests can be edited');
+    }
+    final hasCans = normalQty + coolQty > 0;
+    final hasProducts =
+        productSummary != null && productSummary.trim().isNotEmpty;
+    if (!hasCans && !hasProducts) {
+      throw ArgumentError('Add at least one item to order');
+    }
+    final note = _mergeOrderNotes(customerNote, productSummary);
+
+    if (useBackend) {
+      final data = await _apiService.updateMyPendingOrder(
+        orderId,
+        normalQty: normalQty,
+        coolQty: coolQty,
+        customerNote: note,
+      );
+      final updated = _orderFromJson(data['order'] as Map<String, dynamic>);
+      final index = _orders.indexWhere((o) => o.id == orderId);
+      if (index >= 0) {
+        _orders[index] = updated;
+      }
+      notifyListeners();
+      return;
+    }
+
+    order.normalQty = normalQty;
+    order.coolQty = coolQty;
+    order.customerNote = note;
+    notifyListeners();
+  }
+
+  Future<void> cancelPendingAppOrder({
+    required String orderId,
+    required String appUserId,
+  }) async {
+    final order = orderById(orderId);
+    if (order == null) return;
+    if (order.status != OrderStatus.pending ||
+        order.placedByAppUserId != appUserId) {
+      throw StateError('Only pending requests can be cancelled');
+    }
+
+    if (useBackend) {
+      final data = await _apiService.cancelMyOrder(orderId);
+      final updated = _orderFromJson(data['order'] as Map<String, dynamic>);
+      final index = _orders.indexWhere((o) => o.id == orderId);
+      if (index >= 0) {
+        _orders[index] = updated;
+      }
+      notifyListeners();
+      return;
+    }
+
+    order.status = OrderStatus.cancelled;
+    order.adminResponse = 'Cancelled by customer';
+    order.respondedAt = DateTime.now();
+    notifyListeners();
+  }
+
+  void driverAcceptOrder({required String orderId, required String driverId}) {
+    final order = orderById(orderId);
+    if (order == null || order.status != OrderStatus.accepted) return;
+    if (order.driverAcceptedAt != null) return;
+    final shop = shopForDriver(driverId);
+    if (shop == null || shopIdForCustomer(order.customerId) != shop.id) {
+      throw StateError('This request belongs to another water plant');
+    }
+    order.driverAcceptedAt = DateTime.now();
+    notifyListeners();
+  }
+
+  void driverStartDelivery({
+    required String orderId,
+    required String driverId,
+  }) {
+    final order = orderById(orderId);
+    if (order == null || order.status != OrderStatus.accepted) return;
+    final shop = shopForDriver(driverId);
+    if (shop == null || shopIdForCustomer(order.customerId) != shop.id) {
+      throw StateError('This request belongs to another water plant');
+    }
+    order.driverAcceptedAt ??= DateTime.now();
+    order.deliveryStartedAt ??= DateTime.now();
     notifyListeners();
   }
 

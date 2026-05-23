@@ -178,6 +178,34 @@ router.get('/customer/mine', protect, customerOnly, async (req, res) => {
   }
 });
 
+// PATCH /api/orders/:id/customer — customer updates a pending order
+router.patch('/:id/customer', protect, customerOnly, async (req, res) => {
+  try {
+    const { normalQty, coolQty, customerNote } = req.body;
+    const n = normalQty ?? 0;
+    const c = coolQty ?? 0;
+    if (n + c <= 0 && !customerNote) {
+      return res.status(400).json({ success: false, message: 'At least one item or note required' });
+    }
+
+    const order = await Order.findOneAndUpdate(
+      { orderId: req.params.id, appUserId: req.user.uid, orderStatus: 'pending' },
+      {
+        normalQty: n,
+        coolQty: c,
+        ...(customerNote !== undefined ? { customerNote } : {}),
+      },
+      { new: true },
+    );
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found or cannot be edited' });
+    }
+    res.status(200).json({ success: true, order });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // DELETE /api/orders/:id — cancel order by customer
 router.delete('/:id', protect, customerOnly, async (req, res) => {
   try {

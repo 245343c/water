@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/services/api/api_client.dart';
 import 'package:sri_sai_ro_water/core/services/api/api_config.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
@@ -25,16 +26,10 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
   bool _loading = false;
   String? _demoOtp;
 
-  // Backend mode: Google sign-in fields
-  final _emailController = TextEditingController();
-  final _nameController = TextEditingController();
-
   @override
   void dispose() {
     _phoneController.dispose();
     _otpController.dispose();
-    _emailController.dispose();
-    _nameController.dispose();
     super.dispose();
   }
 
@@ -46,20 +41,26 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
     }
 
     setState(() => _loading = true);
-    final otp = context.read<AuthRepository>().requestCustomerOtp(phone);
-    if (!mounted) return;
+    try {
+      final otp = await context.read<AuthRepository>().requestCustomerOtpAsync(phone);
+      if (!mounted) return;
 
-    setState(() {
-      _loading = false;
-      _otpSent = otp != null;
-      _demoOtp = otp;
-    });
+      setState(() {
+        _loading = false;
+        _otpSent = otp != null;
+        _demoOtp = otp;
+      });
 
-    if (otp == null) {
-      _snack('Could not send OTP');
-      return;
+      if (otp == null) {
+        _snack('Could not send OTP');
+        return;
+      }
+      _snack('OTP sent (demo: $otp)');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      _snack(e.message);
     }
-    _snack('OTP sent (demo: $otp)');
   }
 
   Future<void> _verify() async {
@@ -67,7 +68,7 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
     final repo = context.read<WaterPlantRepository>();
 
     setState(() => _loading = true);
-    final error = auth.verifyCustomerOtp(
+    final error = await auth.verifyCustomerOtpAsync(
       phone: _phoneController.text,
       otp: _otpController.text,
     );
@@ -80,6 +81,14 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
     }
 
     final user = auth.currentUser!;
+    if (useBackend) {
+      try {
+        await repo.loadFromBackend(role: user.role);
+        if (mounted) {
+          await context.read<NotificationRepository>().loadFromBackend();
+        }
+      } catch (_) {}
+    }
     repo.linkContractCustomerOnLogin(userId: user.id, phone: user.phone);
 
     final isContract = repo.isMonthlyContractAppUser(
@@ -102,51 +111,6 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
         (!currentUser.customerProfileComplete ||
             profile == null ||
             !profile.onboardingComplete);
-    context.go(
-      needsOnboarding ? AppRoutes.customerOnboarding : AppRoutes.customerHome,
-    );
-  }
-
-  Future<void> _signInWithGoogle() async {
-    final email = _emailController.text.trim();
-    final name = _nameController.text.trim();
-    if (email.isEmpty || !email.contains('@')) {
-      _snack('Enter a valid email address');
-      return;
-    }
-    if (name.isEmpty) {
-      _snack('Enter your name');
-      return;
-    }
-
-    setState(() => _loading = true);
-    final auth = context.read<AuthRepository>();
-    final error = await auth.loginWithGoogleAsync(
-      email: email,
-      name: name,
-    );
-    if (!mounted) return;
-    setState(() => _loading = false);
-
-    if (error != null) {
-      _snack(error);
-      return;
-    }
-
-    final user = auth.currentUser!;
-    final repo = context.read<WaterPlantRepository>();
-    try {
-      await repo.loadFromBackend(role: user.role);
-      if (context.mounted) {
-        await context.read<NotificationRepository>().loadFromBackend();
-      }
-    } catch (_) {}
-    repo.linkContractCustomerOnLogin(userId: user.id, phone: user.phone);
-    final profile = repo.customerProfileByUserId(user.id);
-    final needsOnboarding = !user.customerProfileComplete ||
-        profile == null ||
-        !profile.onboardingComplete;
-    if (!context.mounted) return;
     context.go(
       needsOnboarding ? AppRoutes.customerOnboarding : AppRoutes.customerHome,
     );
@@ -246,22 +210,15 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
                                 ),
                               ],
                             ),
-                            child: useBackend
-                              ? _GoogleLoginCard(
-                                  loading: _loading,
-                                  emailController: _emailController,
-                                  nameController: _nameController,
-                                  onSignIn: _signInWithGoogle,
-                                )
-                              : _LoginCard(
-                                  otpSent: _otpSent,
-                                  loading: _loading,
-                                  demoOtp: _demoOtp,
-                                  phoneController: _phoneController,
-                                  otpController: _otpController,
-                                  onSendOtp: _sendOtp,
-                                  onVerify: _verify,
-                                ),
+                            child: _LoginCard(
+                              otpSent: _otpSent,
+                              loading: _loading,
+                              demoOtp: _demoOtp,
+                              phoneController: _phoneController,
+                              otpController: _otpController,
+                              onSendOtp: _sendOtp,
+                              onVerify: _verify,
+                            ),
                           ),
                         ],
                       ),
@@ -356,79 +313,9 @@ class _LoginCard extends StatelessWidget {
         const SizedBox(height: 14),
         Center(
           child: Text(
-            'Use shop-registered number. Demo: 9876543210 or 9632580741',
-            style: GoogleFonts.poppins(
-              fontSize: 11,
-              color: CustomerColors.labelGrey,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _GoogleLoginCard extends StatelessWidget {
-  const _GoogleLoginCard({
-    required this.loading,
-    required this.emailController,
-    required this.nameController,
-    required this.onSignIn,
-  });
-
-  final bool loading;
-  final TextEditingController emailController;
-  final TextEditingController nameController;
-  final VoidCallback onSignIn;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'Sign in',
-          style: GoogleFonts.poppins(
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            color: CustomerColors.titleNavy,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Continue with your Google account',
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            color: CustomerColors.labelGrey,
-          ),
-        ),
-        const SizedBox(height: 20),
-        CustomerTextField(
-          label: 'Email',
-          controller: emailController,
-          hint: 'you@gmail.com',
-          icon: Icons.mail_outline_rounded,
-          keyboardType: TextInputType.emailAddress,
-        ),
-        const SizedBox(height: 12),
-        CustomerTextField(
-          label: 'Name',
-          controller: nameController,
-          hint: 'Your full name',
-          icon: Icons.person_outline_rounded,
-        ),
-        const SizedBox(height: 20),
-        CustomerPrimaryButton(
-          label: 'Continue with Google',
-          loading: loading,
-          icon: Icons.login_rounded,
-          onPressed: onSignIn,
-        ),
-        const SizedBox(height: 14),
-        Center(
-          child: Text(
-            'In production, Google Sign-In will authenticate automatically.',
+            useBackend
+                ? 'Use the mobile number registered by your water plant.'
+                : 'Use shop-registered number. Demo: 9876543210 or 9632580741',
             style: GoogleFonts.poppins(
               fontSize: 11,
               color: CustomerColors.labelGrey,

@@ -9,6 +9,8 @@ import 'package:sri_sai_ro_water/core/services/shop_map_launcher.dart';
 import 'package:sri_sai_ro_water/core/constants/customer_pricing_keys.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
+import 'package:sri_sai_ro_water/data/models/customer_order.dart';
+import 'package:sri_sai_ro_water/data/models/order_status.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/data/models/product_variant.dart';
@@ -20,9 +22,10 @@ import 'package:sri_sai_ro_water/features/customer/widgets/customer_theme.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
 class CustomerShopScreen extends StatefulWidget {
-  const CustomerShopScreen({super.key, required this.shopId});
+  const CustomerShopScreen({super.key, required this.shopId, this.orderId});
 
   final String shopId;
+  final String? orderId;
 
   @override
   State<CustomerShopScreen> createState() => _CustomerShopScreenState();
@@ -34,11 +37,30 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
   final _noteController = TextEditingController();
   final Map<String, int> _variantQty = {};
   bool _placing = false;
+  bool _loadedExistingOrder = false;
 
   @override
   void dispose() {
     _noteController.dispose();
     super.dispose();
+  }
+
+  void _loadExistingOrder(WaterPlantRepository repo, AuthRepository auth) {
+    if (_loadedExistingOrder) return;
+    _loadedExistingOrder = true;
+    final orderId = widget.orderId;
+    final user = auth.currentUser;
+    if (orderId == null || user == null) return;
+    final order = repo.orderById(orderId);
+    if (order == null ||
+        order.status != OrderStatus.pending ||
+        order.placedByAppUserId != user.id ||
+        order.shopId != widget.shopId) {
+      return;
+    }
+    _normal = order.normalQty;
+    _cool = order.coolQty;
+    _noteController.text = order.customerNote ?? '';
   }
 
   String _variantKey(String productId, String variantId) =>
@@ -181,26 +203,46 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
     try {
       final normalTotal = _normal + _catalogNormalQty(products);
       final coolTotal = _cool + _catalogCoolQty(products);
-      final order = await repo.placeAppOrder(
-        shopId: widget.shopId,
-        appUserId: user.id,
-        normalQty: normalTotal,
-        coolQty: coolTotal,
-        customerNote: _noteController.text,
-        productSummary: _buildProductSummary(products),
-      );
+      final editingOrderId = widget.orderId;
+      final CustomerOrder order;
+      if (editingOrderId != null) {
+        await repo.updatePendingAppOrder(
+          orderId: editingOrderId,
+          appUserId: user.id,
+          normalQty: normalTotal,
+          coolQty: coolTotal,
+          customerNote: _noteController.text,
+          productSummary: _buildProductSummary(products),
+        );
+        order = repo.orderById(editingOrderId)!;
+      } else {
+        order = await repo.placeAppOrder(
+          shopId: widget.shopId,
+          appUserId: user.id,
+          normalQty: normalTotal,
+          coolQty: coolTotal,
+          customerNote: _noteController.text,
+          productSummary: _buildProductSummary(products),
+        );
+      }
       final customer = repo.customerById(order.customerId);
       if (customer != null) {
-        context.read<NotificationRepository>().notifyAdminOrderPlaced(
-          order: order,
-          customerName: customer.name,
-          shopName: shop.name,
-        );
+        if (editingOrderId == null) {
+          context.read<NotificationRepository>().notifyAdminOrderPlaced(
+            order: order,
+            customerName: customer.name,
+            shopName: shop.name,
+          );
+        }
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Request sent. Your water plant will confirm shortly.'),
+        SnackBar(
+          content: Text(
+            editingOrderId == null
+                ? 'Request sent. Your water plant will confirm shortly.'
+                : 'Request updated.',
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -222,6 +264,7 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
   Widget build(BuildContext context) {
     final repo = context.watch<WaterPlantRepository>();
     final auth = context.watch<AuthRepository>();
+    _loadExistingOrder(repo, auth);
     final shop = repo.shopById(widget.shopId);
     final products = repo.catalogProducts();
     final user = auth.currentUser;
@@ -281,6 +324,7 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
       coolPrice,
     );
     final itemCount = _totalItems(products);
+    final isEditing = widget.orderId != null;
 
     return Scaffold(
       backgroundColor: CustomerColors.screenBg,
@@ -336,7 +380,7 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
                           ),
                           const SizedBox(height: 18),
                           CustomerSectionTitle(
-                            title: 'Request water',
+                            title: isEditing ? 'Edit request' : 'Request water',
                             trailing: Text(
                               'Monthly account',
                               style: GoogleFonts.poppins(
@@ -430,6 +474,7 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
               itemCount: itemCount,
               total: total,
               loading: _placing,
+              submitLabel: isEditing ? 'Update request' : 'Send request',
               onSubmit: () => _sendRequest(repo, auth, shop, products),
             ),
           ],
@@ -1363,12 +1408,14 @@ class _OrderBottomBar extends StatelessWidget {
     required this.itemCount,
     required this.total,
     required this.loading,
+    required this.submitLabel,
     required this.onSubmit,
   });
 
   final int itemCount;
   final double total;
   final bool loading;
+  final String submitLabel;
   final VoidCallback onSubmit;
 
   @override
@@ -1420,7 +1467,7 @@ class _OrderBottomBar extends StatelessWidget {
           SizedBox(
             width: 160,
             child: CustomerPrimaryButton(
-              label: itemCount == 0 ? 'Add items' : 'Send request',
+              label: itemCount == 0 ? 'Add items' : submitLabel,
               loading: loading,
               icon: Icons.local_shipping_outlined,
               onPressed: itemCount == 0 ? null : onSubmit,

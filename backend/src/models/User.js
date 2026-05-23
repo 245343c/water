@@ -18,7 +18,7 @@ const userSchema = new mongoose.Schema(
     photoUrl: { type: String, default: null },
     authProvider: {
       type: String,
-      enum: ['email_password', 'google'],
+      enum: ['email_password', 'google', 'phone_otp'],
       default: 'email_password',
     },
     password: { type: String, select: false },

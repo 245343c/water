@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
@@ -10,6 +11,41 @@ import 'package:sri_sai_ro_water/features/customer/widgets/customer_theme.dart';
 
 class CustomerOrdersScreen extends StatelessWidget {
   const CustomerOrdersScreen({super.key});
+
+  Future<void> _confirmCancel(
+    BuildContext context,
+    WaterPlantRepository repo,
+    AuthRepository auth,
+    CustomerOrder order,
+  ) async {
+    final user = auth.currentUser;
+    if (user == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          'Cancel request?',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          'You can cancel before the plant confirms it.',
+          style: GoogleFonts.poppins(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Back'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Cancel request'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await repo.cancelPendingAppOrder(orderId: order.id, appUserId: user.id);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +88,14 @@ class CustomerOrdersScreen extends StatelessWidget {
                         order: order,
                         shopName: shopName,
                         delivery: repo.deliveryForOrder(order),
+                        onEdit: order.canCustomerEdit && order.shopId != null
+                            ? () => context.push(
+                                '/customer/shop/${order.shopId}?orderId=${order.id}',
+                              )
+                            : null,
+                        onCancel: order.canCustomerCancel
+                            ? () => _confirmCancel(context, repo, auth, order)
+                            : null,
                       );
                     },
                   ),

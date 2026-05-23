@@ -68,6 +68,34 @@ class ApiAuthService {
     return ApiAuthResult(user: _parseUser(data['user'] as Map<String, dynamic>), token: token);
   }
 
+  Future<String?> requestCustomerOtp(String phone) async {
+    try {
+      final data = await _client.post(
+        '/auth/customer/request-otp',
+        {'phone': phone},
+        requireAuth: false,
+      );
+      return data['otp'] as String?;
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      return null;
+    }
+  }
+
+  Future<ApiAuthResult> verifyCustomerOtp({
+    required String phone,
+    required String otp,
+  }) async {
+    final data = await _client.post(
+      '/auth/customer/verify-otp',
+      {'phone': phone, 'otp': otp},
+      requireAuth: false,
+    );
+    final token = data['token'] as String;
+    await _client.saveToken(token);
+    return ApiAuthResult(user: _parseUser(data['user'] as Map<String, dynamic>), token: token);
+  }
+
   Future<ApiAuthResult> loginWithGoogle({
     required String email,
     required String name,
