@@ -304,13 +304,13 @@ class WaterPlantRepository extends ChangeNotifier {
     return linked?.isMonthlyContract ?? false;
   }
 
-  /// Links app login to admin CRM row when phone matches a contract customer.
+  /// Links app login to an admin-created CRM row when the phone matches.
   void linkContractCustomerOnLogin({
     required String userId,
     required String phone,
   }) {
     final crm = crmCustomerByPhone(phone);
-    if (crm == null || !crm.isMonthlyContract) return;
+    if (crm == null) return;
 
     final lat = settings.shopLatitude ?? 16.9902;
     final lng = settings.shopLongitude ?? 81.7780;

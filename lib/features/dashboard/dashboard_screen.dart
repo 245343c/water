@@ -264,6 +264,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
         final shop = repo.shopById(WaterPlantRepository.defaultShopId);
         final subscription = _subscriptionUi(shop);
+        final customerAppReady = repo.customers
+            .where((c) => WaterPlantRepository.normalizePhone(c.phone).length >= 10)
+            .length;
+        final customersMissingPhone = repo.customers.length - customerAppReady;
+        final monthlyCustomers =
+            repo.customers.where((c) => c.isMonthlyContract).length;
+        final appOrderCustomers =
+            repo.customers.where((c) => c.isAppOnDemand).length;
         final driverActivities = repo.drivers.map((driver) {
           final deliveries = todayDeliveries
               .where((d) => d.driverId == driver.id)
@@ -344,6 +352,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           onOrdersTap: () => context.go(AppRoutes.orders),
                           onSubscriptionTap: () =>
                               context.push(AppRoutes.subscription),
+                        ),
+                        const SizedBox(height: 14),
+                        DashboardCustomerAppAccessCard(
+                          readyCustomers: customerAppReady,
+                          missingPhoneCustomers: customersMissingPhone,
+                          monthlyCustomers: monthlyCustomers,
+                          appOrderCustomers: appOrderCustomers,
+                          shopVisible:
+                              shop?.isVisibleToCustomers ?? false,
+                          onManageCustomers: () =>
+                              context.go(AppRoutes.customers),
                         ),
                         const SizedBox(height: 14),
                         DashboardQuickActions(

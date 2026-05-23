@@ -9,6 +9,11 @@ import 'package:sri_sai_ro_water/data/models/promotion.dart';
 import 'package:sri_sai_ro_water/data/models/shop.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
+import 'package:sri_sai_ro_water/features/customer/customer_contract_account_screen.dart';
+import 'package:sri_sai_ro_water/features/customer/customer_home_screen.dart';
+import 'package:sri_sai_ro_water/features/customer/customer_orders_screen.dart';
+import 'package:sri_sai_ro_water/features/customer/customer_profile_screen.dart';
+import 'package:sri_sai_ro_water/features/customer/customer_promotions_screen.dart';
 import 'package:sri_sai_ro_water/features/customer/widgets/customer_theme.dart';
 
 abstract final class _CustomerRoutes {
@@ -76,9 +81,8 @@ class CustomerShell extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: CustomerColors.screenBg,
-      body: SafeArea(
-        top: false,
-        child: _CustomerBody(location: location),
+      body: _tabForLocation(
+        isContract: isContract,
       ),
       bottomNavigationBar: _CustomerBottomNavigation(
         isContract: isContract,
@@ -88,51 +92,23 @@ class CustomerShell extends StatelessWidget {
       ),
     );
   }
-}
 
-class _CustomerBody extends StatelessWidget {
-  const _CustomerBody({required this.location});
-
-  final String location;
-
-  @override
-  Widget build(BuildContext context) {
-    try {
-      final auth = context.watch<AuthRepository>();
-      final repo = context.watch<WaterPlantRepository>();
-      final user = auth.currentUser;
-      final userId = user?.id;
-      final linkedShops = userId == null
-          ? <Shop>[]
-          : repo.linkedShopsForAppUser(userId, phone: user?.phone);
-
-      if (location.startsWith(_CustomerRoutes.account)) {
-        return _AccountTab(userId: userId, repo: repo);
-      }
-      if (location.startsWith(_CustomerRoutes.orders)) {
-        return _OrdersTab(userId: userId, repo: repo);
-      }
-      if (location.startsWith(_CustomerRoutes.promotions)) {
-        return _OffersTab(linkedShops: linkedShops, repo: repo);
-      }
-      if (location.startsWith(_CustomerRoutes.profile)) {
-        return _ProfileTab(auth: auth, repo: repo);
-      }
-      return _HomeTab(auth: auth, repo: repo, linkedShops: linkedShops);
-    } catch (error) {
-      return _TabFrame(
-        title: 'Customer app',
-        subtitle: 'Could not load customer details',
-        icon: Icons.error_outline_rounded,
-        children: [
-          _EmptyCard(
-            icon: Icons.error_outline_rounded,
-            title: 'Customer page error',
-            message: error.toString(),
-          ),
-        ],
-      );
+  Widget _tabForLocation({
+    required bool isContract,
+  }) {
+    if (location.startsWith(_CustomerRoutes.account)) {
+      return const CustomerContractAccountScreen();
     }
+    if (location.startsWith(_CustomerRoutes.orders)) {
+      return const CustomerOrdersScreen();
+    }
+    if (location.startsWith(_CustomerRoutes.promotions)) {
+      return const CustomerPromotionsScreen();
+    }
+    if (location.startsWith(_CustomerRoutes.profile)) {
+      return const CustomerProfileScreen();
+    }
+    return const CustomerHomeScreen();
   }
 }
 
@@ -151,17 +127,8 @@ class _HomeTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = auth.currentUser;
     final crm = user == null ? null : repo.linkedCrmCustomerForAppUser(user.id);
-    final name = (crm?.name ?? user?.ownerName ?? 'Customer')
-        .trim()
-        .split(RegExp(r'\s+'))
-        .first;
 
     return _TabFrame(
-      title: 'Hello, $name',
-      subtitle: linkedShops.isEmpty
-          ? 'No water plant linked yet'
-          : 'Order only from your linked water plant',
-      icon: Icons.water_drop_rounded,
       children: [
         _InfoCard(
           icon: Icons.verified_user_rounded,
@@ -201,9 +168,6 @@ class _AccountTab extends StatelessWidget {
     final pending = userId == null ? 0.0 : repo.totalPendingForAppUser(userId!);
 
     return _TabFrame(
-      title: 'Account',
-      subtitle: 'Monthly billing from linked plants',
-      icon: Icons.account_balance_wallet_rounded,
       children: [
         _InfoCard(
           icon: Icons.currency_rupee_rounded,
@@ -242,12 +206,8 @@ class _OrdersTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final orders = userId == null ? <CustomerOrder>[] : repo.ordersForAppUser(userId!);
-    final pending = orders.where((o) => o.isPending).length;
 
     return _TabFrame(
-      title: 'Orders',
-      subtitle: orders.isEmpty ? 'Track water requests' : '$pending pending orders',
-      icon: Icons.receipt_long_rounded,
       children: [
         if (orders.isEmpty)
           const _EmptyCard(
@@ -276,9 +236,6 @@ class _OffersTab extends StatelessWidget {
         .toList(growable: false);
 
     return _TabFrame(
-      title: 'Offers',
-      subtitle: 'Offers from your linked plants',
-      icon: Icons.campaign_rounded,
       children: [
         if (offers.isEmpty)
           const _EmptyCard(
@@ -308,9 +265,6 @@ class _ProfileTab extends StatelessWidget {
         user == null ? 0 : repo.linkedShopsForAppUser(user.id, phone: user.phone).length;
 
     return _TabFrame(
-      title: 'Profile',
-      subtitle: 'Customer app account',
-      icon: Icons.person_rounded,
       children: [
         _InfoCard(
           icon: Icons.person_rounded,
@@ -339,34 +293,50 @@ class _ProfileTab extends StatelessWidget {
 
 class _TabFrame extends StatelessWidget {
   const _TabFrame({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
     required this.children,
   });
 
-  final String title;
-  final String subtitle;
-  final IconData icon;
   final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: EdgeInsets.zero,
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        16,
+        16,
+        MediaQuery.paddingOf(context).bottom + 20,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (children.isEmpty)
+            const _EmptyCard(
+              icon: Icons.info_outline_rounded,
+              title: 'Nothing to show yet',
+              message: 'Your customer details will appear here.',
+            )
+          else
+            ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _InlineErrorPage extends StatelessWidget {
+  const _InlineErrorPage({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return _TabFrame(
       children: [
-        _TabHeader(title: title, subtitle: subtitle, icon: icon),
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            16,
-            16,
-            MediaQuery.paddingOf(context).bottom + 20,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: children,
-          ),
+        _EmptyCard(
+          icon: Icons.error_outline_rounded,
+          title: 'Customer page error',
+          message: message,
         ),
       ],
     );

@@ -75,17 +75,22 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
     repo.linkContractCustomerOnLogin(userId: user.id, phone: user.phone);
 
     final isContract = repo.isMonthlyContractAppUser(user.id, phone: user.phone);
-    if (isContract) {
-      final crm = repo.linkedCrmCustomerForAppUser(user.id);
-      auth.markCustomerOnboardingComplete(
-        user.id,
-        name: crm?.name ?? user.ownerName,
-      );
+    final crm = repo.linkedCrmCustomerForAppUser(user.id);
+    if (crm == null) {
+      auth.logout();
+      _snack('This mobile number is not added by a water plant admin.');
+      return;
     }
 
+    auth.markCustomerOnboardingComplete(
+      user.id,
+      name: crm.name,
+    );
+
     final profile = repo.customerProfileByUserId(user.id);
+    final currentUser = auth.currentUser ?? user;
     final needsOnboarding = !isContract &&
-        (!user.customerProfileComplete ||
+        (!currentUser.customerProfileComplete ||
             profile == null ||
             !profile.onboardingComplete);
     context.go(

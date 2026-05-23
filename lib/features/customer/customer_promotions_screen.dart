@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/data/models/promotion.dart';
+import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customer/widgets/customer_theme.dart';
 
@@ -13,8 +14,18 @@ class CustomerPromotionsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthRepository>();
     final repo = context.watch<WaterPlantRepository>();
-    final promos = repo.promotions;
+    final user = auth.currentUser;
+    final linkedShopIds = user == null
+        ? <String>{}
+        : repo
+            .linkedShopsForAppUser(user.id, phone: user.phone)
+            .map((s) => s.id)
+            .toSet();
+    final promos = repo.promotions
+        .where((promo) => linkedShopIds.contains(promo.shopId))
+        .toList(growable: false);
 
     return Scaffold(
       backgroundColor: CustomerColors.screenBg,
@@ -28,7 +39,8 @@ class CustomerPromotionsScreen extends StatelessWidget {
                   ? const CustomerEmptyState(
                       icon: Icons.campaign_outlined,
                       title: 'No promotions yet',
-                      message: 'Shops will post offers and deals here.',
+                      message:
+                          'Offers from your linked water plant will appear here.',
                     )
                   : ListView.builder(
                       padding: EdgeInsets.only(

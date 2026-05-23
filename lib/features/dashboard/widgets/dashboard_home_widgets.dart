@@ -487,6 +487,150 @@ class _OwnerMetricTile extends StatelessWidget {
   }
 }
 
+class DashboardCustomerAppAccessCard extends StatelessWidget {
+  const DashboardCustomerAppAccessCard({
+    super.key,
+    required this.readyCustomers,
+    required this.missingPhoneCustomers,
+    required this.monthlyCustomers,
+    required this.appOrderCustomers,
+    required this.shopVisible,
+    required this.onManageCustomers,
+  });
+
+  final int readyCustomers;
+  final int missingPhoneCustomers;
+  final int monthlyCustomers;
+  final int appOrderCustomers;
+  final bool shopVisible;
+  final VoidCallback onManageCustomers;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibilityColor =
+        shopVisible ? DashboardColors.statGreen : DashboardColors.statRed;
+
+    return Container(
+      decoration: DashboardColors.whiteCard,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _DashboardCardHeader(
+            icon: Icons.lock_person_rounded,
+            iconColor: DashboardColors.linkBlue,
+            title: 'Customer app access',
+            actionLabel: 'Customers',
+            onAction: onManageCustomers,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Only admin-created customers with valid phone numbers can sign in and see this plant.',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              height: 1.35,
+              color: DashboardColors.labelGrey,
+            ),
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final wide = constraints.maxWidth >= 620;
+              final cards = [
+                _OwnerMetricTile(
+                  label: 'Can login',
+                  value: '$readyCustomers',
+                  helper: 'Valid phones',
+                  color: DashboardColors.statGreen,
+                  icon: Icons.verified_user_rounded,
+                  onTap: onManageCustomers,
+                ),
+                _OwnerMetricTile(
+                  label: 'Needs phone',
+                  value: '$missingPhoneCustomers',
+                  helper: 'Fix before login',
+                  color: missingPhoneCustomers == 0
+                      ? DashboardColors.statGreen
+                      : DashboardColors.statRed,
+                  icon: Icons.phone_disabled_rounded,
+                  onTap: onManageCustomers,
+                ),
+                _OwnerMetricTile(
+                  label: 'Monthly',
+                  value: '$monthlyCustomers',
+                  helper: 'Contract accounts',
+                  color: DashboardColors.statPurple,
+                  icon: Icons.calendar_month_rounded,
+                ),
+                _OwnerMetricTile(
+                  label: 'App orders',
+                  value: '$appOrderCustomers',
+                  helper: 'On-demand users',
+                  color: DashboardColors.statBlue,
+                  icon: Icons.shopping_bag_rounded,
+                ),
+              ];
+
+              if (wide) {
+                return Row(
+                  children: [
+                    for (var i = 0; i < cards.length; i++) ...[
+                      Expanded(child: cards[i]),
+                      if (i != cards.length - 1) const SizedBox(width: 10),
+                    ],
+                  ],
+                );
+              }
+
+              return Column(
+                children: [
+                  for (var i = 0; i < cards.length; i++) ...[
+                    cards[i],
+                    if (i != cards.length - 1) const SizedBox(height: 10),
+                  ],
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: visibilityColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  shopVisible
+                      ? Icons.visibility_rounded
+                      : Icons.visibility_off_rounded,
+                  color: visibilityColor,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    shopVisible
+                        ? 'Customer app visibility is enabled for linked customers.'
+                        : 'Customer app visibility is off. Enable home delivery and active subscription.',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35,
+                      color: const Color(0xFF111827),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class DashboardPendingRequestsCard extends StatelessWidget {
   const DashboardPendingRequestsCard({
     super.key,
