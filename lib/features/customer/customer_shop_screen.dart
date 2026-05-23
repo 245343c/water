@@ -330,7 +330,7 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
                           ),
                           const SizedBox(height: 12),
                           _LinkedAccountBanner(
-                            customerName: linkedCustomer?.name ?? user.ownerName ?? 'Customer',
+                            customerName: linkedCustomer?.name ?? user.ownerName,
                             shopName: shop.name,
                           ),
                           const SizedBox(height: 18),

@@ -14,7 +14,6 @@ import 'package:sri_sai_ro_water/features/customer/customer_promotions_screen.da
 import 'package:sri_sai_ro_water/features/customer/widgets/customer_theme.dart';
 
 abstract final class _CustomerRoutes {
-  static const welcome = '/welcome';
   static const home = '/customer/home';
   static const account = '/customer/account';
   static const orders = '/customer/orders';
@@ -70,7 +69,8 @@ class CustomerShell extends StatelessWidget {
     final repo = context.watch<WaterPlantRepository>();
     final user = auth.currentUser;
     final userId = user?.id;
-    final isContract = userId != null &&
+    final isContract =
+        userId != null &&
         repo.isMonthlyContractAppUser(userId, phone: user?.phone);
     final pendingOrders = userId != null
         ? repo.ordersForAppUser(userId).where((o) => o.isPending).length
@@ -78,8 +78,16 @@ class CustomerShell extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: CustomerColors.screenBg,
-      body: _tabForLocation(
-        isContract: isContract,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              width: math.min(constraints.maxWidth, 860),
+              child: _tabForLocation(isContract: isContract),
+            ),
+          );
+        },
       ),
       bottomNavigationBar: _CustomerBottomNavigation(
         isContract: isContract,
@@ -90,9 +98,7 @@ class CustomerShell extends StatelessWidget {
     );
   }
 
-  Widget _tabForLocation({
-    required bool isContract,
-  }) {
+  Widget _tabForLocation({required bool isContract}) {
     try {
       if (location.startsWith(_CustomerRoutes.account)) {
         return const CustomerContractAccountScreen();
@@ -114,8 +120,11 @@ class CustomerShell extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline_rounded,
-                  size: 48, color: CustomerColors.labelGrey),
+              const Icon(
+                Icons.error_outline_rounded,
+                size: 48,
+                color: CustomerColors.labelGrey,
+              ),
               const SizedBox(height: 16),
               Text(
                 'Could not load this page',
@@ -163,41 +172,52 @@ class _CustomerBottomNavigation extends StatelessWidget {
         builder: (context, constraints) {
           return Align(
             alignment: Alignment.bottomCenter,
+            heightFactor: 1,
             child: SizedBox(
               width: math.min(constraints.maxWidth, 860),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 10,
-                      offset: const Offset(0, -2),
-                    ),
-                  ],
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(18),
                 ),
-                child: NavigationBar(
-                  height: 64,
-                  elevation: 0,
-                  backgroundColor: Colors.white,
-                  indicatorColor:
-                      CustomerColors.accent.withValues(alpha: 0.12),
-                  selectedIndex: selectedIndex,
-                  labelTextStyle: WidgetStateProperty.resolveWith((states) {
-                    final selected = states.contains(WidgetState.selected);
-                    return GoogleFonts.poppins(
-                      fontSize: 10,
-                      fontWeight:
-                          selected ? FontWeight.w600 : FontWeight.w500,
-                      color: selected
-                          ? CustomerColors.accent
-                          : CustomerColors.labelGrey,
-                    );
-                  }),
-                  onDestinationSelected: onDestinationSelected,
-                  destinations: isContract
-                      ? _contractDestinations()
-                      : _retailDestinations(),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border(
+                      top: BorderSide(color: CustomerColors.cardBorder),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 10,
+                        offset: const Offset(0, -2),
+                      ),
+                    ],
+                  ),
+                  child: NavigationBar(
+                    height: 64,
+                    elevation: 0,
+                    backgroundColor: Colors.white,
+                    indicatorColor: CustomerColors.accent.withValues(
+                      alpha: 0.12,
+                    ),
+                    selectedIndex: selectedIndex,
+                    labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                      final selected = states.contains(WidgetState.selected);
+                      return GoogleFonts.poppins(
+                        fontSize: 10,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                        color: selected
+                            ? CustomerColors.accent
+                            : CustomerColors.labelGrey,
+                      );
+                    }),
+                    onDestinationSelected: onDestinationSelected,
+                    destinations: isContract
+                        ? _contractDestinations()
+                        : _retailDestinations(),
+                  ),
                 ),
               ),
             ),

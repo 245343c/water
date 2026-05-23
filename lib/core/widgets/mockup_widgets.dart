@@ -212,22 +212,24 @@ class MockupPaymentMethods<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: AppDecorations.card,
-      child: Column(
-        children: [
-          for (var i = 0; i < options.length; i++) ...[
-            if (i > 0) const Divider(height: 1, indent: 16, endIndent: 16),
-            RadioListTile<T>(
-              title: Text(labelOf(options[i]), style: AppTextStyles.body),
-              value: options[i],
-              groupValue: selected,
-              activeColor: AppColors.primary,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-              onChanged: (v) {
-                if (v != null) onSelected(v);
-              },
-            ),
+      child: RadioGroup<T>(
+        groupValue: selected,
+        onChanged: (value) {
+          if (value != null) onSelected(value);
+        },
+        child: Column(
+          children: [
+            for (var i = 0; i < options.length; i++) ...[
+              if (i > 0) const Divider(height: 1, indent: 16, endIndent: 16),
+              RadioListTile<T>(
+                title: Text(labelOf(options[i]), style: AppTextStyles.body),
+                value: options[i],
+                activeColor: AppColors.primary,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

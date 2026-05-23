@@ -34,10 +34,12 @@ class CustomerProfileScreen extends StatelessWidget {
             isContract: isContract,
             shopCount: shopCount,
           ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.only(bottom: customerBottomInset(context, extra: 16)),
-                children: [
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.only(
+                bottom: customerBottomInset(context, extra: 16),
+              ),
+              children: [
                   CustomerSectionTitle(title: 'Account'),
                   _ProfileTile(
                     icon: Icons.phone_android_rounded,
@@ -175,13 +177,12 @@ class CustomerProfileScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                ],
-              ),
+              ],
             ),
+          ),
           ],
         ),
-      ),
-    );
+      );
   }
 
   void _confirmDelete(BuildContext context, AuthRepository auth) {
@@ -372,6 +373,7 @@ class _ProfileTile extends StatelessWidget {
             ),
           ],
         ),
+      ),
     );
   }
 }

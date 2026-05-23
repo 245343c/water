@@ -241,7 +241,7 @@ class CustomerSectionTitle extends StatelessWidget {
               ),
             ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
         ],
       ),
     );
