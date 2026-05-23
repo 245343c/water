@@ -4,9 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:sri_sai_ro_water/data/models/customer_order.dart';
-import 'package:sri_sai_ro_water/data/models/promotion.dart';
-import 'package:sri_sai_ro_water/data/models/shop.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customer/customer_contract_account_screen.dart';
@@ -96,506 +93,52 @@ class CustomerShell extends StatelessWidget {
   Widget _tabForLocation({
     required bool isContract,
   }) {
-    if (location.startsWith(_CustomerRoutes.account)) {
-      return const CustomerContractAccountScreen();
-    }
-    if (location.startsWith(_CustomerRoutes.orders)) {
-      return const CustomerOrdersScreen();
-    }
-    if (location.startsWith(_CustomerRoutes.promotions)) {
-      return const CustomerPromotionsScreen();
-    }
-    if (location.startsWith(_CustomerRoutes.profile)) {
-      return const CustomerProfileScreen();
-    }
-    return const CustomerHomeScreen();
-  }
-}
-
-class _HomeTab extends StatelessWidget {
-  const _HomeTab({
-    required this.auth,
-    required this.repo,
-    required this.linkedShops,
-  });
-
-  final AuthRepository auth;
-  final WaterPlantRepository repo;
-  final List<Shop> linkedShops;
-
-  @override
-  Widget build(BuildContext context) {
-    final user = auth.currentUser;
-    final crm = user == null ? null : repo.linkedCrmCustomerForAppUser(user.id);
-
-    return _TabFrame(
-      children: [
-        _InfoCard(
-          icon: Icons.verified_user_rounded,
-          title: crm?.name ?? user?.ownerName ?? 'Customer account',
-          subtitle: linkedShops.isEmpty
-              ? 'Ask your RO plant owner to add this mobile number.'
-              : '${linkedShops.length} linked water plant${linkedShops.length == 1 ? '' : 's'}',
-        ),
-        const SizedBox(height: 16),
-        _SectionLabel(
-          linkedShops.length == 1 ? 'YOUR WATER PLANT' : 'LINKED WATER PLANTS',
-        ),
-        const SizedBox(height: 8),
-        if (linkedShops.isEmpty)
-          const _EmptyCard(
-            icon: Icons.storefront_rounded,
-            title: 'No water plant linked yet',
-            message:
-                'Only admin-added customers can use this customer app. Please contact your RO plant owner.',
-          )
-        else
-          ...linkedShops.map((shop) => _ShopCard(shop: shop)),
-      ],
-    );
-  }
-}
-
-class _AccountTab extends StatelessWidget {
-  const _AccountTab({required this.userId, required this.repo});
-
-  final String? userId;
-  final WaterPlantRepository repo;
-
-  @override
-  Widget build(BuildContext context) {
-    final billings = userId == null ? [] : repo.shopBillingsForAppUser(userId!);
-    final pending = userId == null ? 0.0 : repo.totalPendingForAppUser(userId!);
-
-    return _TabFrame(
-      children: [
-        _InfoCard(
-          icon: Icons.currency_rupee_rounded,
-          title: 'Unpaid balance',
-          subtitle: 'Rs ${pending.toStringAsFixed(0)} pending',
-        ),
-        const SizedBox(height: 16),
-        const _SectionLabel('SHOP ACCOUNTS'),
-        const SizedBox(height: 8),
-        if (billings.isEmpty)
-          const _EmptyCard(
-            icon: Icons.account_balance_wallet_outlined,
-            title: 'No monthly account found',
-            message: 'Your linked plant billing will appear here.',
-          )
-        else
-          ...billings.map(
-            (b) => _InfoCard(
-              icon: Icons.storefront_rounded,
-              title: b.shop.name,
-              subtitle:
-                  '${b.customer.name} - Rs ${repo.customerBalance(b.customer.id).toStringAsFixed(0)} pending',
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _OrdersTab extends StatelessWidget {
-  const _OrdersTab({required this.userId, required this.repo});
-
-  final String? userId;
-  final WaterPlantRepository repo;
-
-  @override
-  Widget build(BuildContext context) {
-    final orders = userId == null ? <CustomerOrder>[] : repo.ordersForAppUser(userId!);
-
-    return _TabFrame(
-      children: [
-        if (orders.isEmpty)
-          const _EmptyCard(
-            icon: Icons.receipt_long_outlined,
-            title: 'No orders yet',
-            message: 'Go to Home and open your linked water plant to place an order.',
-          )
-        else
-          ...orders.map((order) => _OrderCard(order: order, repo: repo)),
-      ],
-    );
-  }
-}
-
-class _OffersTab extends StatelessWidget {
-  const _OffersTab({required this.linkedShops, required this.repo});
-
-  final List<Shop> linkedShops;
-  final WaterPlantRepository repo;
-
-  @override
-  Widget build(BuildContext context) {
-    final linkedIds = linkedShops.map((s) => s.id).toSet();
-    final offers = repo.promotions
-        .where((p) => linkedIds.contains(p.shopId))
-        .toList(growable: false);
-
-    return _TabFrame(
-      children: [
-        if (offers.isEmpty)
-          const _EmptyCard(
-            icon: Icons.campaign_outlined,
-            title: 'No offers right now',
-            message: 'Your linked RO plant offers will appear here.',
-          )
-        else
-          ...offers.map((offer) => _OfferCard(offer: offer)),
-      ],
-    );
-  }
-}
-
-class _ProfileTab extends StatelessWidget {
-  const _ProfileTab({required this.auth, required this.repo});
-
-  final AuthRepository auth;
-  final WaterPlantRepository repo;
-
-  @override
-  Widget build(BuildContext context) {
-    final user = auth.currentUser;
-    final crm = user == null ? null : repo.linkedCrmCustomerForAppUser(user.id);
-    final name = crm?.name ?? user?.ownerName ?? 'Customer';
-    final shopCount =
-        user == null ? 0 : repo.linkedShopsForAppUser(user.id, phone: user.phone).length;
-
-    return _TabFrame(
-      children: [
-        _InfoCard(
-          icon: Icons.person_rounded,
-          title: name,
-          subtitle: user?.phone ?? 'No phone number',
-        ),
-        const SizedBox(height: 12),
-        _InfoCard(
-          icon: Icons.storefront_rounded,
-          title: 'Linked plants',
-          subtitle: '$shopCount plant${shopCount == 1 ? '' : 's'} connected',
-        ),
-        const SizedBox(height: 20),
-        CustomerPrimaryButton(
-          label: 'Sign out',
-          icon: Icons.logout_rounded,
-          onPressed: () {
-            auth.logout();
-            context.go(_CustomerRoutes.welcome);
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _TabFrame extends StatelessWidget {
-  const _TabFrame({
-    required this.children,
-  });
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        16,
-        16,
-        MediaQuery.paddingOf(context).bottom + 20,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (children.isEmpty)
-            const _EmptyCard(
-              icon: Icons.info_outline_rounded,
-              title: 'Nothing to show yet',
-              message: 'Your customer details will appear here.',
-            )
-          else
-            ...children,
-        ],
-      ),
-    );
-  }
-}
-
-class _InlineErrorPage extends StatelessWidget {
-  const _InlineErrorPage({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return _TabFrame(
-      children: [
-        _EmptyCard(
-          icon: Icons.error_outline_rounded,
-          title: 'Customer page error',
-          message: message,
-        ),
-      ],
-    );
-  }
-}
-
-class _TabHeader extends StatelessWidget {
-  const _TabHeader({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: CustomerColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(
-        20,
-        MediaQuery.paddingOf(context).top + 20,
-        20,
-        24,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    height: 1.1,
-                  ),
+    try {
+      if (location.startsWith(_CustomerRoutes.account)) {
+        return const CustomerContractAccountScreen();
+      }
+      if (location.startsWith(_CustomerRoutes.orders)) {
+        return const CustomerOrdersScreen();
+      }
+      if (location.startsWith(_CustomerRoutes.promotions)) {
+        return const CustomerPromotionsScreen();
+      }
+      if (location.startsWith(_CustomerRoutes.profile)) {
+        return const CustomerProfileScreen();
+      }
+      return const CustomerHomeScreen();
+    } catch (e) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline_rounded,
+                  size: 48, color: CustomerColors.labelGrey),
+              const SizedBox(height: 16),
+              Text(
+                'Could not load this page',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: CustomerColors.titleNavy,
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  subtitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    color: Colors.white.withValues(alpha: 0.86),
-                    fontSize: 13,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.18),
               ),
-            ),
-            child: Icon(icon, color: Colors.white, size: 28),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoCard extends StatelessWidget {
-  const _InfoCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: CustomerColors.cardDecoration,
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: CustomerColors.accent.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: CustomerColors.accent),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: CustomerColors.titleNavy,
-                  ),
+              const SizedBox(height: 8),
+              Text(
+                e.toString(),
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: CustomerColors.labelGrey,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: CustomerColors.labelGrey,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.label);
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: GoogleFonts.poppins(
-        fontSize: 11,
-        fontWeight: FontWeight.w800,
-        color: CustomerColors.labelGrey,
-        letterSpacing: 0.6,
-      ),
-    );
-  }
-}
-
-class _EmptyCard extends StatelessWidget {
-  const _EmptyCard({
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
-
-  final IconData icon;
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: CustomerColors.cardDecoration,
-      child: Column(
-        children: [
-          Icon(icon, size: 42, color: CustomerColors.accent),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: CustomerColors.titleNavy,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              color: CustomerColors.labelGrey,
-              height: 1.4,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ShopCard extends StatelessWidget {
-  const _ShopCard({required this.shop});
-
-  final Shop shop;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => context.push('/customer/shop/${shop.id}'),
-      borderRadius: BorderRadius.circular(16),
-      child: _InfoCard(
-        icon: Icons.storefront_rounded,
-        title: shop.name,
-        subtitle: '${shop.address} - Tap to order water',
-      ),
-    );
-  }
-}
-
-class _OrderCard extends StatelessWidget {
-  const _OrderCard({required this.order, required this.repo});
-
-  final CustomerOrder order;
-  final WaterPlantRepository repo;
-
-  @override
-  Widget build(BuildContext context) {
-    final shopName =
-        order.shopId == null ? 'Water order' : repo.shopById(order.shopId!)?.name;
-    return _InfoCard(
-      icon: Icons.receipt_long_rounded,
-      title: shopName ?? 'Water order',
-      subtitle:
-          '${order.cansSummary} - ${order.status.label} - ${_formatDate(order.createdAt)}',
-    );
-  }
-
-  String _formatDate(DateTime d) {
-    return '${d.day}/${d.month}/${d.year} '
-        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-  }
-}
-
-class _OfferCard extends StatelessWidget {
-  const _OfferCard({required this.offer});
-
-  final Promotion offer;
-
-  @override
-  Widget build(BuildContext context) {
-    return _InfoCard(
-      icon: Icons.campaign_rounded,
-      title: offer.headline,
-      subtitle: '${offer.shopName} - ${offer.body}',
-    );
+        ),
+      );
+    }
   }
 }
 

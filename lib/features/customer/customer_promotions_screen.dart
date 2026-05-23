@@ -27,36 +27,33 @@ class CustomerPromotionsScreen extends StatelessWidget {
         .where((promo) => linkedShopIds.contains(promo.shopId))
         .toList(growable: false);
 
-    return Scaffold(
-      backgroundColor: CustomerColors.screenBg,
-      body: CustomerScaffold(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _PromoBanner(),
-            Expanded(
-              child: promos.isEmpty
-                  ? const CustomerEmptyState(
-                      icon: Icons.campaign_outlined,
-                      title: 'No promotions yet',
-                      message:
-                          'Offers from your linked water plant will appear here.',
-                    )
-                  : ListView.builder(
-                      padding: EdgeInsets.only(
-                        top: 8,
-                        bottom: customerBottomInset(context, extra: 12),
-                      ),
-                      itemCount: promos.length,
-                      itemBuilder: (context, i) => _PromoCard(
-                        promo: promos[i],
-                        onTap: () =>
-                            context.push('/customer/shop/${promos[i].shopId}'),
-                      ),
+    return CustomerScaffold(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _PromoBanner(),
+          Expanded(
+            child: promos.isEmpty
+                ? const CustomerEmptyState(
+                    icon: Icons.campaign_outlined,
+                    title: 'No promotions yet',
+                    message:
+                        'Offers from your linked water plant will appear here.',
+                  )
+                : ListView.builder(
+                    padding: EdgeInsets.only(
+                      top: 8,
+                      bottom: customerBottomInset(context, extra: 12),
                     ),
-            ),
-          ],
-        ),
+                    itemCount: promos.length,
+                    itemBuilder: (context, i) => _PromoCard(
+                      promo: promos[i],
+                      onTap: () =>
+                          context.push('/customer/shop/${promos[i].shopId}'),
+                    ),
+                  ),
+          ),
+        ],
       ),
     );
   }

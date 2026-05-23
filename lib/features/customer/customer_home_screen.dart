@@ -28,10 +28,8 @@ class CustomerHomeScreen extends StatelessWidget {
         : repo.linkedShopsForAppUser(userId, phone: user?.phone);
     final greeting = _greetingFor(DateTime.now());
 
-    return Scaffold(
-      backgroundColor: CustomerColors.screenBg,
-      body: ListView(
-        padding: EdgeInsets.zero,
+    return ListView(
+      padding: EdgeInsets.zero,
         children: [
           _CustomerHomeHeader(
             name: firstName,
@@ -76,7 +74,6 @@ class CustomerHomeScreen extends StatelessWidget {
             ),
           SizedBox(height: customerBottomInset(context, extra: 20)),
         ],
-      ),
     );
   }
 

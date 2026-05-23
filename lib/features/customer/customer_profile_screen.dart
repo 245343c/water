@@ -24,18 +24,16 @@ class CustomerProfileScreen extends StatelessWidget {
     final hasDelivery = profile != null && profile.onboardingComplete;
     final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
 
-    return Scaffold(
-      backgroundColor: CustomerColors.screenBg,
-      body: CustomerScaffold(
-        child: Column(
-          children: [
-            _ProfileHero(
-              name: displayName,
-              phone: user?.phone ?? '',
-              initial: initial,
-              isContract: isContract,
-              shopCount: shopCount,
-            ),
+    return CustomerScaffold(
+      child: Column(
+        children: [
+          _ProfileHero(
+            name: displayName,
+            phone: user?.phone ?? '',
+            initial: initial,
+            isContract: isContract,
+            shopCount: shopCount,
+          ),
             Expanded(
               child: ListView(
                 padding: EdgeInsets.only(bottom: customerBottomInset(context, extra: 16)),
@@ -374,7 +372,6 @@ class _ProfileTile extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 }

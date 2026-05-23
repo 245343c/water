@@ -28,36 +28,33 @@ class CustomerOrdersScreen extends StatelessWidget {
         userId != null ? repo.ordersForAppUser(userId) : <CustomerOrder>[];
     final pending = orders.where((o) => o.isPending).length;
 
-    return Scaffold(
-      backgroundColor: CustomerColors.screenBg,
-      body: CustomerScaffold(
-        child: Column(
-          children: [
-            _OrdersHeader(
-              total: orders.length,
-              pending: pending,
-            ),
-            Expanded(
-              child: orders.isEmpty
-                  ? const CustomerEmptyState(
-                      icon: Icons.receipt_long_outlined,
-                      title: 'No orders yet',
-                      message:
-                          'Go to Home, choose your linked water plant, and send your first request.',
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                      itemCount: orders.length,
-                      itemBuilder: (context, i) => _OrderCard(
-                        order: orders[i],
-                        shopName: orders[i].shopId != null
-                            ? repo.shopById(orders[i].shopId!)?.name
-                            : null,
-                      ),
+    return CustomerScaffold(
+      child: Column(
+        children: [
+          _OrdersHeader(
+            total: orders.length,
+            pending: pending,
+          ),
+          Expanded(
+            child: orders.isEmpty
+                ? const CustomerEmptyState(
+                    icon: Icons.receipt_long_outlined,
+                    title: 'No orders yet',
+                    message:
+                        'Go to Home, choose your linked water plant, and send your first request.',
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                    itemCount: orders.length,
+                    itemBuilder: (context, i) => _OrderCard(
+                      order: orders[i],
+                      shopName: orders[i].shopId != null
+                          ? repo.shopById(orders[i].shopId!)?.name
+                          : null,
                     ),
-            ),
-          ],
-        ),
+                  ),
+          ),
+        ],
       ),
     );
   }

@@ -23,21 +23,18 @@ class CustomerContractActivityScreen extends StatelessWidget {
         userId != null ? repo.shopBillingsForAppUser(userId) : [];
 
     if (billings.isEmpty) {
-      return Scaffold(
-        backgroundColor: CustomerColors.screenBg,
-        body: CustomerScaffold(
-          child: Column(
-            children: [
-              const _ActivityHeader(subtitle: 'Deliveries & payments'),
-              const Expanded(
-                child: CustomerEmptyState(
-                  icon: Icons.history_rounded,
-                  title: 'No activity',
-                  message: 'Link your account with your shop first.',
-                ),
+      return CustomerScaffold(
+        child: Column(
+          children: [
+            const _ActivityHeader(subtitle: 'Deliveries & payments'),
+            const Expanded(
+              child: CustomerEmptyState(
+                icon: Icons.history_rounded,
+                title: 'No activity',
+                message: 'Link your account with your shop first.',
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }
@@ -69,12 +66,10 @@ class CustomerContractActivityScreen extends StatelessWidget {
     allDeliveries.sort((a, b) => b.d.date.compareTo(a.d.date));
     allPayments.sort((a, b) => b.p.date.compareTo(a.p.date));
 
-    return Scaffold(
-      backgroundColor: CustomerColors.screenBg,
-      body: CustomerScaffold(
-        child: Column(
-          children: [
-            _ActivityHeader(subtitle: month.monthYear),
+    return CustomerScaffold(
+      child: Column(
+        children: [
+          _ActivityHeader(subtitle: month.monthYear),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.only(bottom: 24),
@@ -184,7 +179,6 @@ class CustomerContractActivityScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 

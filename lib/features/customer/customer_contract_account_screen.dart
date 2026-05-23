@@ -28,16 +28,14 @@ class CustomerContractAccountScreen extends StatelessWidget {
     final totalPending =
         userId != null ? repo.totalPendingForAppUser(userId) : 0.0;
 
-    return Scaffold(
-      backgroundColor: CustomerColors.screenBg,
-      body: CustomerScaffold(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _AccountTopHeader(
-              shopCount: billings.length,
-              totalPending: totalPending,
-            ),
+    return CustomerScaffold(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _AccountTopHeader(
+            shopCount: billings.length,
+            totalPending: totalPending,
+          ),
             Expanded(
               child: ListView(
                 padding: EdgeInsets.only(bottom: customerBottomInset(context, extra: 16)),
@@ -71,7 +69,6 @@ class CustomerContractAccountScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 }
