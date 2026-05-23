@@ -274,6 +274,27 @@ router.get('/me', protect, (req, res) => {
   res.status(200).json({ success: true, user: req.user });
 });
 
+// PATCH /api/auth/me — update current user profile flags
+router.patch('/me', protect, async (req, res) => {
+  try {
+    const { name, profileCompleted } = req.body;
+    const user = await User.findOne({ uid: req.user.uid });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    if (name !== undefined && String(name).trim()) {
+      user.name = String(name).trim();
+    }
+    if (profileCompleted !== undefined) {
+      user.profileCompleted = Boolean(profileCompleted);
+    }
+    await user.save({ validateBeforeSave: false });
+    res.status(200).json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // POST /api/auth/forgot-password
 router.post(
   '/forgot-password',

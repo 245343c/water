@@ -89,7 +89,7 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
         }
       } catch (_) {}
     }
-    repo.linkContractCustomerOnLogin(userId: user.id, phone: user.phone);
+    await repo.linkContractCustomerOnLogin(userId: user.id, phone: user.phone);
 
     final isContract = repo.isMonthlyContractAppUser(
       user.id,

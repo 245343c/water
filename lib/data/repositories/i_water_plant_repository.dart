@@ -59,10 +59,13 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
 
   // Customer app profiles
   CustomerAppProfile? customerProfileByUserId(String userId);
-  void saveCustomerProfile(CustomerAppProfile profile);
+  Future<void> saveCustomerProfile(CustomerAppProfile profile);
   Customer? linkedCrmCustomerForAppUser(String userId);
   List<Customer> linkedCrmCustomersForAppUser(String userId, {String? phone});
-  void linkContractCustomerOnLogin({required String userId, required String phone});
+  Future<void> linkContractCustomerOnLogin({
+    required String userId,
+    required String phone,
+  });
   bool isMonthlyContractAppUser(String userId, {String? phone});
   List<CustomerShopBilling> shopBillingsForAppUser(String userId);
   double totalPendingForAppUser(String userId);

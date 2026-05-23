@@ -107,8 +107,10 @@ class DriversScreen extends StatelessWidget {
                           itemCount: drivers.length,
                           itemBuilder: (_, i) => _DriverCard(
                             driver: drivers[i],
-                            hasLogin: auth.hasAccountForDriver(drivers[i].id),
-                            accountEmail: auth.accountForDriver(drivers[i].id)?.email,
+                            hasLogin: repo.driverHasLoginAccount(drivers[i].id),
+                            accountEmail: drivers[i].hasLoginAccount
+                                ? drivers[i].email
+                                : null,
                             onToggleActive: (active) => repo.setDriverActive(drivers[i].id, active),
                           ),
                         ),

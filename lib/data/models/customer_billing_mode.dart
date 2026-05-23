@@ -5,11 +5,15 @@
 enum CustomerBillingMode {
   /// Monthly contract — ledger, PDF bill, WhatsApp, and app requests.
   monthlyContract,
+
+  /// Pay per order / on-demand home delivery.
+  onDemand,
 }
 
 extension CustomerBillingModeX on CustomerBillingMode {
   String get label => switch (this) {
     CustomerBillingMode.monthlyContract => 'Monthly contract',
+    CustomerBillingMode.onDemand => 'On demand',
   };
 
   bool get isMonthlyContract => this == CustomerBillingMode.monthlyContract;

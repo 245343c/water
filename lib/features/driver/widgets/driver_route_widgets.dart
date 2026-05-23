@@ -147,20 +147,33 @@ class DriverAcceptedOrderCard extends StatelessWidget {
                   DriverPrimaryButton(
                     label: 'Accept delivery',
                     icon: Icons.assignment_turned_in_outlined,
-                    onPressed: () {
+                    onPressed: () async {
                       final id = driverId;
                       if (id == null) return;
-                      repo.driverAcceptOrder(orderId: order.id, driverId: id);
+                      await repo.driverAcceptOrder(
+                        orderId: order.id,
+                        driverId: id,
+                      );
                     },
                   )
                 else if (!order.isOutForDelivery)
                   DriverPrimaryButton(
                     label: 'Start delivery',
                     icon: Icons.delivery_dining_rounded,
-                    onPressed: () {
+                    onPressed: () async {
                       final id = driverId;
                       if (id == null) return;
-                      repo.driverStartDelivery(orderId: order.id, driverId: id);
+                      try {
+                        await repo.driverStartDelivery(
+                          orderId: order.id,
+                          driverId: id,
+                        );
+                      } catch (e) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(e.toString())),
+                        );
+                      }
                     },
                   )
                 else

@@ -3,7 +3,12 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const Customer = require('../models/Customer');
 const { protect } = require('../middleware/auth');
-const { adminOnly, adminOrDriver } = require('../middleware/role');
+const { adminOnly, adminOrDriver, customerOnly } = require('../middleware/role');
+
+function phoneDigits(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  return digits.length >= 10 ? digits.slice(-10) : digits;
+}
 const { writeAuditLog } = require('../utils/auditLog');
 
 // GET /api/customers — list all customers for shop
@@ -64,6 +69,77 @@ router.post('/', protect, adminOnly, async (req, res) => {
     });
 
     res.status(201).json({ success: true, customer });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET /api/customers/me/linked — CRM rows for logged-in customer app user
+router.get('/me/linked', protect, customerOnly, async (req, res) => {
+  try {
+    const filter = { status: { $ne: 'deleted' }, $or: [{ appUserId: req.user.uid }] };
+    if (req.user.customerProfileId) {
+      filter.$or.push({ customerId: req.user.customerProfileId });
+    }
+    const digits = phoneDigits(req.user.phone);
+    if (digits.length >= 10) {
+      const phoneMatches = await Customer.find({ status: { $ne: 'deleted' } });
+      const ids = phoneMatches
+        .filter((c) => phoneDigits(c.phone) === digits)
+        .map((c) => c.customerId);
+      if (ids.length > 0) {
+        filter.$or.push({ customerId: { $in: ids } });
+      }
+    }
+    const customers = await Customer.find(filter).sort({ createdAt: -1 });
+    res.status(200).json({ success: true, customers });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// PATCH /api/customers/me/delivery-profile — customer saves delivery address
+router.patch('/me/delivery-profile', protect, customerOnly, async (req, res) => {
+  try {
+    const { name, email, address, place, latitude, longitude } = req.body;
+    const updates = {};
+    if (name !== undefined) updates.name = String(name).trim();
+    if (email !== undefined) updates.email = String(email).trim().toLowerCase();
+    if (address !== undefined) updates.address = String(address).trim();
+    if (place !== undefined) updates.place = String(place).trim();
+    if (latitude !== undefined) updates.latitude = latitude;
+    if (longitude !== undefined) updates.longitude = longitude;
+
+    const filter = { $or: [{ appUserId: req.user.uid }] };
+    if (req.user.customerProfileId) {
+      filter.$or.push({ customerId: req.user.customerProfileId });
+    }
+    const digits = phoneDigits(req.user.phone);
+    if (digits.length >= 10) {
+      const phoneMatches = await Customer.find({ status: { $ne: 'deleted' } });
+      const ids = phoneMatches
+        .filter((c) => phoneDigits(c.phone) === digits)
+        .map((c) => c.customerId);
+      if (ids.length > 0) {
+        filter.$or.push({ customerId: { $in: ids } });
+      }
+    }
+
+    const result = await Customer.updateMany(filter, {
+      ...updates,
+      customerType: 'app_customer',
+      appUserId: req.user.uid,
+    });
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No CRM customer linked to this account',
+      });
+    }
+
+    const customers = await Customer.find(filter).limit(20);
+    res.status(200).json({ success: true, customers, updated: result.modifiedCount });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

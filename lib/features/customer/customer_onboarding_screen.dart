@@ -87,8 +87,17 @@ class _CustomerOnboardingScreenState extends State<CustomerOnboardingScreen> {
           repo.customerProfileByUserId(user.id)?.linkedCrmCustomerId,
       onboardingComplete: true,
     );
-    repo.saveCustomerProfile(profile);
-    auth.markCustomerOnboardingComplete(user.id, name: profile.name);
+    try {
+      await repo.saveCustomerProfile(profile);
+      auth.markCustomerOnboardingComplete(user.id, name: profile.name);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not save profile: $e')),
+      );
+      return;
+    }
     if (!mounted) return;
     setState(() => _saving = false);
     context.go(AppRoutes.customerHome);

@@ -96,27 +96,11 @@ class ApiAuthService {
     return ApiAuthResult(user: _parseUser(data['user'] as Map<String, dynamic>), token: token);
   }
 
-  Future<ApiAuthResult> loginWithGoogle({
-    required String email,
-    required String name,
-    String? phone,
-    String? photoUrl,
-    String? idToken,
-  }) async {
-    final data = await _client.post(
-      '/auth/customer/google',
-      {
-        'email': email,
-        'name': name,
-        if (phone != null) 'phone': phone,
-        if (photoUrl != null) 'photoUrl': photoUrl,
-        if (idToken != null) 'idToken': idToken,
-      },
-      requireAuth: false,
-    );
-    final token = data['token'] as String;
-    await _client.saveToken(token);
-    return ApiAuthResult(user: _parseUser(data['user'] as Map<String, dynamic>), token: token);
+  Future<void> updateMe({String? name, bool? profileCompleted}) async {
+    await _client.patch('/auth/me', {
+      if (name != null) 'name': name,
+      if (profileCompleted != null) 'profileCompleted': profileCompleted,
+    });
   }
 
   Future<void> logout() async {

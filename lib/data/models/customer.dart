@@ -13,6 +13,8 @@ class Customer {
     this.productPrices = const [],
     this.billingMode = CustomerBillingMode.monthlyContract,
     this.appUserId,
+    this.latitude,
+    this.longitude,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -26,6 +28,8 @@ class Customer {
   final List<CustomerProductPrice> productPrices;
   final CustomerBillingMode billingMode;
   final String? appUserId;
+  final double? latitude;
+  final double? longitude;
   final DateTime createdAt;
 
   bool get isMonthlyContract =>
@@ -50,6 +54,8 @@ class Customer {
     List<CustomerProductPrice>? productPrices,
     CustomerBillingMode? billingMode,
     String? appUserId,
+    double? latitude,
+    double? longitude,
   }) {
     return Customer(
       id: id,
@@ -62,6 +68,8 @@ class Customer {
       productPrices: productPrices ?? this.productPrices,
       billingMode: billingMode ?? this.billingMode,
       appUserId: appUserId ?? this.appUserId,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
       createdAt: createdAt,
     );
   }

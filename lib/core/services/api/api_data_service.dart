@@ -44,6 +44,12 @@ class ApiDataService {
   Future<Map<String, dynamic>> deleteCustomer(String id) =>
       _client.delete('/customers/$id');
 
+  Future<Map<String, dynamic>> getMyLinkedCustomers() =>
+      _client.get('/customers/me/linked');
+
+  Future<Map<String, dynamic>> updateMyDeliveryProfile(Map<String, dynamic> data) =>
+      _client.patch('/customers/me/delivery-profile', data);
+
   Future<Map<String, dynamic>> blockCustomer(String id, bool blocked) =>
       _client.patch('/customers/$id/block', {'blocked': blocked});
 

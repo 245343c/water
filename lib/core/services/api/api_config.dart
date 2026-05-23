@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
-/// Set to true to use the MongoDB backend instead of in-memory mock data.
+/// Production mode: all app data comes from the MongoDB backend API.
+/// Mock/offline mode has been removed — keep this `true`.
 const bool useBackend = true;
 
 /// Local backend base URL.

@@ -5,6 +5,7 @@ class Driver {
     required this.phone,
     required this.email,
     this.active = true,
+    this.loginUid,
     this.createdAt,
   });
 
@@ -13,6 +14,8 @@ class Driver {
   final String phone;
   final String email;
   final bool active;
+  /// Set when admin created a login for this driver (`User.uid`).
+  final String? loginUid;
   final DateTime? createdAt;
 
   Driver copyWith({
@@ -20,6 +23,7 @@ class Driver {
     String? phone,
     String? email,
     bool? active,
+    String? loginUid,
   }) {
     return Driver(
       id: id,
@@ -27,7 +31,10 @@ class Driver {
       phone: phone ?? this.phone,
       email: email ?? this.email,
       active: active ?? this.active,
+      loginUid: loginUid ?? this.loginUid,
       createdAt: createdAt,
     );
   }
+
+  bool get hasLoginAccount => loginUid != null && loginUid!.isNotEmpty;
 }

@@ -25,13 +25,6 @@ import 'package:sri_sai_ro_water/data/models/customer_shop_billing.dart';
 import 'package:sri_sai_ro_water/core/services/product_image_service.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/core/utils/payment_allocation.dart';
-import 'package:sri_sai_ro_water/data/mock/mock_customers.dart';
-import 'package:sri_sai_ro_water/data/mock/mock_drivers.dart';
-import 'package:sri_sai_ro_water/data/mock/mock_shops.dart';
-import 'package:sri_sai_ro_water/data/mock/mock_orders.dart';
-import 'package:sri_sai_ro_water/data/mock/mock_deliveries.dart';
-import 'package:sri_sai_ro_water/data/mock/mock_payments.dart';
-import 'package:sri_sai_ro_water/data/mock/mock_promotions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sri_sai_ro_water/core/auth/app_role.dart';
 import 'package:sri_sai_ro_water/core/services/api/api_config.dart';
@@ -42,21 +35,17 @@ import 'package:uuid/uuid.dart';
 
 class WaterPlantRepository extends IWaterPlantRepository {
   WaterPlantRepository() {
+    assert(useBackend, 'WaterPlantRepository requires useBackend = true');
     _apiService = ApiDataService(ApiClient.instance);
-    if (!useBackend) {
-      _seedMockData();
-    } else {
-      // Start with empty state; loadFromBackend() populates it
-      settings = BusinessSettings(
-        businessName: 'Sri Sai RO Water Plant',
-        address: '',
-        phone: '',
-        email: '',
-        normalPrice: 20,
-        coolPrice: 30,
-        homeDeliveryAvailable: false,
-      );
-    }
+    settings = BusinessSettings(
+      businessName: 'Sri Sai RO Water Plant',
+      address: '',
+      phone: '',
+      email: '',
+      normalPrice: 20,
+      coolPrice: 30,
+      homeDeliveryAvailable: false,
+    );
   }
 
   late final ApiDataService _apiService;
@@ -78,7 +67,6 @@ class WaterPlantRepository extends IWaterPlantRepository {
   final Map<String, String> _driverShopIds = {};
   final Map<String, CustomerAppProfile> _customerProfiles = {};
   final Map<String, String> _routeNotes = {};
-  List<String> _todaysRouteIds = [];
 
   static const defaultShopId = 'shop-1';
 
@@ -131,9 +119,39 @@ class WaterPlantRepository extends IWaterPlantRepository {
   CustomerAppProfile? customerProfileByUserId(String userId) =>
       _customerProfiles[userId];
 
-  void saveCustomerProfile(CustomerAppProfile profile) {
+  Future<void> saveCustomerProfile(CustomerAppProfile profile) async {
     _customerProfiles[profile.userId] = profile;
+
+    if (profile.onboardingComplete) {
+      await _apiService.updateMyDeliveryProfile({
+        'name': profile.name,
+        if (profile.email.isNotEmpty) 'email': profile.email,
+        'address': profile.address,
+        if (profile.place != null && profile.place!.isNotEmpty) 'place': profile.place,
+        'latitude': profile.latitude,
+        'longitude': profile.longitude,
+      });
+
+      final crmId = profile.linkedCrmCustomerId;
+      if (crmId != null) {
+        final index = _customers.indexWhere((c) => c.id == crmId);
+        if (index >= 0) {
+          _customers[index] = _customers[index].copyWith(
+            name: profile.name,
+            address: profile.address,
+            email: profile.email,
+            place: profile.place ?? '',
+          );
+        }
+      }
+    }
+
     notifyListeners();
+  }
+
+  bool driverHasLoginAccount(String driverId) {
+    final driver = driverById(driverId);
+    return driver?.hasLoginAccount ?? false;
   }
 
   static String normalizePhone(String phone) =>
@@ -332,130 +350,59 @@ class WaterPlantRepository extends IWaterPlantRepository {
   }
 
   /// Links app login to an admin-created CRM row when the phone matches.
-  void linkContractCustomerOnLogin({
+  Future<void> linkContractCustomerOnLogin({
     required String userId,
     required String phone,
-  }) {
+  }) async {
     final crm = crmCustomerByPhone(phone);
     if (crm == null) return;
 
     final lat = settings.shopLatitude ?? 16.9902;
     final lng = settings.shopLongitude ?? 81.7780;
 
-    saveCustomerProfile(
+    await saveCustomerProfile(
       CustomerAppProfile(
         userId: userId,
         name: crm.name,
         phone: normalizePhone(phone),
         address: crm.address,
-        latitude: lat,
-        longitude: lng,
+        latitude: crm.latitude ?? lat,
+        longitude: crm.longitude ?? lng,
         email: crm.email,
         place: crm.place,
         linkedCrmCustomerId: crm.id,
-        onboardingComplete: true,
+        onboardingComplete: crm.address.trim().isNotEmpty,
       ),
     );
   }
 
-  void _seedMockData() {
-    settings = BusinessSettings(
-      businessName: 'Sri Sai RO Water Plant',
-      address: 'Main Road, Rajahmundry, Andhra Pradesh - 533101',
-      shopLatitude: 16.9902,
-      shopLongitude: 81.7780,
-      phone: '+91 98765 43210',
-      email: 'info@srisairowater.com',
-      normalPrice: 20,
-      coolPrice: 30,
-      homeDeliveryAvailable: true,
-    );
-
-    _syncShopFromSettings();
-    _shops.addAll(seedMarketplaceShops());
-    _seedProducts();
-
-    _promotions.addAll(seedPromotions(
-      shopId: defaultShopId,
-      shopName: settings.businessName,
-      now: DateTime.now(),
-    ));
-
-    _drivers.addAll(seedDrivers());
-    _linkDriverToShop('driver-1', defaultShopId);
-
-    final coreCustomers = seedCoreCustomers();
-    _customers.addAll(coreCustomers);
-    for (final c in coreCustomers) {
-      _linkCustomerToShop(c.id, defaultShopId);
+  void _rebuildCustomerProfilesFromCrm() {
+    final shopLat = settings.shopLatitude ?? 16.9902;
+    final shopLng = settings.shopLongitude ?? 81.7780;
+    for (final c in _customers) {
+      final uid = c.appUserId;
+      if (uid == null || uid.isEmpty) continue;
+      _customerProfiles[uid] = CustomerAppProfile(
+        userId: uid,
+        name: c.name,
+        phone: normalizePhone(c.phone),
+        address: c.address,
+        latitude: c.latitude ?? shopLat,
+        longitude: c.longitude ?? shopLng,
+        email: c.email,
+        place: c.place,
+        linkedCrmCustomerId: c.id,
+        onboardingComplete: c.address.trim().isNotEmpty,
+      );
     }
-
-    // Abi multi-shop linked accounts
-    final abiTemplate = coreCustomers.first;
-    final multiShopPairs = [
-      ('c1-shop2', 'shop-2'),
-      ('c1-shop3', 'shop-3'),
-      ('c1-shop4', 'shop-4'),
-    ];
-    for (final (id, shopId) in multiShopPairs) {
-      if (_customers.any((c) => c.id == id)) continue;
-      _linkCustomerToShop(id, shopId);
-      _customers.add(Customer(
-        id: id,
-        name: abiTemplate.name,
-        phone: abiTemplate.phone,
-        billingMode: CustomerBillingMode.monthlyContract,
-        email: abiTemplate.email,
-        place: abiTemplate.place,
-        address: abiTemplate.address,
-        productPrices: abiTemplate.productPrices,
-      ));
-    }
-
-    // Driver demo customers
-    final demoCustomers = seedDriverDemoCustomers();
-    _customers.addAll(demoCustomers);
-    for (final c in demoCustomers) {
-      _linkCustomerToShop(c.id, defaultShopId);
-    }
-
-    // Route notes and today's route
-    _routeNotes.addAll({
-      'c2': 'Weekly route — usually 3 normal + 1 cool',
-      'c3': 'Apartment — ask security for entry',
-      'c5': 'New customer — confirm cans every visit',
-      'c6': 'Call 5 min before arrival',
-      'c7': 'Shop — back entrance for cans',
-    });
-    _todaysRouteIds = ['c2', 'c3', 'c5', 'c6', 'c7'];
-
-    // Deliveries
-    final now = DateTime.now();
-    _deliveries.addAll(seedDeliveries(
-      now: now,
-      normalPrice: settings.normalPrice,
-      coolPrice: settings.coolPrice,
-      shops: _shops,
-    ));
-
-    // Payments
-    final thisMonth = DateTime(now.year, now.month);
-    _payments.addAll(seedPayments(thisMonth: thisMonth));
-
-    // Orders
-    _orders.addAll(seedOrders(now: now));
   }
 
   List<Customer> get todaysRouteCustomers {
-    return _todaysRouteIds.map(customerById).whereType<Customer>().toList();
+    return List<Customer>.from(_customers);
   }
 
   List<Customer> todaysRouteCustomersForDriver(String? driverId) {
-    final shop = shopForDriver(driverId);
-    if (shop == null) return const [];
-    return todaysRouteCustomers
-        .where((c) => shopIdForCustomer(c.id) == shop.id)
-        .toList();
+    return customersForDriver(driverId);
   }
 
   String? routeNoteForCustomer(String customerId) => _routeNotes[customerId];
@@ -996,20 +943,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
       return customer;
     }
 
-    final customer = Customer(
-      id: _uuid.v4(),
-      name: name,
-      phone: phone,
-      address: address,
-      email: email,
-      place: place,
-      billingMode: billingMode,
-      productPrices: productPrices ?? defaultCustomerPricing(),
-    );
-    _customers.insert(0, customer);
-    _linkCustomerToShop(customer.id, defaultShopId);
-    notifyListeners();
-    return customer;
+    throw StateError('Backend is required');
   }
 
   Future<void> updateCustomer(Customer customer) async {
@@ -1140,19 +1074,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
       return order;
     }
 
-    final order = CustomerOrder(
-      id: _uuid.v4(),
-      customerId: crmId,
-      shopId: shopId,
-      placedByAppUserId: appUserId,
-      normalQty: normalQty,
-      coolQty: coolQty,
-      status: OrderStatus.pending,
-      customerNote: note,
-    );
-    _orders.add(order);
-    notifyListeners();
-    return order;
+    throw StateError('Backend is required');
   }
 
   String _linkedCrmCustomerIdForOrder({
@@ -1270,7 +1192,10 @@ class WaterPlantRepository extends IWaterPlantRepository {
     notifyListeners();
   }
 
-  void driverAcceptOrder({required String orderId, required String driverId}) {
+  Future<void> driverAcceptOrder({
+    required String orderId,
+    required String driverId,
+  }) async {
     final order = orderById(orderId);
     if (order == null || order.status != OrderStatus.accepted) return;
     if (order.driverAcceptedAt != null) return;
@@ -1282,18 +1207,23 @@ class WaterPlantRepository extends IWaterPlantRepository {
     notifyListeners();
   }
 
-  void driverStartDelivery({
+  Future<void> driverStartDelivery({
     required String orderId,
     required String driverId,
-  }) {
+  }) async {
     final order = orderById(orderId);
     if (order == null || order.status != OrderStatus.accepted) return;
     final shop = shopForDriver(driverId);
     if (shop == null || shopIdForCustomer(order.customerId) != shop.id) {
       throw StateError('This request belongs to another water plant');
     }
-    order.driverAcceptedAt ??= DateTime.now();
-    order.deliveryStartedAt ??= DateTime.now();
+
+    final data = await _apiService.updateOrderStatus(orderId, 'out_for_delivery');
+    final updated = _orderFromJson(data['order'] as Map<String, dynamic>);
+    final index = _orders.indexWhere((o) => o.id == orderId);
+    if (index >= 0) {
+      _orders[index] = updated;
+    }
     notifyListeners();
   }
 
@@ -1711,27 +1641,8 @@ class WaterPlantRepository extends IWaterPlantRepository {
   /// Re-fetch all data from the backend (used for pull-to-refresh).
   Future<void> refreshFromBackend({AppRole? role}) => loadFromBackend(role: role);
 
-  void resetMockData() {
-    _customers.clear();
-    _deliveries.clear();
-    _payments.clear();
-    _orders.clear();
-    _products.clear();
-    _drivers.clear();
-    _shops.clear();
-    _promotions.clear();
-    _customerShopIds.clear();
-    _driverShopIds.clear();
-    _customerProfiles.clear();
-    _routeNotes.clear();
-    _todaysRouteIds = [];
-    _seedMockData();
-    notifyListeners();
-  }
-
-  /// Load all data from the backend API (called when useBackend = true).
+  /// Load all data from the backend API.
   Future<void> loadFromBackend({AppRole? role}) async {
-    if (!useBackend) return;
     final isAdmin = role == null || role == AppRole.admin;
     final isDriver = role == AppRole.driver;
     final isCustomer = role == AppRole.customer;
@@ -1830,6 +1741,17 @@ class WaterPlantRepository extends IWaterPlantRepository {
       }
 
       if (isCustomer) {
+        final linkedData = await _apiService.getMyLinkedCustomers();
+        _customers.clear();
+        _customerShopIds.clear();
+        for (final c in (linkedData['customers'] as List<dynamic>? ?? [])) {
+          final map = c as Map<String, dynamic>;
+          final customer = _customerFromJson(map);
+          _customers.add(customer);
+          _customerShopIds[customer.id] =
+              map['shopId'] as String? ?? defaultShopId;
+        }
+
         final ordersData = await _apiService.getMyOrders();
         _orders.clear();
         for (final o in (ordersData['orders'] as List<dynamic>? ?? [])) {
@@ -1847,6 +1769,10 @@ class WaterPlantRepository extends IWaterPlantRepository {
 
       if (isAdmin) {
         _syncShopFromSettings();
+      }
+
+      if (isCustomer) {
+        _rebuildCustomerProfilesFromCrm();
       }
 
       notifyListeners();
@@ -1896,6 +1822,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
   }
 
   Customer _customerFromJson(Map<String, dynamic> map) {
+    final billingRaw = map['billingMode'] as String? ?? 'monthly_contract';
     return Customer(
       id: map['customerId'] as String? ?? map['_id'] as String,
       name: map['name'] as String? ?? '',
@@ -1903,8 +1830,11 @@ class WaterPlantRepository extends IWaterPlantRepository {
       email: map['email'] as String? ?? '',
       address: map['address'] as String? ?? '',
       place: map['place'] as String? ?? '',
-      billingMode: map['billingMode'] == 'on_demand'
-          ? CustomerBillingMode.monthlyContract
+      appUserId: map['appUserId'] as String?,
+      latitude: (map['latitude'] as num?)?.toDouble(),
+      longitude: (map['longitude'] as num?)?.toDouble(),
+      billingMode: billingRaw == 'on_demand'
+          ? CustomerBillingMode.onDemand
           : CustomerBillingMode.monthlyContract,
       productPrices: ((map['productPrices'] as List<dynamic>?) ?? [])
           .map((e) => CustomerProductPrice(
@@ -1924,6 +1854,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
       phone: map['phone'] as String? ?? '',
       email: map['email'] as String? ?? '',
       active: map['active'] as bool? ?? true,
+      loginUid: map['uid'] as String?,
     );
   }
 
@@ -1981,10 +1912,25 @@ class WaterPlantRepository extends IWaterPlantRepository {
   CustomerOrder _orderFromJson(Map<String, dynamic> map) {
     final statusStr = map['orderStatus'] as String? ?? 'pending';
     final status = switch (statusStr) {
-      'accepted' => OrderStatus.accepted,
+      'accepted' || 'assigned' || 'out_for_delivery' || 'delivered' =>
+        OrderStatus.accepted,
       'rejected' => OrderStatus.rejected,
+      'cancelled' => OrderStatus.cancelled,
       _ => OrderStatus.pending,
     };
+
+    DateTime? driverAcceptedAt;
+    if (map['assignedAt'] != null) {
+      driverAcceptedAt = DateTime.parse(map['assignedAt'] as String);
+    } else if (map['acceptedAt'] != null && status != OrderStatus.pending) {
+      driverAcceptedAt = DateTime.parse(map['acceptedAt'] as String);
+    }
+
+    DateTime? deliveryStartedAt;
+    if (map['outForDeliveryAt'] != null) {
+      deliveryStartedAt = DateTime.parse(map['outForDeliveryAt'] as String);
+    }
+
     return CustomerOrder(
       id: map['orderId'] as String? ?? map['_id'] as String,
       customerId: map['customerId'] as String,
@@ -1995,7 +1941,16 @@ class WaterPlantRepository extends IWaterPlantRepository {
       status: status,
       customerNote: map['customerNote'] as String?,
       adminResponse: map['adminNote'] as String?,
-      createdAt: map['createdAt'] != null ? DateTime.parse(map['createdAt'] as String) : DateTime.now(),
+      createdAt: map['createdAt'] != null
+          ? DateTime.parse(map['createdAt'] as String)
+          : DateTime.now(),
+      respondedAt: map['acceptedAt'] != null
+          ? DateTime.parse(map['acceptedAt'] as String)
+          : map['rejectedAt'] != null
+          ? DateTime.parse(map['rejectedAt'] as String)
+          : null,
+      driverAcceptedAt: driverAcceptedAt,
+      deliveryStartedAt: deliveryStartedAt,
     );
   }
 
