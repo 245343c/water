@@ -204,7 +204,6 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
       final normalTotal = _normal + _catalogNormalQty(products);
       final coolTotal = _cool + _catalogCoolQty(products);
       final editingOrderId = widget.orderId;
-      final CustomerOrder order;
       if (editingOrderId != null) {
         await repo.updatePendingAppOrder(
           orderId: editingOrderId,
@@ -214,9 +213,8 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
           customerNote: _noteController.text,
           productSummary: _buildProductSummary(products),
         );
-        order = repo.orderById(editingOrderId)!;
       } else {
-        order = await repo.placeAppOrder(
+        await repo.placeAppOrder(
           shopId: widget.shopId,
           appUserId: user.id,
           normalQty: normalTotal,
@@ -225,17 +223,10 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
           productSummary: _buildProductSummary(products),
         );
       }
-      final customer = repo.customerById(order.customerId);
-      if (customer != null) {
-        if (editingOrderId == null) {
-          context.read<NotificationRepository>().notifyAdminOrderPlaced(
-            order: order,
-            customerName: customer.name,
-            shopName: shop.name,
-          );
-        }
-      }
       if (!mounted) return;
+      if (editingOrderId == null) {
+        await context.read<NotificationRepository>().loadFromBackend();
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(

@@ -29,6 +29,8 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
   BusinessSettings get settings;
   String? get adminImagePath;
   void updateAdminImage(String? path);
+  Future<void> uploadAdminPhoto(String localPath);
+  Future<void> clearAdminPhoto();
   Future<void> updateSettings(BusinessSettings newSettings);
 
   // Customers

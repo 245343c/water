@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { phoneDigits } = require('../utils/phone');
 
 const customerProductPriceSchema = new mongoose.Schema(
   {
@@ -17,6 +18,7 @@ const customerSchema = new mongoose.Schema(
     appUserId: { type: String, default: null },
     name: { type: String, required: true, trim: true },
     phone: { type: String, required: true, trim: true },
+    phoneLast10: { type: String, trim: true, default: '' },
     email: { type: String, lowercase: true, trim: true, default: '' },
     address: { type: String, trim: true, default: '' },
     place: { type: String, trim: true, default: '' },
@@ -48,5 +50,13 @@ const customerSchema = new mongoose.Schema(
 customerSchema.index({ shopId: 1 });
 customerSchema.index({ shopId: 1, phone: 1 });
 customerSchema.index({ shopId: 1, name: 1 });
+customerSchema.index({ phoneLast10: 1, status: 1 });
+
+customerSchema.pre('save', function setPhoneLast10(next) {
+  if (this.isModified('phone') || !this.phoneLast10) {
+    this.phoneLast10 = phoneDigits(this.phone);
+  }
+  next();
+});
 
 module.exports = mongoose.model('Customer', customerSchema);

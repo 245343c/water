@@ -131,4 +131,24 @@ class ApiClient {
     );
     return _parse(response);
   }
+
+  /// Multipart upload for images (product/shop photos).
+  Future<Map<String, dynamic>> postMultipart(
+    String path,
+    String fieldName,
+    File file, {
+    bool requireAuth = true,
+  }) async {
+    final request = http.MultipartRequest('POST', _uri(path));
+    if (requireAuth) {
+      final token = await getToken();
+      if (token != null) {
+        request.headers[HttpHeaders.authorizationHeader] = 'Bearer $token';
+      }
+    }
+    request.files.add(await http.MultipartFile.fromPath(fieldName, file.path));
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+    return _parse(response);
+  }
 }

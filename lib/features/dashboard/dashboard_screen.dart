@@ -126,9 +126,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     'Remove Photo',
                     style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                   ),
-                  onTap: () {
+                  onTap: () async {
                     Navigator.pop(ctx);
-                    repo.updateAdminImage(null);
+                    await repo.clearAdminPhoto();
                   },
                 ),
               const SizedBox(height: 8),
@@ -153,7 +153,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final dest = File('${dir.path}/admin_profile.jpg');
     await dest.writeAsBytes(await picked.readAsBytes());
 
-    if (mounted) repo.updateAdminImage(dest.path);
+    if (mounted) await repo.uploadAdminPhoto(dest.path);
   }
 
   Future<void> _pickMonth() async {

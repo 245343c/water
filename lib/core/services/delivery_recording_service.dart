@@ -85,16 +85,7 @@ class DeliveryRecordingService {
       driverId: staffId,
     );
 
-    final driverName = user.isDriver
-        ? (_plant.driverById(user.driverId)?.name ?? user.ownerName)
-        : user.ownerName;
-
-    _notifications.recordDelivery(
-      delivery: delivery,
-      customer: customer,
-      driverName: driverName,
-      driverId: staffId,
-    );
+    await _notifications.loadFromBackend();
 
     _push.showDeliveryRecordedSafe(
       title: 'Delivery saved · ${customer.name}',

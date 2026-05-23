@@ -23,7 +23,7 @@ router.put('/', protect, adminOnly, async (req, res) => {
       'shopName', 'phone', 'email', 'address', 'place', 'latitude', 'longitude',
       'homeDeliveryAvailable', 'isListed', 'normalCanPrice', 'coolCanPrice',
       'deliveryCharge', 'minimumOrderQuantity', 'acceptingOrders', 'workingHours',
-      'invoicePrefix', 'billDueDays', 'tagline',
+      'invoicePrefix', 'billDueDays', 'tagline', 'coverImageUrl', 'ownerPhotoUrl',
     ];
     const updates = {};
     allowed.forEach((key) => {

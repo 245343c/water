@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'api_client.dart';
 
 /// Unified service for all backend data operations.
@@ -130,6 +131,9 @@ class ApiDataService {
 
   Future<Map<String, dynamic>> assignDriver(String id, String driverId, String? driverName) =>
       _client.patch('/orders/$id/assign', {'driverId': driverId, if (driverName != null) 'driverName': driverName});
+
+  Future<Map<String, dynamic>> driverAcceptOrder(String id) =>
+      _client.patch('/orders/$id/driver-accept', {});
 
   Future<Map<String, dynamic>> updateOrderStatus(String id, String status) =>
       _client.patch('/orders/$id/status', {'status': status});
@@ -294,4 +298,9 @@ class ApiDataService {
 
   Future<Map<String, dynamic>> getPendingReport() =>
       _client.get('/reports/pending');
+
+  // ─── Uploads ─────────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> uploadImage(File file) =>
+      _client.postMultipart('/uploads/image', 'file', file);
 }

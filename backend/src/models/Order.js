@@ -49,6 +49,7 @@ const orderSchema = new mongoose.Schema(
     outForDeliveryAt: { type: Date, default: null },
     deliveredAt: { type: Date, default: null },
     cancelledAt: { type: Date, default: null },
+    driverAcceptedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
@@ -56,5 +57,7 @@ const orderSchema = new mongoose.Schema(
 orderSchema.index({ shopId: 1, orderStatus: 1 });
 orderSchema.index({ shopId: 1, customerId: 1 });
 orderSchema.index({ shopId: 1, createdAt: -1 });
+orderSchema.index({ shopId: 1, assignedDriverId: 1, orderStatus: 1 });
+orderSchema.index({ appUserId: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Order', orderSchema);

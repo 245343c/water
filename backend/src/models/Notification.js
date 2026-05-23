@@ -24,5 +24,7 @@ const notificationSchema = new mongoose.Schema(
 );
 
 notificationSchema.index({ shopId: 1, targetUid: 1, read: 1 });
+notificationSchema.index({ shopId: 1, createdAt: -1 });
+notificationSchema.index({ shopId: 1, audience: 1, read: 1 });
 
 module.exports = mongoose.model('Notification', notificationSchema);

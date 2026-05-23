@@ -13,6 +13,7 @@ const shopSchema = new mongoose.Schema(
     latitude: { type: Number, default: null },
     longitude: { type: Number, default: null },
     coverImageUrl: { type: String, default: null },
+    ownerPhotoUrl: { type: String, default: null },
     homeDeliveryAvailable: { type: Boolean, default: false },
     isListed: { type: Boolean, default: true },
     normalCanPrice: { type: Number, default: 20 },

@@ -112,6 +112,18 @@ async function seed() {
   );
   console.log('Customer seeded for OTP login: +91 99999 99999 (OTP: 123456)');
 
+  // Backfill phoneLast10 for existing customers (production index)
+  const { phoneDigits } = require('../src/utils/phone');
+  const allCustomers = await Customer.find({});
+  for (const c of allCustomers) {
+    const last10 = phoneDigits(c.phone);
+    if (last10 && c.phoneLast10 !== last10) {
+      c.phoneLast10 = last10;
+      await c.save({ validateBeforeSave: false });
+    }
+  }
+  console.log(`Backfilled phoneLast10 for ${allCustomers.length} customer(s)`);
+
   console.log('\nSeed complete. Login credentials:');
   console.log('  Admin:  admin@srisai.com / admin123');
   console.log('  Driver: driver@srisai.com / driver123');

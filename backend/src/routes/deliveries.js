@@ -6,6 +6,7 @@ const Customer = require('../models/Customer');
 const { protect } = require('../middleware/auth');
 const { adminOnly, adminOrDriver } = require('../middleware/role');
 const { writeAuditLog } = require('../utils/auditLog');
+const { notifyDeliveryRecorded } = require('../utils/notificationService');
 
 // GET /api/deliveries — list deliveries (admin/driver)
 router.get('/', protect, adminOrDriver, async (req, res) => {
@@ -95,6 +96,16 @@ router.post('/', protect, adminOrDriver, async (req, res) => {
       shopId: req.user.shopId, actorUid: req.user.uid, actorRole: req.user.role,
       action: 'CREATE_DELIVERY', entityType: 'delivery', entityId: deliveryId, newData: delivery,
     });
+
+    if (customer) {
+      const driverName = req.user.name || 'Driver';
+      await notifyDeliveryRecorded({
+        shopId: req.user.shopId,
+        delivery,
+        customer,
+        driverName,
+      });
+    }
 
     res.status(201).json({ success: true, delivery });
   } catch (err) {

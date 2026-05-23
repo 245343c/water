@@ -36,22 +36,8 @@ class OrderWorkflowService {
 
     final customer = _plant.customerById(order.customerId);
     if (customer == null) return order;
-    final shopName = order.shopId != null
-        ? _plant.shopById(order.shopId!)?.name ?? 'Your water plant'
-        : 'Your water plant';
 
-    _notifications.notifyDriverOrderAccepted(
-      order: order,
-      customerName: customer.name,
-    );
-    _notifications.notifyAdminOrderAccepted(
-      order: order,
-      customerName: customer.name,
-    );
-    _notifications.notifyCustomerOrderAccepted(
-      order: order,
-      shopName: shopName,
-    );
+    await _notifications.loadFromBackend();
 
     _push.showDeliveryRecordedSafe(
       title: 'New delivery task',
@@ -72,11 +58,8 @@ class OrderWorkflowService {
     final shopName = order.shopId != null
         ? _plant.shopById(order.shopId!)?.name ?? 'Your water plant'
         : 'Your water plant';
-    _notifications.notifyCustomerOrderRejected(
-      order: order,
-      shopName: shopName,
-      reason: reason,
-    );
+
+    await _notifications.loadFromBackend();
 
     _push.showDeliveryRecordedSafe(
       title: 'Request declined',

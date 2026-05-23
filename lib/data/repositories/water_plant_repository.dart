@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:sri_sai_ro_water/data/models/business_settings.dart';
 import 'package:sri_sai_ro_water/core/constants/customer_pricing_keys.dart';
 import 'package:sri_sai_ro_water/data/models/customer_app_profile.dart';
@@ -22,7 +23,6 @@ import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/data/models/product_variant.dart';
 import 'package:sri_sai_ro_water/data/models/promotion.dart';
 import 'package:sri_sai_ro_water/data/models/customer_shop_billing.dart';
-import 'package:sri_sai_ro_water/core/services/product_image_service.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/core/utils/payment_allocation.dart';
 import 'package:flutter/foundation.dart';
@@ -75,8 +75,30 @@ class WaterPlantRepository extends IWaterPlantRepository {
   /// Local path to the admin's profile photo (null = not set).
   String? adminImagePath;
 
+  /// Cached dashboard stats from API (current month).
+  DashboardStats? _apiDashboardStats;
+  DateTime? _apiDashboardStatsMonth;
+
   void updateAdminImage(String? path) {
     adminImagePath = path;
+    notifyListeners();
+  }
+
+  /// Upload admin profile photo to backend and persist URL on shop.
+  Future<void> uploadAdminPhoto(String localPath) async {
+    final file = File(localPath);
+    if (!await file.exists()) return;
+    final upload = await _apiService.uploadImage(file);
+    final url = upload['url'] as String?;
+    if (url == null) return;
+    await _apiService.updateShop({'ownerPhotoUrl': url});
+    adminImagePath = url;
+    notifyListeners();
+  }
+
+  Future<void> clearAdminPhoto() async {
+    await _apiService.updateShop({'ownerPhotoUrl': null});
+    adminImagePath = null;
     notifyListeners();
   }
 
@@ -607,6 +629,13 @@ class WaterPlantRepository extends IWaterPlantRepository {
       pendingBeforeMonth(customerLedger(customerId), month);
 
   DashboardStats dashboardStats(DateTime month) {
+    if (_apiDashboardStats != null &&
+        _apiDashboardStatsMonth != null &&
+        _apiDashboardStatsMonth!.year == month.year &&
+        _apiDashboardStatsMonth!.month == month.month) {
+      return _apiDashboardStats!;
+    }
+
     final monthDeliveries = _deliveries
         .where((d) => d.date.isSameMonth(month))
         .toList();
@@ -1107,10 +1136,16 @@ class WaterPlantRepository extends IWaterPlantRepository {
     if (order.status != OrderStatus.pending) return;
 
     if (useBackend) {
+      Map<String, dynamic>? data;
       if (status == OrderStatus.accepted) {
-        await _apiService.acceptOrder(orderId, adminNote: adminResponse);
+        data = await _apiService.acceptOrder(orderId, adminNote: adminResponse);
       } else if (status == OrderStatus.rejected) {
-        await _apiService.rejectOrder(orderId, adminNote: adminResponse);
+        data = await _apiService.rejectOrder(orderId, adminNote: adminResponse);
+      }
+      if (data != null && data['order'] != null) {
+        _orders[index] = _orderFromJson(data['order'] as Map<String, dynamic>);
+        notifyListeners();
+        return;
       }
     }
 
@@ -1203,7 +1238,13 @@ class WaterPlantRepository extends IWaterPlantRepository {
     if (shop == null || shopIdForCustomer(order.customerId) != shop.id) {
       throw StateError('This request belongs to another water plant');
     }
-    order.driverAcceptedAt = DateTime.now();
+
+    final data = await _apiService.driverAcceptOrder(orderId);
+    final updated = _orderFromJson(data['order'] as Map<String, dynamic>);
+    final index = _orders.indexWhere((o) => o.id == orderId);
+    if (index >= 0) {
+      _orders[index] = updated;
+    }
     notifyListeners();
   }
 
@@ -1558,11 +1599,13 @@ class WaterPlantRepository extends IWaterPlantRepository {
     bool isCool = false,
     String? imageSourcePath,
   }) async {
-    String? savedImagePath;
+    String? imageUrl;
     if (imageSourcePath != null && imageSourcePath.isNotEmpty) {
-      savedImagePath = await ProductImageService.persistFromFile(
-        imageSourcePath,
-      );
+      final file = File(imageSourcePath);
+      if (await file.exists()) {
+        final upload = await _apiService.uploadImage(file);
+        imageUrl = upload['url'] as String?;
+      }
     }
 
     final product = Product(
@@ -1580,7 +1623,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
           isCool: isCool,
         ),
       ],
-      localImagePath: savedImagePath,
+      localImagePath: imageUrl,
     );
     if (useBackend) {
       final firstVariant =
@@ -1592,6 +1635,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
         'variantLabel': firstVariant?.label ?? product.name,
         'price': firstVariant?.price ?? 0,
         'isCool': firstVariant?.isCool ?? false,
+        if (imageUrl != null) 'imageUrl': imageUrl,
       });
       final saved = _productFromJson(data['product'] as Map<String, dynamic>);
       _products.insert(0, saved);
@@ -1668,6 +1712,10 @@ class WaterPlantRepository extends IWaterPlantRepository {
         _shops
           ..clear()
           ..add(_shopFromJson(shopJson));
+        final ownerPhoto = shopJson['ownerPhotoUrl'] as String?;
+        if (ownerPhoto != null && ownerPhoto.isNotEmpty) {
+          adminImagePath = ownerPhoto;
+        }
       }
 
       if (isCustomer) {
@@ -1769,6 +1817,26 @@ class WaterPlantRepository extends IWaterPlantRepository {
 
       if (isAdmin) {
         _syncShopFromSettings();
+        final now = DateTime.now();
+        try {
+          final statsData = await _apiService.getDashboardStats(
+            month: now.month,
+            year: now.year,
+          );
+          final s = statsData['stats'] as Map<String, dynamic>? ?? {};
+          _apiDashboardStats = DashboardStats(
+            totalDeliveries: (s['totalDeliveries'] as num?)?.toInt() ?? 0,
+            totalCans: ((s['totalNormalCans'] as num?)?.toInt() ?? 0) +
+                ((s['totalCoolCans'] as num?)?.toInt() ?? 0),
+            totalSales: (s['totalSales'] as num?)?.toDouble() ?? 0,
+            activeCustomers: (s['activeCustomers'] as num?)?.toInt() ?? 0,
+            paidThisMonth: (s['cashCollected'] as num?)?.toDouble() ?? 0,
+            pendingAmount: (s['totalPendingAmount'] as num?)?.toDouble() ?? 0,
+          );
+          _apiDashboardStatsMonth = DateTime(now.year, now.month);
+        } catch (e) {
+          debugPrint('getDashboardStats error: $e');
+        }
       }
 
       if (isCustomer) {
@@ -1920,10 +1988,10 @@ class WaterPlantRepository extends IWaterPlantRepository {
     };
 
     DateTime? driverAcceptedAt;
-    if (map['assignedAt'] != null) {
+    if (map['driverAcceptedAt'] != null) {
+      driverAcceptedAt = DateTime.parse(map['driverAcceptedAt'] as String);
+    } else if (map['assignedAt'] != null) {
       driverAcceptedAt = DateTime.parse(map['assignedAt'] as String);
-    } else if (map['acceptedAt'] != null && status != OrderStatus.pending) {
-      driverAcceptedAt = DateTime.parse(map['acceptedAt'] as String);
     }
 
     DateTime? deliveryStartedAt;

@@ -5,11 +5,8 @@ const Customer = require('../models/Customer');
 const { protect } = require('../middleware/auth');
 const { adminOnly, adminOrDriver, customerOnly } = require('../middleware/role');
 
-function phoneDigits(phone) {
-  const digits = String(phone || '').replace(/\D/g, '');
-  return digits.length >= 10 ? digits.slice(-10) : digits;
-}
 const { writeAuditLog } = require('../utils/auditLog');
+const { phoneDigits } = require('../utils/phone');
 
 // GET /api/customers — list all customers for shop
 router.get('/', protect, adminOrDriver, async (req, res) => {
@@ -83,13 +80,7 @@ router.get('/me/linked', protect, customerOnly, async (req, res) => {
     }
     const digits = phoneDigits(req.user.phone);
     if (digits.length >= 10) {
-      const phoneMatches = await Customer.find({ status: { $ne: 'deleted' } });
-      const ids = phoneMatches
-        .filter((c) => phoneDigits(c.phone) === digits)
-        .map((c) => c.customerId);
-      if (ids.length > 0) {
-        filter.$or.push({ customerId: { $in: ids } });
-      }
+      filter.$or.push({ phoneLast10: digits });
     }
     const customers = await Customer.find(filter).sort({ createdAt: -1 });
     res.status(200).json({ success: true, customers });
@@ -116,13 +107,7 @@ router.patch('/me/delivery-profile', protect, customerOnly, async (req, res) => 
     }
     const digits = phoneDigits(req.user.phone);
     if (digits.length >= 10) {
-      const phoneMatches = await Customer.find({ status: { $ne: 'deleted' } });
-      const ids = phoneMatches
-        .filter((c) => phoneDigits(c.phone) === digits)
-        .map((c) => c.customerId);
-      if (ids.length > 0) {
-        filter.$or.push({ customerId: { $in: ids } });
-      }
+      filter.$or.push({ phoneLast10: digits });
     }
 
     const result = await Customer.updateMany(filter, {

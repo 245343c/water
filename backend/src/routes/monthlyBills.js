@@ -26,6 +26,17 @@ router.get('/', protect, adminOnly, async (req, res) => {
   }
 });
 
+// GET /api/bills/customer/mine — must be before /:id
+router.get('/customer/mine', protect, customerOnly, async (req, res) => {
+  try {
+    const bills = await MonthlyBill.find({ shopId: req.query.shopId, customerId: req.user.customerProfileId })
+      .sort({ year: -1, month: -1 });
+    res.status(200).json({ success: true, bills });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // GET /api/bills/:id
 router.get('/:id', protect, async (req, res) => {
   try {
@@ -125,15 +136,5 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
   }
 });
 
-// GET /api/bills/customer/mine — customer's own bills
-router.get('/customer/mine', protect, customerOnly, async (req, res) => {
-  try {
-    const bills = await MonthlyBill.find({ shopId: req.query.shopId, customerId: req.user.customerProfileId })
-      .sort({ year: -1, month: -1 });
-    res.status(200).json({ success: true, bills });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
 
 module.exports = router;

@@ -7,17 +7,17 @@ const User = require('../models/User');
 const Customer = require('../models/Customer');
 const { sendTokenResponse } = require('../utils/jwt');
 const { protect } = require('../middleware/auth');
-
-function phoneDigits(phone) {
-  const digits = String(phone || '').replace(/\D/g, '');
-  return digits.length >= 10 ? digits.slice(-10) : digits;
-}
+const { generateOtp, storeOtp, verifyOtp, dispatchOtp, isProd } = require('../services/otpService');
+const { phoneDigits } = require('../utils/phone');
+const logger = require('../utils/logger');
 
 async function findCustomerByPhone(phone) {
   const last10 = phoneDigits(phone);
   if (last10.length < 10) return null;
-  const customers = await Customer.find({ status: { $ne: 'deleted' } });
-  return customers.find((c) => phoneDigits(c.phone) === last10) || null;
+  return Customer.findOne({
+    status: { $ne: 'deleted' },
+    phoneLast10: last10,
+  });
 }
 
 // POST /api/auth/login — admin or driver
@@ -121,27 +121,23 @@ router.post('/customer/request-otp', async (req, res) => {
       });
     }
 
-    const demoOtp = process.env.CUSTOMER_DEMO_OTP || '123456';
-    const otp =
-      process.env.NODE_ENV === 'production'
-        ? Math.floor(100000 + Math.random() * 900000).toString()
-        : demoOtp;
-
-    global._customerOtpStore = global._customerOtpStore || {};
-    global._customerOtpStore[digits] = {
+    const otp = generateOtp();
+    await storeOtp({
+      key: digits,
+      purpose: 'customer_login',
       otp,
-      expiresAt: Date.now() + 10 * 60 * 1000,
-      customerId: customer.customerId,
-      shopId: customer.shopId,
-    };
+      meta: { customerId: customer.customerId, shopId: customer.shopId },
+    });
+    await dispatchOtp({ channel: 'sms', to: digits, otp, purpose: 'customer_login' });
 
     const payload = {
       success: true,
       message: 'OTP sent',
     };
-    if (process.env.NODE_ENV !== 'production') {
+    if (!isProd) {
       payload.otp = otp;
     }
+    logger.info('Customer OTP requested', { phone: digits.slice(-4) });
     res.status(200).json(payload);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -157,23 +153,18 @@ router.post('/customer/verify-otp', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Phone and OTP required' });
     }
 
-    global._customerOtpStore = global._customerOtpStore || {};
-    const pending = global._customerOtpStore[digits];
-    if (!pending) {
-      return res.status(400).json({ success: false, message: 'Send OTP to your phone first' });
+    const verified = await verifyOtp({
+      key: digits,
+      purpose: 'customer_login',
+      otp: String(otp).trim(),
+    });
+    if (!verified.ok) {
+      return res.status(400).json({ success: false, message: verified.message });
     }
-    if (Date.now() > pending.expiresAt) {
-      delete global._customerOtpStore[digits];
-      return res.status(400).json({ success: false, message: 'OTP expired. Request again' });
-    }
-    if (String(otp).trim() !== pending.otp) {
-      return res.status(400).json({ success: false, message: 'Invalid OTP' });
-    }
-    delete global._customerOtpStore[digits];
 
     const customer = await Customer.findOne({
-      customerId: pending.customerId,
-      shopId: pending.shopId,
+      customerId: verified.meta.customerId,
+      shopId: verified.meta.shopId,
     });
     if (!customer) {
       return res.status(404).json({
@@ -205,13 +196,14 @@ router.post('/customer/verify-otp', async (req, res) => {
       });
     }
 
-    const samePhoneCustomers = await Customer.find({ shopId: customer.shopId });
+    const samePhoneCustomers = await Customer.find({
+      shopId: customer.shopId,
+      phoneLast10: digits,
+    });
     for (const row of samePhoneCustomers) {
-      if (phoneDigits(row.phone) === digits) {
-        row.appUserId = user.uid;
-        row.customerType = 'app_customer';
-        await row.save({ validateBeforeSave: false });
-      }
+      row.appUserId = user.uid;
+      row.customerType = 'app_customer';
+      await row.save({ validateBeforeSave: false });
     }
 
     user.lastLoginAt = new Date();
@@ -314,20 +306,23 @@ router.post(
         return res.status(200).json({ success: true, message: 'If account exists, reset instructions sent' });
       }
 
-      // In production: send email with reset link. For local dev: return OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      // Store OTP temporarily (in production use Redis/DB; here we use a simple in-memory store)
-      global._otpStore = global._otpStore || {};
-      global._otpStore[email.toLowerCase()] = {
+      // In production: send email with reset link. For dev: return OTP in response.
+      const otp = generateOtp();
+      await storeOtp({
+        key: normalized,
+        purpose: 'password_reset',
         otp,
-        expiresAt: Date.now() + 10 * 60 * 1000,
-      };
-
-      res.status(200).json({
-        success: true,
-        message: 'OTP sent (dev mode: OTP returned in response)',
-        otp, // Remove in production
       });
+      await dispatchOtp({ channel: 'email', to: normalized, otp, purpose: 'password_reset' });
+
+      const payload = {
+        success: true,
+        message: isProd ? 'If account exists, reset instructions sent' : 'OTP sent',
+      };
+      if (!isProd) {
+        payload.otp = otp;
+      }
+      res.status(200).json(payload);
     } catch (err) {
       res.status(500).json({ success: false, message: err.message });
     }
@@ -352,11 +347,13 @@ router.post(
       const { email, otp, newPassword } = req.body;
       const normalized = email.toLowerCase().trim();
 
-      global._otpStore = global._otpStore || {};
-      const pending = global._otpStore[normalized];
-
-      if (!pending || pending.otp !== otp || Date.now() > pending.expiresAt) {
-        return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+      const verified = await verifyOtp({
+        key: normalized,
+        purpose: 'password_reset',
+        otp: String(otp).trim(),
+      });
+      if (!verified.ok) {
+        return res.status(400).json({ success: false, message: verified.message });
       }
 
       const user = await User.findOne({ email: normalized }).select('+password');
@@ -366,7 +363,6 @@ router.post(
 
       user.password = newPassword;
       await user.save();
-      delete global._otpStore[normalized];
 
       res.status(200).json({ success: true, message: 'Password reset successful' });
     } catch (err) {
