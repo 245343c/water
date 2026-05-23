@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 
 /// Driver persona theme — teal field-app accent (see PRODUCT_ARCHITECTURE.md).
 abstract final class DriverColors {
@@ -49,7 +50,10 @@ class DriverScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: child,
+      child: PremiumResponsiveBody(
+        maxWidth: 920,
+        child: child,
+      ),
     );
   }
 }

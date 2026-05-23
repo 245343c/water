@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_card.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/data/models/order_status.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
@@ -41,7 +43,7 @@ class CustomerOrdersScreen extends StatelessWidget {
                       icon: Icons.receipt_long_outlined,
                       title: 'No orders yet',
                       message:
-                          'Go to Home, pick a shop, and place your first order.',
+                          'Go to Home, choose your linked water plant, and send your first request.',
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -70,6 +72,7 @@ class _OrdersHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
       decoration: CustomerColors.headerGradient,
       padding: EdgeInsets.fromLTRB(
         20,
@@ -173,28 +176,11 @@ class _OrderCard extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: _statusColor.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(_statusIcon, size: 14, color: _statusColor),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    order.status.label,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      color: _statusColor,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                            PremiumStatusBadge(
+                              label: order.status.label,
+                              color: _statusColor,
+                              icon: _statusIcon,
+                              compact: true,
                             ),
                           ],
                         ),
@@ -215,6 +201,8 @@ class _OrderCard extends StatelessWidget {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 8),
+                        _OrderStatusMessage(order: order),
                         const SizedBox(height: 8),
                         Text(
                           _formatDate(order.createdAt),
@@ -238,5 +226,57 @@ class _OrderCard extends StatelessWidget {
   String _formatDate(DateTime d) {
     return '${d.day}/${d.month}/${d.year} · '
         '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class _OrderStatusMessage extends StatelessWidget {
+  const _OrderStatusMessage({required this.order});
+
+  final CustomerOrder order;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (order.status) {
+      OrderStatus.pending => CustomerColors.warning,
+      OrderStatus.accepted => CustomerColors.success,
+      OrderStatus.rejected => const Color(0xFFDC2626),
+    };
+    final icon = switch (order.status) {
+      OrderStatus.pending => Icons.hourglass_bottom_rounded,
+      OrderStatus.accepted => Icons.local_shipping_rounded,
+      OrderStatus.rejected => Icons.info_outline_rounded,
+    };
+    final text = switch (order.status) {
+      OrderStatus.pending => 'Waiting for your water plant to confirm.',
+      OrderStatus.accepted =>
+        order.adminResponse ?? 'Confirmed. Driver will deliver soon.',
+      OrderStatus.rejected =>
+        order.adminResponse == null || order.adminResponse!.trim().isEmpty
+            ? 'Declined by your water plant.'
+            : 'Declined: ${order.adminResponse}',
+    };
+
+    return PremiumCard(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      margin: EdgeInsets.zero,
+      color: color.withValues(alpha: 0.04),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                height: 1.35,
+                fontWeight: FontWeight.w500,
+                color: CustomerColors.titleNavy,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

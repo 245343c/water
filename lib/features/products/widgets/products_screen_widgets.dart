@@ -210,13 +210,28 @@ class ProductListTile extends StatelessWidget {
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              Text(
-                                CurrencyUtils.format(product.startingPrice),
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                  color: _accent,
-                                ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Default rate',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                      color: ProductsColors.labelGrey,
+                                    ),
+                                  ),
+                                  Text(
+                                    CurrencyUtils.format(
+                                      product.startingPrice,
+                                    ),
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: _accent,
+                                    ),
+                                  ),
+                                ],
                               ),
                               Text(
                                 ' · ${product.variants.length} size${product.variants.length == 1 ? '' : 's'}',
@@ -379,7 +394,7 @@ class ProductCatalogCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'From ${CurrencyUtils.format(product.startingPrice)}',
+                      'Default ${CurrencyUtils.format(product.startingPrice)}',
                       style: GoogleFonts.poppins(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
@@ -572,7 +587,7 @@ class _VariantIconTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  CurrencyUtils.format(variant.price),
+                  'Default ${CurrencyUtils.format(variant.price)}',
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
@@ -779,12 +794,14 @@ class ProductDetailCard extends StatelessWidget {
             children: [
               Icon(Icons.info_outline, size: 14, color: accent.withValues(alpha: 0.7)),
               const SizedBox(width: 6),
-              Text(
-                'Starting from ${CurrencyUtils.format(product.startingPrice)}',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: accent,
+              Expanded(
+                child: Text(
+                  'Default starting rate ${CurrencyUtils.format(product.startingPrice)}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: accent,
+                  ),
                 ),
               ),
             ],

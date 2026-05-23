@@ -65,6 +65,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 CustomersListPanel(
                   child: Column(
                     children: [
+                      const _ProductPricingNote(),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                         child: Row(
@@ -168,7 +169,7 @@ class _EmptyProducts extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Add bottles and water cans with photos and prices.',
+              'Add bottles and water cans here. Final rates are assigned inside each customer profile.',
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
                 fontSize: 13,
@@ -189,6 +190,43 @@ class _EmptyProducts extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ProductPricingNote extends StatelessWidget {
+  const _ProductPricingNote();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFBFDBFE)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.sell_outlined,
+            color: ProductsColors.statBlue,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Products are your catalog. Customer-specific rates are assigned when admin creates or edits a customer.',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                height: 1.35,
+                color: ProductsColors.titleNavy,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:sri_sai_ro_water/core/auth/app_role.dart';
 enum AppNotificationType {
   deliveryRecorded,
   orderAccepted,
+  orderRejected,
   orderPlaced,
   paymentReceived,
 }

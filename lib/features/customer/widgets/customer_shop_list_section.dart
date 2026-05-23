@@ -11,14 +11,21 @@ class CustomerShopListSection extends StatefulWidget {
     required this.shops,
     this.sectionTitle = 'Shops near you',
     this.topPadding = 0,
+    this.searchHint = 'Search shops by name or area...',
+    this.emptyTitle = 'No shops found',
+    this.emptyMessage = 'Try another search or check back later.',
   });
 
   final List<Shop> shops;
   final String sectionTitle;
   final double topPadding;
+  final String searchHint;
+  final String emptyTitle;
+  final String emptyMessage;
 
   @override
-  State<CustomerShopListSection> createState() => _CustomerShopListSectionState();
+  State<CustomerShopListSection> createState() =>
+      _CustomerShopListSectionState();
 }
 
 class _CustomerShopListSectionState extends State<CustomerShopListSection> {
@@ -53,6 +60,7 @@ class _CustomerShopListSectionState extends State<CustomerShopListSection> {
         SizedBox(height: widget.topPadding),
         CustomerSearchBar(
           controller: _searchController,
+          hint: widget.searchHint,
           onChanged: (q) => setState(() => _query = q),
         ),
         CustomerSectionTitle(
@@ -61,10 +69,10 @@ class _CustomerShopListSectionState extends State<CustomerShopListSection> {
               : 'Results (${list.length})',
         ),
         if (list.isEmpty)
-          const CustomerEmptyState(
+          CustomerEmptyState(
             icon: Icons.storefront_outlined,
-            title: 'No shops found',
-            message: 'Try another search or check back later.',
+            title: widget.emptyTitle,
+            message: widget.emptyMessage,
           )
         else
           ...list.map(

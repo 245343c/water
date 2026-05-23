@@ -6,12 +6,15 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/services/shop_map_launcher.dart';
+import 'package:sri_sai_ro_water/core/constants/customer_pricing_keys.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
+import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/data/models/product_variant.dart';
 import 'package:sri_sai_ro_water/data/models/shop.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
+import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customer/widgets/customer_theme.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
@@ -38,7 +41,8 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
     super.dispose();
   }
 
-  String _variantKey(String productId, String variantId) => '$productId:$variantId';
+  String _variantKey(String productId, String variantId) =>
+      '$productId:$variantId';
 
   int _qtyFor(Product product, ProductVariant variant) =>
       _variantQty[_variantKey(product.id, variant.id)] ?? 0;
@@ -75,12 +79,47 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
     return n;
   }
 
-  double _catalogBottlesTotal(List<Product> products) {
+  Customer? _linkedCustomerForShop(
+    WaterPlantRepository repo,
+    AuthRepository auth,
+  ) {
+    final user = auth.currentUser;
+    if (user == null) return null;
+    for (final customer in repo.linkedCrmCustomersForAppUser(
+      user.id,
+      phone: user.phone,
+    )) {
+      if (repo.shopIdForCustomer(customer.id) == widget.shopId) {
+        return customer;
+      }
+    }
+    return null;
+  }
+
+  double _priceForVariant(
+    WaterPlantRepository repo,
+    Customer? customer,
+    Product product,
+    ProductVariant variant,
+  ) {
+    if (customer == null) return variant.price;
+    return repo.customerUnitPrice(
+      customer,
+      productId: product.id,
+      variantId: variant.id,
+    );
+  }
+
+  double _catalogBottlesTotal(
+    List<Product> products,
+    WaterPlantRepository repo,
+    Customer? customer,
+  ) {
     var total = 0.0;
     for (final p in products) {
       if (p.category != ProductCategory.bottle) continue;
       for (final v in p.variants) {
-        total += _qtyFor(p, v) * v.price;
+        total += _qtyFor(p, v) * _priceForVariant(repo, customer, p, v);
       }
     }
     return total;
@@ -100,12 +139,19 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
     return 'Products: ${lines.join(' · ')}';
   }
 
-  double _orderTotal(Shop shop, List<Product> products) {
-    final cans = _normal * shop.normalPrice +
-        _cool * shop.coolPrice +
-        _catalogNormalQty(products) * shop.normalPrice +
-        _catalogCoolQty(products) * shop.coolPrice;
-    return cans + _catalogBottlesTotal(products);
+  double _orderTotal(
+    List<Product> products,
+    WaterPlantRepository repo,
+    Customer? customer,
+    double normalPrice,
+    double coolPrice,
+  ) {
+    final cans =
+        _normal * normalPrice +
+        _cool * coolPrice +
+        _catalogNormalQty(products) * normalPrice +
+        _catalogCoolQty(products) * coolPrice;
+    return cans + _catalogBottlesTotal(products, repo, customer);
   }
 
   int _totalItems(List<Product> products) {
@@ -135,7 +181,7 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
     try {
       final normalTotal = _normal + _catalogNormalQty(products);
       final coolTotal = _cool + _catalogCoolQty(products);
-      repo.placeAppOrder(
+      final order = repo.placeAppOrder(
         shopId: widget.shopId,
         appUserId: user.id,
         normalQty: normalTotal,
@@ -143,10 +189,18 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
         customerNote: _noteController.text,
         productSummary: _buildProductSummary(products),
       );
+      final customer = repo.customerById(order.customerId);
+      if (customer != null) {
+        context.read<NotificationRepository>().notifyAdminOrderPlaced(
+              order: order,
+              customerName: customer.name,
+              shopName: shop.name,
+            );
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Order placed! Shop will confirm shortly.'),
+          content: Text('Request sent. Your water plant will confirm shortly.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -154,7 +208,10 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), behavior: SnackBarBehavior.floating),
+        SnackBar(
+          content: Text(e.toString()),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } finally {
       if (mounted) setState(() => _placing = false);
@@ -167,8 +224,29 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
     final auth = context.watch<AuthRepository>();
     final shop = repo.shopById(widget.shopId);
     final products = repo.catalogProducts();
+    final user = auth.currentUser;
+    final canAccess =
+        user != null &&
+        repo.canAppUserAccessShop(user.id, widget.shopId, phone: user.phone);
+    final linkedCustomer = _linkedCustomerForShop(repo, auth);
+    final normalPrice = linkedCustomer == null
+        ? shop?.normalPrice ?? 0
+        : repo.customerUnitPrice(
+            linkedCustomer,
+            productId: CustomerPricingKeys.canProductId,
+            variantId: CustomerPricingKeys.normalVariantId,
+          );
+    final coolPrice = linkedCustomer == null
+        ? shop?.coolPrice ?? 0
+        : repo.customerUnitPrice(
+            linkedCustomer,
+            productId: CustomerPricingKeys.canProductId,
+            variantId: CustomerPricingKeys.coolVariantId,
+          );
 
-    if (shop == null || !shop.isVisibleToCustomers) {
+    if (shop == null || !shop.isVisibleToCustomers || !canAccess) {
+      final isUnlinked =
+          shop != null && shop.isVisibleToCustomers && !canAccess;
       return Scaffold(
         backgroundColor: CustomerColors.screenBg,
         body: CustomerScaffold(
@@ -178,11 +256,15 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
                 title: 'Shop',
                 onBack: () => context.go(AppRoutes.customerHome),
               ),
-              const Expanded(
+              Expanded(
                 child: CustomerEmptyState(
                   icon: Icons.storefront_outlined,
-                  title: 'Shop not available',
-                  message: 'This shop does not offer home delivery on the app.',
+                  title: isUnlinked
+                      ? 'Water plant not linked'
+                      : 'Shop not available',
+                  message: isUnlinked
+                      ? 'Contact your RO plant owner to add your phone number.'
+                      : 'This shop does not offer home delivery on the app.',
                 ),
               ),
             ],
@@ -191,7 +273,13 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
       );
     }
 
-    final total = _orderTotal(shop, products);
+    final total = _orderTotal(
+      products,
+      repo,
+      linkedCustomer,
+      normalPrice,
+      coolPrice,
+    );
     final itemCount = _totalItems(products);
 
     return Scaffold(
@@ -212,7 +300,11 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
                       onPressed: () => context.pop(),
                     ),
                     flexibleSpace: FlexibleSpaceBar(
-                      titlePadding: const EdgeInsets.only(left: 48, bottom: 14, right: 16),
+                      titlePadding: const EdgeInsets.only(
+                        left: 48,
+                        bottom: 14,
+                        right: 16,
+                      ),
                       title: Text(
                         shop.name,
                         style: GoogleFonts.poppins(
@@ -230,13 +322,33 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _ShopDetailsCard(shop: shop),
-                          const SizedBox(height: 20),
-                          CustomerSectionTitle(title: '20L water cans'),
+                          _ShopDetailsCard(
+                            shop: shop,
+                            normalPrice: normalPrice,
+                            coolPrice: coolPrice,
+                            hasCustomerPricing: linkedCustomer != null,
+                          ),
+                          const SizedBox(height: 12),
+                          _LinkedAccountBanner(
+                            customerName: linkedCustomer?.name ?? user.ownerName ?? 'Customer',
+                            shopName: shop.name,
+                          ),
+                          const SizedBox(height: 18),
+                          CustomerSectionTitle(
+                            title: 'Choose cans for this delivery',
+                            trailing: Text(
+                              '20L',
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: CustomerColors.accent,
+                              ),
+                            ),
+                          ),
                           const SizedBox(height: 10),
                           _CanQtyCard(
-                            label: 'Normal RO',
-                            price: shop.normalPrice,
+                            label: 'Normal RO can',
+                            price: normalPrice,
                             qty: _normal,
                             icon: Icons.water_drop_outlined,
                             color: CustomerColors.accent,
@@ -244,8 +356,8 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
                           ),
                           const SizedBox(height: 10),
                           _CanQtyCard(
-                            label: 'Cool RO',
-                            price: shop.coolPrice,
+                            label: 'Cool RO can',
+                            price: coolPrice,
                             qty: _cool,
                             icon: Icons.ac_unit_rounded,
                             color: const Color(0xFF0EA5E9),
@@ -254,7 +366,8 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
                           if (products.isNotEmpty) ...[
                             const SizedBox(height: 24),
                             CustomerSectionTitle(
-                              title: 'Products (${products.length})',
+                              title:
+                                  'Other products from your supplier',
                             ),
                             const SizedBox(height: 10),
                             ...products.expand(
@@ -264,6 +377,12 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
                                   child: _ProductOrderCard(
                                     product: p,
                                     variant: v,
+                                    price: _priceForVariant(
+                                      repo,
+                                      linkedCustomer,
+                                      p,
+                                      v,
+                                    ),
                                     qty: _qtyFor(p, v),
                                     onChanged: (q) => _setVariantQty(p, v, q),
                                   ),
@@ -272,10 +391,18 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
                             ),
                           ],
                           const SizedBox(height: 16),
+                          _RequestSummaryCard(
+                            itemCount: itemCount,
+                            normalQty:
+                                _normal + _catalogNormalQty(products),
+                            coolQty: _cool + _catalogCoolQty(products),
+                            total: total,
+                          ),
+                          const SizedBox(height: 14),
                           CustomerTextField(
-                            label: 'Note to shop (optional)',
+                            label: 'Delivery note (optional)',
                             controller: _noteController,
-                            hint: 'Delivery instructions',
+                            hint: 'Example: deliver after 6 PM',
                             icon: Icons.note_alt_outlined,
                           ),
                           const SizedBox(height: 100),
@@ -300,9 +427,17 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
 }
 
 class _ShopDetailsCard extends StatelessWidget {
-  const _ShopDetailsCard({required this.shop});
+  const _ShopDetailsCard({
+    required this.shop,
+    required this.normalPrice,
+    required this.coolPrice,
+    required this.hasCustomerPricing,
+  });
 
   final Shop shop;
+  final double normalPrice;
+  final double coolPrice;
+  final bool hasCustomerPricing;
 
   @override
   Widget build(BuildContext context) {
@@ -342,10 +477,14 @@ class _ShopDetailsCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.star_rounded, size: 16, color: Colors.amber.shade600),
+                        Icon(
+                          Icons.verified_user_outlined,
+                          size: 16,
+                          color: CustomerColors.accent,
+                        ),
                         const SizedBox(width: 4),
                         Text(
-                          '4.8 · Home delivery',
+                          'Linked supplier · Home delivery',
                           style: GoogleFonts.poppins(
                             fontSize: 12,
                             color: CustomerColors.labelGrey,
@@ -358,11 +497,65 @@ class _ShopDetailsCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          _DetailRow(icon: Icons.location_on_outlined, label: 'Address', value: shop.address),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _PriceChip(
+                label: 'Normal',
+                price: CurrencyUtils.format(normalPrice),
+              ),
+              const SizedBox(width: 8),
+              _PriceChip(
+                label: 'Cool',
+                price: CurrencyUtils.format(coolPrice),
+                cool: true,
+              ),
+            ],
+          ),
+          if (hasCustomerPricing) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFBBF7D0)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    color: Color(0xFF16A34A),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'These prices are assigned to your account by this plant.',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: CustomerColors.labelGrey,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          _DetailRow(
+            icon: Icons.location_on_outlined,
+            label: 'Address',
+            value: shop.address,
+          ),
           if (shop.place.isNotEmpty) ...[
             const SizedBox(height: 10),
-            _DetailRow(icon: Icons.place_outlined, label: 'Area', value: shop.place),
+            _DetailRow(
+              icon: Icons.place_outlined,
+              label: 'Area',
+              value: shop.place,
+            ),
           ],
           const SizedBox(height: 10),
           _DetailRow(
@@ -370,25 +563,6 @@ class _ShopDetailsCard extends StatelessWidget {
             label: 'Phone',
             value: shop.phone,
             onTap: () => Clipboard.setData(ClipboardData(text: shop.phone)),
-          ),
-          if (shop.email.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            _DetailRow(icon: Icons.mail_outline_rounded, label: 'Email', value: shop.email),
-          ],
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              _PriceChip(
-                label: 'Normal',
-                price: CurrencyUtils.format(shop.normalPrice),
-              ),
-              const SizedBox(width: 8),
-              _PriceChip(
-                label: 'Cool',
-                price: CurrencyUtils.format(shop.coolPrice),
-                cool: true,
-              ),
-            ],
           ),
           if (shop.hasMapPin) ...[
             const SizedBox(height: 14),
@@ -409,7 +583,9 @@ class _ShopDetailsCard extends StatelessWidget {
                   foregroundColor: CustomerColors.accent,
                   side: const BorderSide(color: CustomerColors.accent),
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
@@ -475,8 +651,76 @@ class _DetailRow extends StatelessWidget {
   }
 }
 
+class _LinkedAccountBanner extends StatelessWidget {
+  const _LinkedAccountBanner({
+    required this.customerName,
+    required this.shopName,
+  });
+
+  final String customerName;
+  final String shopName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFBFDBFE)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: CustomerColors.accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.link_rounded,
+              color: CustomerColors.accent,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Linked customer account',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: CustomerColors.titleNavy,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$customerName can request water only from $shopName on this app.',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    height: 1.35,
+                    color: CustomerColors.labelGrey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PriceChip extends StatelessWidget {
-  const _PriceChip({required this.label, required this.price, this.cool = false});
+  const _PriceChip({
+    required this.label,
+    required this.price,
+    this.cool = false,
+  });
 
   final String label;
   final String price;
@@ -550,22 +794,18 @@ class _CanQtyCard extends StatelessWidget {
                 ),
                 Text(
                   '${CurrencyUtils.format(price)} each',
-                  style: GoogleFonts.poppins(fontSize: 12, color: CustomerColors.labelGrey),
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: CustomerColors.labelGrey,
+                  ),
                 ),
               ],
             ),
           ),
-          IconButton(
-            onPressed: qty > 0 ? () => onChanged(qty - 1) : null,
-            icon: Icon(Icons.remove_circle_outline_rounded, color: color),
-          ),
-          Text(
-            '$qty',
-            style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700),
-          ),
-          IconButton(
-            onPressed: () => onChanged(qty + 1),
-            icon: Icon(Icons.add_circle_rounded, color: color),
+          _QuantityStepper(
+            qty: qty,
+            color: color,
+            onChanged: onChanged,
           ),
         ],
       ),
@@ -577,12 +817,14 @@ class _ProductOrderCard extends StatelessWidget {
   const _ProductOrderCard({
     required this.product,
     required this.variant,
+    required this.price,
     required this.qty,
     required this.onChanged,
   });
 
   final Product product;
   final ProductVariant variant;
+  final double price;
   final int qty;
   final ValueChanged<int> onChanged;
 
@@ -612,10 +854,13 @@ class _ProductOrderCard extends StatelessWidget {
                 ),
                 Text(
                   variant.label,
-                  style: GoogleFonts.poppins(fontSize: 12, color: CustomerColors.labelGrey),
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: CustomerColors.labelGrey,
+                  ),
                 ),
                 Text(
-                  CurrencyUtils.format(variant.price),
+                  CurrencyUtils.format(price),
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
@@ -625,14 +870,236 @@ class _ProductOrderCard extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
-            onPressed: qty > 0 ? () => onChanged(qty - 1) : null,
-            icon: Icon(Icons.remove_circle_outline_rounded, color: accent),
+          _QuantityStepper(
+            qty: qty,
+            color: accent,
+            compact: true,
+            onChanged: onChanged,
           ),
-          Text('$qty', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700)),
-          IconButton(
-            onPressed: () => onChanged(qty + 1),
-            icon: Icon(Icons.add_circle_rounded, color: accent),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuantityStepper extends StatelessWidget {
+  const _QuantityStepper({
+    required this.qty,
+    required this.color,
+    required this.onChanged,
+    this.compact = false,
+  });
+
+  final int qty;
+  final Color color;
+  final ValueChanged<int> onChanged;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: compact ? 38 : 42,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _StepButton(
+            icon: Icons.remove_rounded,
+            enabled: qty > 0,
+            color: color,
+            onTap: () => onChanged(qty - 1),
+          ),
+          SizedBox(
+            width: compact ? 30 : 36,
+            child: Text(
+              '$qty',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: compact ? 15 : 17,
+                fontWeight: FontWeight.w800,
+                color: CustomerColors.titleNavy,
+              ),
+            ),
+          ),
+          _StepButton(
+            icon: Icons.add_rounded,
+            enabled: true,
+            color: color,
+            onTap: () => onChanged(qty + 1),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StepButton extends StatelessWidget {
+  const _StepButton({
+    required this.icon,
+    required this.enabled,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final bool enabled;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(999),
+      child: SizedBox(
+        width: 34,
+        height: 38,
+        child: Icon(
+          icon,
+          size: 19,
+          color: enabled ? color : CustomerColors.labelGrey.withValues(alpha: 0.45),
+        ),
+      ),
+    );
+  }
+}
+
+class _RequestSummaryCard extends StatelessWidget {
+  const _RequestSummaryCard({
+    required this.itemCount,
+    required this.normalQty,
+    required this.coolQty,
+    required this.total,
+  });
+
+  final int itemCount;
+  final int normalQty;
+  final int coolQty;
+  final double total;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: CustomerColors.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.receipt_long_outlined,
+                color: CustomerColors.accent,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Request summary',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: CustomerColors.titleNavy,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                itemCount == 0 ? 'No items' : '$itemCount item${itemCount == 1 ? '' : 's'}',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: CustomerColors.labelGrey,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _SummaryPill(
+                  label: 'Normal',
+                  value: '$normalQty',
+                  color: CustomerColors.accent,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _SummaryPill(
+                  label: 'Cool',
+                  value: '$coolQty',
+                  color: const Color(0xFF0EA5E9),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _SummaryPill(
+                  label: 'Amount',
+                  value: CurrencyUtils.format(total),
+                  color: const Color(0xFF16A34A),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Your water plant will confirm delivery after you send the request.',
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              height: 1.35,
+              color: CustomerColors.labelGrey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryPill extends StatelessWidget {
+  const _SummaryPill({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              color: CustomerColors.labelGrey,
+            ),
           ),
         ],
       ),
@@ -676,7 +1143,10 @@ class _ShopHeroBackground extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.6)],
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.6),
+                ],
               ),
             ),
           ),
@@ -707,7 +1177,10 @@ class _ShopHeroBackground extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 2),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.4),
+                    width: 2,
+                  ),
                 ),
                 alignment: Alignment.center,
                 child: Text(
@@ -722,7 +1195,10 @@ class _ShopHeroBackground extends StatelessWidget {
               if (shop.tagline.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(20),
@@ -742,7 +1218,11 @@ class _ShopHeroBackground extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.star_rounded, color: Color(0xFFFBBF24), size: 16),
+                    const Icon(
+                      Icons.star_rounded,
+                      color: Color(0xFFFBBF24),
+                      size: 16,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       shop.rating.toStringAsFixed(1),
@@ -772,7 +1252,10 @@ class _ShopHeroBackground extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.5)],
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.5),
+                ],
                 stops: const [0.55, 1.0],
               ),
             ),
@@ -789,7 +1272,11 @@ class _ShopHeroPainter extends CustomPainter {
     final paint = Paint()..color = Colors.white.withValues(alpha: 0.06);
     for (var i = 0; i < 3; i++) {
       final r = size.width * (0.18 + i * 0.14);
-      canvas.drawCircle(Offset(size.width * 0.92, size.height * (0.1 + i * 0.3)), r, paint);
+      canvas.drawCircle(
+        Offset(size.width * 0.92, size.height * (0.1 + i * 0.3)),
+        r,
+        paint,
+      );
     }
     // Bottom wave
     final wavePaint = Paint()
@@ -797,7 +1284,8 @@ class _ShopHeroPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
     final path = Path()..moveTo(0, size.height * 0.65);
     for (var x = 0.0; x <= size.width; x += 3) {
-      final y = size.height * 0.65 + math.sin((x / size.width) * math.pi * 4) * 12;
+      final y =
+          size.height * 0.65 + math.sin((x / size.width) * math.pi * 4) * 12;
       path.lineTo(x, y);
     }
     path.lineTo(size.width, size.height);
@@ -826,7 +1314,12 @@ class _OrderBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.paddingOf(context).bottom + 12),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        12,
+        16,
+        MediaQuery.paddingOf(context).bottom + 12,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -845,7 +1338,9 @@ class _OrderBottomBar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '$itemCount item${itemCount == 1 ? '' : 's'}',
+                  itemCount == 0
+                      ? 'Choose cans'
+                      : '$itemCount item${itemCount == 1 ? '' : 's'} selected',
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     color: CustomerColors.labelGrey,
@@ -865,10 +1360,10 @@ class _OrderBottomBar extends StatelessWidget {
           SizedBox(
             width: 160,
             child: CustomerPrimaryButton(
-              label: 'Place order',
+              label: itemCount == 0 ? 'Add items' : 'Send request',
               loading: loading,
-              icon: Icons.shopping_bag_outlined,
-              onPressed: onPlace,
+              icon: Icons.local_shipping_outlined,
+              onPressed: itemCount == 0 ? null : onPlace,
             ),
           ),
         ],

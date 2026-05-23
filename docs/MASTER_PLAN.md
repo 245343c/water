@@ -9,7 +9,7 @@
 
 A **water delivery platform** where:
 
-- **Customers** find active shops, place orders, track status (no monthly PDF bill for app customers).
+- **Customers** sign in with an admin-created phone number, see only linked water plant(s), request water, and track account activity.
 - **Shop owners (Admin)** manage customers, products, orders, monthly bills (contract customers), drivers, subscription.
 - **Drivers** deliver and record cans at the doorstep.
 
@@ -49,18 +49,17 @@ All roles share:
 
 ---
 
-## 4. Customer types (billing separation)
+## 4. Customer model (closed network)
 
-| `billingMode` | Who | Monthly PDF bill | App orders |
-|---------------|-----|------------------|------------|
-| `monthly_contract` | Regular route customers (admin-added) | **Yes** + WhatsApp | No (admin/driver manage) |
-| `app_on_demand` | App signups | **No** | **Yes** |
+Customers are fixed admin-created customers, not public marketplace users.
 
 **Rules:**
 
-- Admin UI: show bill/monthly ledger only for `monthly_contract`.
-- Customer app: only `app_on_demand` users can place orders.
-- Admin can convert app user → contract customer later.
+- Admin creates every customer record.
+- Customer app access is matched by the saved phone number.
+- Customer sees only the shop(s) that added that phone number.
+- Customer app orders are attached to the existing admin-created customer record.
+- The app must not create outside/public customers automatically.
 
 ---
 
@@ -91,8 +90,8 @@ Set on **admin register** and editable in **Settings → Customer app**. Synced 
 ## 7. Order & delivery flow (end-to-end)
 
 ```text
-CUSTOMER (app_on_demand)
-  Browse active shops → Shop page → Cart (normal/cool) → Place order
+CUSTOMER (fixed admin-created customer)
+  Sign in with linked phone -> Linked plant -> Request cans/products
         ↓
 ADMIN
   Orders tab → Pending → Accept / Reject
@@ -181,12 +180,12 @@ userFavorites/{uid}/shops/{shopId}
 promotions/{id}                        // shopId null = platform-wide
 
 appCustomers/{uid}                     // or embed in users
-  billingMode: app_on_demand, linkedCustomerId
+  linkedCustomerId, phone
 ```
 
 ### 8.3 Security rules (principles)
 
-- Customer reads only `shops` where `isListed == true`.
+- Customer reads only shops linked to their admin-created customer record.
 - Customer writes only own orders under valid shop.
 - Admin reads/writes only own `shopId`.
 - Driver reads shop data + writes deliveries for assigned shop.

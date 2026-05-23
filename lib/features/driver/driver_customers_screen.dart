@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customer_list_card.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_theme.dart';
@@ -25,10 +26,13 @@ class _DriverCustomersScreenState extends State<DriverCustomersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<WaterPlantRepository>(
-      builder: (context, repo, _) {
+    return Consumer2<WaterPlantRepository, AuthRepository>(
+      builder: (context, repo, auth, _) {
+        final driverId = auth.currentUser?.driverId;
+        final assignedShop = repo.shopForDriver(driverId);
+        final totalAssigned = repo.customersForDriver(driverId).length;
         final month = DateTime.now();
-        final customers = List.of(repo.searchCustomers(_query))
+        final customers = List.of(repo.searchCustomersForDriver(driverId, _query))
           ..sort((a, b) => a.name.compareTo(b.name));
 
         return Scaffold(
@@ -36,9 +40,39 @@ class _DriverCustomersScreenState extends State<DriverCustomersScreen> {
           body: DriverScaffold(
             child: Column(
               children: [
-                const DriverHeader(
+                DriverHeader(
                   title: 'Customers',
-                  subtitle: 'View details & record delivery',
+                  subtitle: assignedShop == null
+                      ? 'Driver is not linked to a water plant'
+                      : '${assignedShop.name} - $totalAssigned assigned customers',
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: DriverColors.cardDecoration,
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.storefront_rounded,
+                          color: DriverColors.accent,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            assignedShop == null
+                                ? 'Only customers from the assigned plant will appear here.'
+                                : 'Showing customers linked to ${assignedShop.name} only.',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: DriverColors.labelGrey,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),

@@ -27,7 +27,12 @@ class AddEditCustomerHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(4, MediaQuery.paddingOf(context).top + 4, 4, 16),
+      padding: EdgeInsets.fromLTRB(
+        4,
+        MediaQuery.paddingOf(context).top + 4,
+        4,
+        16,
+      ),
       child: Row(
         children: [
           IconButton(
@@ -47,7 +52,11 @@ class AddEditCustomerHeader extends StatelessWidget {
           ),
           if (onDelete != null)
             IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.white, size: 22),
+              icon: const Icon(
+                Icons.delete_outline,
+                color: Colors.white,
+                size: 22,
+              ),
               onPressed: onDelete,
             )
           else
@@ -168,15 +177,22 @@ class AddEditCustomerField extends StatelessWidget {
               ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AddEditCustomerColors.fieldBorder),
+                borderSide: const BorderSide(
+                  color: AddEditCustomerColors.fieldBorder,
+                ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AddEditCustomerColors.fieldBorder),
+                borderSide: const BorderSide(
+                  color: AddEditCustomerColors.fieldBorder,
+                ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AddEditCustomerColors.primaryBtn, width: 1.5),
+                borderSide: const BorderSide(
+                  color: AddEditCustomerColors.primaryBtn,
+                  width: 1.5,
+                ),
               ),
               errorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -184,8 +200,108 @@ class AddEditCustomerField extends StatelessWidget {
               ),
               focusedErrorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: CustomersColors.balanceRed, width: 1.5),
+                borderSide: const BorderSide(
+                  color: CustomersColors.balanceRed,
+                  width: 1.5,
+                ),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CustomerAppAccessInfoCard extends StatelessWidget {
+  const CustomerAppAccessInfoCard({
+    super.key,
+    required this.phone,
+    required this.shopName,
+    this.isEditing = false,
+  });
+
+  final String phone;
+  final String shopName;
+  final bool isEditing;
+
+  @override
+  Widget build(BuildContext context) {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    final hasValidPhone = digits.length >= 10;
+    final color = hasValidPhone
+        ? AddEditCustomerColors.primaryBtn
+        : const Color(0xFFEA580C);
+    final bg = hasValidPhone
+        ? const Color(0xFFEFF6FF)
+        : const Color(0xFFFFF7ED);
+    final border = hasValidPhone
+        ? const Color(0xFFBFDBFE)
+        : const Color(0xFFFED7AA);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              hasValidPhone
+                  ? Icons.phone_iphone_rounded
+                  : Icons.info_outline_rounded,
+              color: color,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Customer app access',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AddEditCustomerColors.titleNavy,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  hasValidPhone
+                      ? 'This phone can sign in and see only $shopName in the customer app.'
+                      : 'Enter a valid phone number to link this customer to your shop app.',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    height: 1.35,
+                    color: AddEditCustomerColors.labelGrey,
+                  ),
+                ),
+                if (isEditing && hasValidPhone) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'If you change the phone, the customer must sign in with the new number.',
+                    style: GoogleFonts.poppins(
+                      fontSize: 10,
+                      height: 1.35,
+                      color: color,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
@@ -204,12 +320,26 @@ class AddEditCustomerFormDivider extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Row(
         children: [
-          Expanded(child: Container(height: 1, color: AddEditCustomerColors.fieldBorder)),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: AddEditCustomerColors.fieldBorder,
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Icon(Icons.more_horiz, size: 18, color: AddEditCustomerColors.labelGrey.withValues(alpha: 0.6)),
+            child: Icon(
+              Icons.more_horiz,
+              size: 18,
+              color: AddEditCustomerColors.labelGrey.withValues(alpha: 0.6),
+            ),
           ),
-          Expanded(child: Container(height: 1, color: AddEditCustomerColors.fieldBorder)),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: AddEditCustomerColors.fieldBorder,
+            ),
+          ),
         ],
       ),
     );
@@ -243,7 +373,11 @@ class AddEditCustomerSubsectionHeader extends StatelessWidget {
               color: AddEditCustomerColors.primaryBtn.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.sell_outlined, color: AddEditCustomerColors.primaryBtn, size: 22),
+            child: const Icon(
+              Icons.sell_outlined,
+              color: AddEditCustomerColors.primaryBtn,
+              size: 22,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -261,12 +395,15 @@ class AddEditCustomerSubsectionHeader extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: GoogleFonts.poppins(fontSize: 11, color: AddEditCustomerColors.labelGrey),
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: AddEditCustomerColors.labelGrey,
+                  ),
                 ),
               ],
             ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
         ],
       ),
     );
@@ -296,8 +433,13 @@ class AddEditCustomerSaveButton extends StatelessWidget {
             style: FilledButton.styleFrom(
               backgroundColor: AddEditCustomerColors.primaryBtn,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              textStyle: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              textStyle: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             child: Text(label),
           ),
@@ -319,10 +461,7 @@ class AddEditCustomerScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: ColoredBox(
-        color: CustomersColors.screenBg,
-        child: child,
-      ),
+      child: ColoredBox(color: CustomersColors.screenBg, child: child),
     );
   }
 }

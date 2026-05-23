@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_theme.dart';
@@ -13,9 +14,10 @@ class DriverShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<WaterPlantRepository, NotificationRepository>(
-      builder: (context, repo, notifications, _) {
-        final tasks = repo.driverAcceptedOrderCount;
+    return Consumer3<WaterPlantRepository, NotificationRepository, AuthRepository>(
+      builder: (context, repo, notifications, auth, _) {
+        final driverId = auth.currentUser?.driverId;
+        final tasks = repo.driverAcceptedOrders(driverId: driverId).length;
         final alerts = notifications.unreadCountForDriver();
         final badgeCount = tasks + alerts;
 

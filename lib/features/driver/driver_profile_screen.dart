@@ -19,9 +19,11 @@ class DriverProfileScreen extends StatelessWidget {
     final user = auth.currentUser;
     final repo = context.watch<WaterPlantRepository>();
     final driver = user?.driverId != null ? repo.driverById(user!.driverId) : null;
+    final driverId = user?.driverId;
+    final assignedShop = repo.shopForDriver(driverId);
     final today = DateTime.now();
-    final deliveries = repo.deliveriesOnDate(today);
-    final cans = repo.cansDeliveredOnDate(today);
+    final deliveries = repo.deliveriesOnDateForDriver(today, driverId);
+    final cans = repo.cansDeliveredOnDateForDriver(today, driverId);
 
     final notifications = context.watch<NotificationRepository>();
     final alerts = notifications.forDriver().take(8).toList();
@@ -145,7 +147,13 @@ class DriverProfileScreen extends StatelessWidget {
                         const Divider(height: 20),
                         _InfoRow(
                           icon: Icons.store_rounded,
-                          text: repo.settings.businessName,
+                          text: assignedShop?.name ?? 'No plant assigned',
+                        ),
+                        const Divider(height: 20),
+                        _InfoRow(
+                          icon: Icons.group_outlined,
+                          text:
+                              '${repo.customersForDriver(driverId).length} assigned customers',
                         ),
                       ],
                     ),

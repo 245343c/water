@@ -22,23 +22,27 @@ abstract final class CustomerDetailColors {
   static const Color screenBg = Color(0xFFF3F4F6);
 
   static BoxDecoration get borderedCard => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      );
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(10),
+    border: Border.all(color: cardBorder),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.03),
+        blurRadius: 6,
+        offset: const Offset(0, 2),
+      ),
+    ],
+  );
 }
 
 // ─── Header ─────────────────────────────────────────────────────────────────
 
 class CustomerDetailHeader extends StatelessWidget {
-  const CustomerDetailHeader({super.key, required this.onBack, required this.onEdit});
+  const CustomerDetailHeader({
+    super.key,
+    required this.onBack,
+    required this.onEdit,
+  });
   final VoidCallback onBack;
   final VoidCallback onEdit;
 
@@ -46,7 +50,12 @@ class CustomerDetailHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(4, MediaQuery.paddingOf(context).top + 4, 8, 16),
+      padding: EdgeInsets.fromLTRB(
+        4,
+        MediaQuery.paddingOf(context).top + 4,
+        8,
+        16,
+      ),
       child: Row(
         children: [
           IconButton(
@@ -57,11 +66,19 @@ class CustomerDetailHeader extends StatelessWidget {
             child: Text(
               'Customer Details',
               textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 22),
+            icon: const Icon(
+              Icons.edit_outlined,
+              color: Colors.white,
+              size: 22,
+            ),
             onPressed: onEdit,
           ),
         ],
@@ -71,6 +88,218 @@ class CustomerDetailHeader extends StatelessWidget {
 }
 
 // ─── Total Pending card ───────────────────────────────────────────────────────
+
+class CustomerAppAccessStatusCard extends StatelessWidget {
+  const CustomerAppAccessStatusCard({
+    super.key,
+    required this.phone,
+    required this.shopName,
+    required this.shopId,
+  });
+
+  final String phone;
+  final String shopName;
+  final String shopId;
+
+  @override
+  Widget build(BuildContext context) {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    final hasValidPhone = digits.length >= 10;
+    final color = hasValidPhone
+        ? CustomerDetailColors.statGreen
+        : CustomerDetailColors.statOrange;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: CustomerDetailColors.cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              hasValidPhone
+                  ? Icons.verified_user_outlined
+                  : Icons.warning_amber_rounded,
+              color: color,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Customer app access',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: CustomerDetailColors.titleNavy,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        hasValidPhone ? 'LINKED' : 'PHONE NEEDED',
+                        style: GoogleFonts.poppins(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: color,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  hasValidPhone
+                      ? 'Customer can sign in with $phone and see only $shopName.'
+                      : 'Add a valid phone number so this customer can access your shop app.',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    height: 1.4,
+                    color: CustomerDetailColors.labelGrey,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Shop link: $shopId',
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: CustomerDetailColors.linkBlue,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CustomerFixedAccountCard extends StatelessWidget {
+  const CustomerFixedAccountCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    const color = Color(0xFF0D9488);
+    const bg = Color(0xFFF0FDFA);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: CustomerDetailColors.cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.link_rounded,
+              color: color,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Customer type',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: CustomerDetailColors.titleNavy,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'FIXED CUSTOMER',
+                        style: GoogleFonts.poppins(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: color,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'This customer is created by admin and linked to this water plant only. Customer app access uses the saved phone number.',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    height: 1.4,
+                    color: CustomerDetailColors.labelGrey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class CustomerPendingCard extends StatelessWidget {
   const CustomerPendingCard({
@@ -83,8 +312,10 @@ class CustomerPendingCard extends StatelessWidget {
 
   /// Outstanding after FIFO (oldest months first).
   final double totalPending;
+
   /// Extra paid beyond all bills — applies to future deliveries.
   final double advanceCredit;
+
   /// Unpaid balance carried from months before the current month.
   final double previousPending;
   final MonthlyStats monthStats;
@@ -103,25 +334,26 @@ class CustomerPendingCard extends StatelessWidget {
     final textColor = _hasPending
         ? CustomerDetailColors.statOrange
         : _hasAdvance
-            ? const Color(0xFF0D9488)
-            : CustomerDetailColors.statGreen;
+        ? const Color(0xFF0D9488)
+        : CustomerDetailColors.statGreen;
     final bgColor = _hasPending
         ? const Color(0xFFFFF7ED)
         : _hasAdvance
-            ? const Color(0xFFF0FDFA)
-            : const Color(0xFFF0FDF4);
+        ? const Color(0xFFF0FDFA)
+        : const Color(0xFFF0FDF4);
     final statusLabel = _hasPending
         ? 'PENDING'
         : _hasAdvance
-            ? 'ADVANCE'
-            : 'PAID';
+        ? 'ADVANCE'
+        : 'PAID';
     final headline = _hasPending
         ? 'Total Pending'
         : _hasAdvance
-            ? 'Advance Credit'
-            : 'All Clear';
-    final mainAmount =
-        _hasPending ? pendingAmount : (_hasAdvance ? creditAmount : 0.0);
+        ? 'Advance Credit'
+        : 'All Clear';
+    final mainAmount = _hasPending
+        ? pendingAmount
+        : (_hasAdvance ? creditAmount : 0.0);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
@@ -144,7 +376,9 @@ class CustomerPendingCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
             decoration: BoxDecoration(
               color: bgColor.withValues(alpha: 0.35),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(17)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(17),
+              ),
             ),
             child: IntrinsicHeight(
               child: Row(
@@ -160,62 +394,68 @@ class CustomerPendingCard extends StatelessWidget {
                   ),
                   Expanded(
                     child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        headline,
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: CustomerDetailColors.labelGrey,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                headline,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: CustomerDetailColors.labelGrey,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _hasPending
+                                    ? 'Oldest month cleared first when customer pays'
+                                    : _hasAdvance
+                                    ? 'Extra payment — auto-adjusts on next bill'
+                                    : 'No pending balance',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 9,
+                                  color: CustomerDetailColors.labelGrey
+                                      .withValues(alpha: 0.85),
+                                  height: 1.2,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                CurrencyUtils.format(mainAmount),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w800,
+                                  color: textColor,
+                                  height: 1.05,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _hasPending
-                            ? 'Oldest month cleared first when customer pays'
-                            : _hasAdvance
-                                ? 'Extra payment — auto-adjusts on next bill'
-                                : 'No pending balance',
-                        style: GoogleFonts.poppins(
-                          fontSize: 9,
-                          color: CustomerDetailColors.labelGrey.withValues(alpha: 0.85),
-                          height: 1.2,
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: textColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: textColor.withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: Text(
+                            statusLabel,
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: textColor,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        CurrencyUtils.format(mainAmount),
-                        style: GoogleFonts.poppins(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w800,
-                          color: textColor,
-                          height: 1.05,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: textColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: textColor.withValues(alpha: 0.35)),
-                  ),
-                  child: Text(
-                    statusLabel,
-                    style: GoogleFonts.poppins(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: textColor,
-                    ),
-                  ),
-                ),
-              ],
+                      ],
                     ),
                   ),
                 ],
@@ -226,36 +466,36 @@ class CustomerPendingCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
             child: Row(
               children: [
-              Expanded(
-                child: _PendingBreakdownTile(
-                  label: 'Older months',
-                  value: CurrencyUtils.format(priorDue),
-                  icon: Icons.history_rounded,
-                  color: const Color(0xFF7C3AED),
-                  bg: const Color(0xFFF5F3FF),
+                Expanded(
+                  child: _PendingBreakdownTile(
+                    label: 'Older months',
+                    value: CurrencyUtils.format(priorDue),
+                    icon: Icons.history_rounded,
+                    color: const Color(0xFF7C3AED),
+                    bg: const Color(0xFFF5F3FF),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: _PendingBreakdownTile(
-                  label: 'This month bill',
-                  value: CurrencyUtils.format(thisMonthBill),
-                  icon: Icons.receipt_long_outlined,
-                  color: CustomerDetailColors.statOrange,
-                  bg: const Color(0xFFFFF7ED),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _PendingBreakdownTile(
+                    label: 'This month bill',
+                    value: CurrencyUtils.format(thisMonthBill),
+                    icon: Icons.receipt_long_outlined,
+                    color: CustomerDetailColors.statOrange,
+                    bg: const Color(0xFFFFF7ED),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: _PendingBreakdownTile(
-                  label: 'Paid (this mo.)',
-                  value: CurrencyUtils.format(paidThisMonth),
-                  icon: Icons.check_circle_outline_rounded,
-                  color: CustomerDetailColors.statGreen,
-                  bg: const Color(0xFFECFDF5),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _PendingBreakdownTile(
+                    label: 'Paid (this mo.)',
+                    value: CurrencyUtils.format(paidThisMonth),
+                    icon: Icons.check_circle_outline_rounded,
+                    color: CustomerDetailColors.statGreen,
+                    bg: const Color(0xFFECFDF5),
+                  ),
                 ),
-              ),
-            ],
+              ],
             ),
           ),
           if (_hasAdvance && _hasPending) ...[
@@ -264,7 +504,11 @@ class CustomerPendingCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
               child: Row(
                 children: [
-                  Icon(Icons.savings_outlined, size: 18, color: const Color(0xFF0D9488)),
+                  Icon(
+                    Icons.savings_outlined,
+                    size: 18,
+                    color: const Color(0xFF0D9488),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -511,25 +755,25 @@ class _MonthlyOverviewRow extends StatelessWidget {
 
     final (amountColor, rowBg, rowBorder) = switch (status) {
       _MonthPayStatus.paid => (
-          CustomerDetailColors.statGreen,
-          const Color(0xFFECFDF5),
-          const Color(0xFF86EFAC),
-        ),
+        CustomerDetailColors.statGreen,
+        const Color(0xFFECFDF5),
+        const Color(0xFF86EFAC),
+      ),
       _MonthPayStatus.partial => (
-          const Color(0xFFD97706),
-          const Color(0xFFFFFBEB),
-          const Color(0xFFFCD34D),
-        ),
+        const Color(0xFFD97706),
+        const Color(0xFFFFFBEB),
+        const Color(0xFFFCD34D),
+      ),
       _MonthPayStatus.pending => (
-          CustomerDetailColors.statOrange,
-          const Color(0xFFFFF7ED),
-          const Color(0xFFFDBA74),
-        ),
+        CustomerDetailColors.statOrange,
+        const Color(0xFFFFF7ED),
+        const Color(0xFFFDBA74),
+      ),
       _MonthPayStatus.none => (
-          CustomerDetailColors.labelGrey,
-          Colors.white,
-          const Color(0xFFE5E7EB),
-        ),
+        CustomerDetailColors.labelGrey,
+        Colors.white,
+        const Color(0xFFE5E7EB),
+      ),
     };
 
     final pendingDisplay = stats.balance > 0
@@ -547,7 +791,9 @@ class _MonthlyOverviewRow extends StatelessWidget {
             color: isCurrentMonth ? rowBg : Colors.white,
             borderRadius: BorderRadius.circular(11),
             border: Border.all(
-              color: isCurrentMonth ? amountColor.withValues(alpha: 0.45) : rowBorder,
+              color: isCurrentMonth
+                  ? amountColor.withValues(alpha: 0.45)
+                  : rowBorder,
               width: isCurrentMonth ? 1.5 : 1,
             ),
           ),
@@ -653,21 +899,21 @@ class _StatusBadge extends StatelessWidget {
 
     final (color, bg) = switch (status) {
       _MonthPayStatus.paid => (
-          CustomerDetailColors.statGreen,
-          const Color(0xFFDCFCE7),
-        ),
+        CustomerDetailColors.statGreen,
+        const Color(0xFFDCFCE7),
+      ),
       _MonthPayStatus.partial => (
-          const Color(0xFFD97706),
-          const Color(0xFFFEF3C7),
-        ),
+        const Color(0xFFD97706),
+        const Color(0xFFFEF3C7),
+      ),
       _MonthPayStatus.pending => (
-          CustomerDetailColors.statOrange,
-          const Color(0xFFFFF7ED),
-        ),
+        CustomerDetailColors.statOrange,
+        const Color(0xFFFFF7ED),
+      ),
       _MonthPayStatus.none => (
-          CustomerDetailColors.labelGrey,
-          const Color(0xFFF3F4F6),
-        ),
+        CustomerDetailColors.labelGrey,
+        const Color(0xFFF3F4F6),
+      ),
     };
 
     return FittedBox(
@@ -701,15 +947,17 @@ class QuickActionsSection extends StatelessWidget {
   const QuickActionsSection({
     super.key,
     required this.onAddDelivery,
-    required this.onRecordPayment,
-    required this.onViewBills,
+    this.onRecordPayment,
+    this.onViewBills,
     required this.onCall,
+    this.showBillingActions = true,
   });
 
   final VoidCallback onAddDelivery;
-  final VoidCallback onRecordPayment;
-  final VoidCallback onViewBills;
+  final VoidCallback? onRecordPayment;
+  final VoidCallback? onViewBills;
   final VoidCallback onCall;
+  final bool showBillingActions;
 
   @override
   Widget build(BuildContext context) {
@@ -744,26 +992,28 @@ class QuickActionsSection extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: _SecondaryAction(
-                  label: 'Record\nPayment',
-                  icon: Icons.account_balance_wallet_outlined,
-                  iconColor: CustomerDetailColors.statGreen,
-                  bgColor: const Color(0xFFDCFCE7),
-                  onTap: onRecordPayment,
+              if (showBillingActions) ...[
+                Expanded(
+                  child: _SecondaryAction(
+                    label: 'Record\nPayment',
+                    icon: Icons.account_balance_wallet_outlined,
+                    iconColor: CustomerDetailColors.statGreen,
+                    bgColor: const Color(0xFFDCFCE7),
+                    onTap: onRecordPayment!,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _SecondaryAction(
-                  label: 'Monthly\nBill',
-                  icon: Icons.receipt_long_outlined,
-                  iconColor: const Color(0xFF7C3AED),
-                  bgColor: const Color(0xFFEDE9FE),
-                  onTap: onViewBills,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _SecondaryAction(
+                    label: 'Monthly\nBill',
+                    icon: Icons.receipt_long_outlined,
+                    iconColor: const Color(0xFF7C3AED),
+                    bgColor: const Color(0xFFEDE9FE),
+                    onTap: onViewBills!,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
+                const SizedBox(width: 8),
+              ],
               Expanded(
                 child: _SecondaryAction(
                   label: 'Call',
@@ -967,7 +1217,11 @@ class RecentDeliveriesCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   'Recent Deliveries',
-                  style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700, color: CustomerDetailColors.titleNavy),
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: CustomerDetailColors.titleNavy,
+                  ),
                 ),
               ),
               if (onViewAll != null)
@@ -975,7 +1229,11 @@ class RecentDeliveriesCard extends StatelessWidget {
                   onTap: onViewAll,
                   child: Text(
                     'View all',
-                    style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: CustomerDetailColors.linkBlue),
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: CustomerDetailColors.linkBlue,
+                    ),
                   ),
                 ),
             ],
@@ -986,11 +1244,20 @@ class RecentDeliveriesCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Column(
                 children: [
-                  Icon(Icons.inbox_outlined, size: 36, color: CustomerDetailColors.labelGrey.withValues(alpha: 0.4)),
+                  Icon(
+                    Icons.inbox_outlined,
+                    size: 36,
+                    color: CustomerDetailColors.labelGrey.withValues(
+                      alpha: 0.4,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'No deliveries yet',
-                    style: GoogleFonts.poppins(color: CustomerDetailColors.labelGrey, fontSize: 13),
+                    style: GoogleFonts.poppins(
+                      color: CustomerDetailColors.labelGrey,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),
@@ -1000,9 +1267,15 @@ class RecentDeliveriesCard extends StatelessWidget {
               final d = deliveries[i];
               return Column(
                 children: [
-                  _RecentRow(delivery: d, onTap: onItemTap != null ? () => onItemTap!(d) : null),
+                  _RecentRow(
+                    delivery: d,
+                    onTap: onItemTap != null ? () => onItemTap!(d) : null,
+                  ),
                   if (i < deliveries.length - 1)
-                    const Divider(height: 1, color: CustomerDetailColors.cardBorder),
+                    const Divider(
+                      height: 1,
+                      color: CustomerDetailColors.cardBorder,
+                    ),
                 ],
               );
             }),
@@ -1032,7 +1305,11 @@ class _RecentRow extends StatelessWidget {
                 color: CustomerDetailColors.statBlue.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.water_drop_outlined, size: 18, color: CustomerDetailColors.statBlue),
+              child: const Icon(
+                Icons.water_drop_outlined,
+                size: 18,
+                color: CustomerDetailColors.statBlue,
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -1041,12 +1318,19 @@ class _RecentRow extends StatelessWidget {
                 children: [
                   Text(
                     delivery.date.fullDate,
-                    style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: CustomerDetailColors.valueNavy),
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: CustomerDetailColors.valueNavy,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     delivery.itemsSummary,
-                    style: GoogleFonts.poppins(fontSize: 11, color: CustomerDetailColors.labelGrey),
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: CustomerDetailColors.labelGrey,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1056,7 +1340,11 @@ class _RecentRow extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               CurrencyUtils.format(delivery.totalAmount),
-              style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: CustomerDetailColors.valueNavy),
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: CustomerDetailColors.valueNavy,
+              ),
             ),
           ],
         ),
@@ -1083,12 +1371,17 @@ class DeleteCustomerSection extends StatelessWidget {
           icon: const Icon(Icons.delete_outline_rounded, size: 20),
           label: Text(
             'Delete Customer',
-            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           style: OutlinedButton.styleFrom(
             foregroundColor: CustomerDetailColors.statRed,
             side: const BorderSide(color: CustomerDetailColors.statRed),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         ),
       ),
@@ -1113,4 +1406,3 @@ class CustomerDetailScaffold extends StatelessWidget {
     );
   }
 }
-

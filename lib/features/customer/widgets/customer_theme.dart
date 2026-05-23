@@ -275,7 +275,7 @@ class CustomerSearchBar extends StatelessWidget {
           prefixIcon: const Icon(Icons.search_rounded, color: CustomerColors.accent),
           suffixIcon: ValueListenableBuilder<TextEditingValue>(
             valueListenable: controller,
-            builder: (_, value, __) {
+            builder: (_, value, _) {
               if (value.text.isEmpty) return const SizedBox.shrink();
               return IconButton(
                 icon: const Icon(Icons.close_rounded, size: 20),
@@ -364,11 +364,12 @@ class CustomerPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final enabled = onPressed != null && !loading;
     return Material(
-      color: CustomerColors.accent,
+      color: enabled ? CustomerColors.accent : const Color(0xFFCBD5E1),
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        onTap: loading ? null : onPressed,
+        onTap: enabled ? onPressed : null,
         borderRadius: BorderRadius.circular(14),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 14),

@@ -9,6 +9,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/widgets/month_year_wheel_picker.dart';
+import 'package:sri_sai_ro_water/data/models/order_status.dart';
+import 'package:sri_sai_ro_water/data/models/shop.dart';
 import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/notifications/notifications_screen.dart';
@@ -142,6 +144,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (picked != null) setState(() => _month = picked);
   }
 
+  ({String label, String message, Color color}) _subscriptionUi(Shop? shop) {
+    if (shop == null) {
+      return (
+        label: 'Setup',
+        message: 'Complete shop setup to enable customer app access.',
+        color: DashboardColors.statRed,
+      );
+    }
+
+    return switch (shop.subscriptionStatus) {
+      ShopSubscriptionStatus.trial => (
+          label: 'Trial',
+          message: shop.trialEndsAt == null
+              ? 'Trial is active. Add a paid plan before launch.'
+              : 'Trial active until ${DateFormat('dd MMM').format(shop.trialEndsAt!)}.',
+          color: const Color(0xFFEA580C),
+        ),
+      ShopSubscriptionStatus.active => (
+          label: 'Active',
+          message: 'Subscription active. Customer app access is enabled.',
+          color: DashboardColors.statGreen,
+        ),
+      ShopSubscriptionStatus.grace => (
+          label: 'Grace',
+          message: 'Renew soon to keep customer app access uninterrupted.',
+          color: const Color(0xFFEA580C),
+        ),
+      ShopSubscriptionStatus.expired => (
+          label: 'Expired',
+          message: 'Renew subscription to restore customer app visibility.',
+          color: DashboardColors.statRed,
+        ),
+    };
+  }
+
   void _showCustomerPicker(BuildContext context, WaterPlantRepository repo) {
     showModalBottomSheet<void>(
       context: context,
@@ -212,6 +249,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final stats = repo.dashboardStats(_month);
         final actions = repo.dashboardActionItems(limit: 12);
         final business = repo.settings.businessName;
+        final today = DateTime.now();
+        final todayDeliveries = repo.deliveriesOnDate(today);
+        final todayUnits = todayDeliveries.fold<int>(
+          0,
+          (sum, d) => sum + d.normalQty + d.coolQty + d.bottleQty,
+        );
+        final pendingOrders = repo.ordersNewestFirst()
+            .where((o) => o.status == OrderStatus.pending)
+            .toList();
+        final unpaidBalance = repo.customers.fold<double>(
+          0,
+          (sum, c) => sum + repo.customerBalance(c.id),
+        );
+        final shop = repo.shopById(WaterPlantRepository.defaultShopId);
+        final subscription = _subscriptionUi(shop);
+        final driverActivities = repo.drivers.map((driver) {
+          final deliveries = todayDeliveries
+              .where((d) => d.driverId == driver.id)
+              .toList();
+          final units = deliveries.fold<int>(
+            0,
+            (sum, d) => sum + d.normalQty + d.coolQty + d.bottleQty,
+          );
+          return DashboardDriverActivity(
+            name: driver.name,
+            deliveries: deliveries.length,
+            units: units,
+            active: driver.active,
+          );
+        }).toList()
+          ..sort((a, b) {
+            final byDeliveries = b.deliveries.compareTo(a.deliveries);
+            if (byDeliveries != 0) return byDeliveries;
+            if (a.active != b.active) return a.active ? -1 : 1;
+            return a.name.compareTo(b.name);
+          });
+        final pendingRequestCards = pendingOrders
+            .map(
+              (o) => DashboardPendingRequest(
+                customerId: o.customerId,
+                summary: o.cansSummary,
+                createdAt: o.createdAt,
+              ),
+            )
+            .toList();
 
         final overview = DashboardOverviewData(
           totalSales: CurrencyUtils.format(stats.totalSales),
@@ -251,9 +333,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               repo.settings.homeDeliveryAvailable,
                         ),
                         const SizedBox(height: 14),
+                        DashboardOwnerSnapshot(
+                          todayDeliveries: todayDeliveries.length,
+                          todayUnits: todayUnits,
+                          pendingRequests: pendingOrders.length,
+                          unpaidBalance: CurrencyUtils.format(unpaidBalance),
+                          subscriptionLabel: subscription.label,
+                          subscriptionMessage: subscription.message,
+                          subscriptionColor: subscription.color,
+                          onOrdersTap: () => context.go(AppRoutes.orders),
+                          onSubscriptionTap: () =>
+                              context.push(AppRoutes.subscription),
+                        ),
+                        const SizedBox(height: 14),
                         DashboardQuickActions(
                           onAddDelivery: openAddDelivery,
                           onAddCustomer: () => context.push('/customers/add'),
+                        ),
+                        const SizedBox(height: 14),
+                        DashboardOperationsGrid(
+                          left: DashboardPendingRequestsCard(
+                            requests: pendingRequestCards,
+                            onOpenOrders: () => context.go(AppRoutes.orders),
+                            customerNameFor: (customerId) =>
+                                repo.customerById(customerId)?.name ??
+                                'Customer',
+                          ),
+                          right: DashboardDriverActivityCard(
+                            activities: driverActivities,
+                            activeDrivers:
+                                repo.drivers.where((d) => d.active).length,
+                            totalDrivers: repo.drivers.length,
+                            onManageDrivers: () =>
+                                context.push(AppRoutes.drivers),
+                          ),
                         ),
                         const SizedBox(height: 14),
                         DashboardOverviewCard(

@@ -36,14 +36,17 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
       _snack('Enter a valid 10-digit mobile number');
       return;
     }
+
     setState(() => _loading = true);
     final otp = context.read<AuthRepository>().requestCustomerOtp(phone);
     if (!mounted) return;
+
     setState(() {
       _loading = false;
       _otpSent = otp != null;
       _demoOtp = otp;
     });
+
     if (otp == null) {
       _snack('Could not send OTP');
       return;
@@ -54,17 +57,20 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
   Future<void> _verify() async {
     final auth = context.read<AuthRepository>();
     final repo = context.read<WaterPlantRepository>();
+
     setState(() => _loading = true);
     final error = auth.verifyCustomerOtp(
       phone: _phoneController.text,
       otp: _otpController.text,
     );
     if (!mounted) return;
+
     setState(() => _loading = false);
     if (error != null) {
       _snack(error);
       return;
     }
+
     final user = auth.currentUser!;
     repo.linkContractCustomerOnLogin(userId: user.id, phone: user.phone);
 
@@ -82,7 +88,9 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
         (!user.customerProfileComplete ||
             profile == null ||
             !profile.onboardingComplete);
-    context.go(needsOnboarding ? AppRoutes.customerOnboarding : AppRoutes.customerHome);
+    context.go(
+      needsOnboarding ? AppRoutes.customerOnboarding : AppRoutes.customerHome,
+    );
   }
 
   void _snack(String msg) {
@@ -93,169 +101,106 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final top = MediaQuery.paddingOf(context).top;
-
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       body: Stack(
         children: [
-          // Premium illustrated background
           SizedBox.expand(
             child: CustomPaint(painter: _CustomerLoginBgPainter()),
           ),
           SafeArea(
-            child: SingleChildScrollView(
-              child: SizedBox(
-                height: size.height - top,
-                child: Column(
-                  children: [
-                    const SizedBox(height: 8),
-                    // Back button
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_back_rounded,
-                            color: Colors.white),
-                        onPressed: () => context.canPop()
-                            ? context.pop()
-                            : context.go(AppRoutes.welcome),
-                      ),
-                    ),
-                    // Hero section
-                    Expanded(
-                      flex: 4,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 28),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: const Icon(
-                                Icons.water_drop_rounded,
-                                color: Colors.white,
-                                size: 36,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            Text(
-                              'Order\npure water',
-                              style: GoogleFonts.poppins(
-                                color: Colors.white,
-                                fontSize: 36,
-                                fontWeight: FontWeight.w800,
-                                height: 1.1,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              'Home delivery · Fresh RO water · Fast & reliable',
-                              style: GoogleFonts.poppins(
-                                color: Colors.white.withValues(alpha: 0.75),
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    // Login card
-                    Container(
-                      margin: const EdgeInsets.fromLTRB(0, 0, 0, 0),
-                      padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(32),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.2),
-                            blurRadius: 24,
-                            offset: const Offset(0, -8),
-                          ),
-                        ],
-                      ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    child: IntrinsicHeight(
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text(
-                            'Sign in',
-                            style: GoogleFonts.poppins(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: CustomerColors.titleNavy,
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.arrow_back_rounded,
+                                color: Colors.white,
+                              ),
+                              onPressed: () => context.canPop()
+                                  ? context.pop()
+                                  : context.go(AppRoutes.welcome),
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Enter your mobile number to receive OTP',
-                            style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              color: CustomerColors.labelGrey,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          CustomerTextField(
-                            label: 'Mobile number',
-                            controller: _phoneController,
-                            hint: '9876543210',
-                            icon: Icons.phone_android_rounded,
-                            keyboardType: TextInputType.phone,
-                          ),
-                          if (_otpSent) ...[
-                            const SizedBox(height: 12),
-                            CustomerTextField(
-                              label: 'OTP code',
-                              controller: _otpController,
-                              hint: '6-digit code',
-                              icon: Icons.sms_outlined,
-                              keyboardType: TextInputType.number,
-                            ),
-                            if (_demoOtp != null) ...[
-                              const SizedBox(height: 6),
-                              Text(
-                                'Demo OTP: $_demoOtp',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: CustomerColors.accent,
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(28, 8, 28, 24),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: const Icon(
+                                    Icons.water_drop_rounded,
+                                    color: Colors.white,
+                                    size: 32,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ],
-                          const SizedBox(height: 20),
-                          CustomerPrimaryButton(
-                            label: _otpSent ? 'Verify & continue' : 'Send OTP',
-                            loading: _loading,
-                            icon: _otpSent
-                                ? Icons.verified_rounded
-                                : Icons.send_rounded,
-                            onPressed: _otpSent ? _verify : _sendOtp,
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Order\npure water',
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.white,
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.08,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Home delivery - Fresh RO water - Fast and reliable',
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.white.withValues(alpha: 0.75),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 14),
-                          Center(
-                            child: Text(
-                              'Bulk customers use shop-registered number',
-                              style: GoogleFonts.poppins(
-                                fontSize: 11,
-                                color: CustomerColors.labelGrey,
+                          const Spacer(),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.fromLTRB(24, 26, 24, 30),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(32),
                               ),
-                              textAlign: TextAlign.center,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.2),
+                                  blurRadius: 24,
+                                  offset: const Offset(0, -8),
+                                ),
+                              ],
+                            ),
+                            child: _LoginCard(
+                              otpSent: _otpSent,
+                              loading: _loading,
+                              demoOtp: _demoOtp,
+                              phoneController: _phoneController,
+                              otpController: _otpController,
+                              onSendOtp: _sendOtp,
+                              onVerify: _verify,
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -264,15 +209,104 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
   }
 }
 
-/// Illustrated background: night-sky gradient, water-plant silhouette,
-/// delivery van, water cans, and soft wave.
+class _LoginCard extends StatelessWidget {
+  const _LoginCard({
+    required this.otpSent,
+    required this.loading,
+    required this.demoOtp,
+    required this.phoneController,
+    required this.otpController,
+    required this.onSendOtp,
+    required this.onVerify,
+  });
+
+  final bool otpSent;
+  final bool loading;
+  final String? demoOtp;
+  final TextEditingController phoneController;
+  final TextEditingController otpController;
+  final VoidCallback onSendOtp;
+  final VoidCallback onVerify;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Sign in',
+          style: GoogleFonts.poppins(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: CustomerColors.titleNavy,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Enter your mobile number to receive OTP',
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            color: CustomerColors.labelGrey,
+          ),
+        ),
+        const SizedBox(height: 20),
+        CustomerTextField(
+          label: 'Mobile number',
+          controller: phoneController,
+          hint: '9876543210',
+          icon: Icons.phone_android_rounded,
+          keyboardType: TextInputType.phone,
+        ),
+        if (otpSent) ...[
+          const SizedBox(height: 12),
+          CustomerTextField(
+            label: 'OTP code',
+            controller: otpController,
+            hint: '6-digit code',
+            icon: Icons.sms_outlined,
+            keyboardType: TextInputType.number,
+          ),
+          if (demoOtp != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Demo OTP: $demoOtp',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: CustomerColors.accent,
+              ),
+            ),
+          ],
+        ],
+        const SizedBox(height: 20),
+        CustomerPrimaryButton(
+          label: otpSent ? 'Verify & continue' : 'Send OTP',
+          loading: loading,
+          icon: otpSent ? Icons.verified_rounded : Icons.send_rounded,
+          onPressed: otpSent ? onVerify : onSendOtp,
+        ),
+        const SizedBox(height: 14),
+        Center(
+          child: Text(
+            'Bulk customers use shop-registered number',
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              color: CustomerColors.labelGrey,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _CustomerLoginBgPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
 
-    // Sky gradient
     final bg = Paint()
       ..shader = const LinearGradient(
         begin: Alignment.topLeft,
@@ -282,7 +316,6 @@ class _CustomerLoginBgPainter extends CustomPainter {
       ).createShader(Rect.fromLTWH(0, 0, w, h));
     canvas.drawRect(Rect.fromLTWH(0, 0, w, h), bg);
 
-    // Stars
     final starPaint = Paint()..color = Colors.white.withValues(alpha: 0.6);
     final rnd = math.Random(42);
     for (var i = 0; i < 35; i++) {
@@ -292,27 +325,28 @@ class _CustomerLoginBgPainter extends CustomPainter {
       canvas.drawCircle(Offset(x, y), r, starPaint);
     }
 
-    // Orbs
     final orbPaint = Paint()..color = Colors.white.withValues(alpha: 0.06);
     canvas.drawCircle(Offset(w * 0.9, h * 0.1), w * 0.35, orbPaint);
     canvas.drawCircle(Offset(w * 0.05, h * 0.22), w * 0.22, orbPaint);
 
-    // Waves
     _drawWave(canvas, w, h, 0.75, 0.09, const Color(0xFF1E40AF));
     _drawWave(canvas, w, h, 0.82, 0.07, const Color(0xFF1D4ED8));
 
-    // Water cans
     _drawCan(canvas, Offset(w * 0.15, h * 0.52), 26, const Color(0xFF60A5FA));
     _drawCan(canvas, Offset(w * 0.28, h * 0.48), 20, const Color(0xFF93C5FD));
     _drawCan(canvas, Offset(w * 0.78, h * 0.50), 28, const Color(0xFF3B82F6));
     _drawCan(canvas, Offset(w * 0.90, h * 0.46), 18, const Color(0xFF60A5FA));
-
-    // Delivery van
     _drawVan(canvas, Offset(w * 0.35, h * 0.60), w * 0.32);
   }
 
-  void _drawWave(Canvas canvas, double w, double h, double yFrac, double amp,
-      Color color) {
+  void _drawWave(
+    Canvas canvas,
+    double w,
+    double h,
+    double yFrac,
+    double amp,
+    Color color,
+  ) {
     final paint = Paint()
       ..color = color.withValues(alpha: 0.22)
       ..style = PaintingStyle.fill;
@@ -334,14 +368,15 @@ class _CustomerLoginBgPainter extends CustomPainter {
       Radius.circular(r * 0.3),
     );
     canvas.drawRRect(body, paint);
-    // Highlight
+
     final hi = Paint()..color = Colors.white.withValues(alpha: 0.15);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromCenter(
-            center: Offset(center.dx - r * 0.2, center.dy - r * 0.3),
-            width: r * 0.25,
-            height: r * 1.0),
+          center: Offset(center.dx - r * 0.2, center.dy - r * 0.3),
+          width: r * 0.25,
+          height: r,
+        ),
         Radius.circular(r * 0.12),
       ),
       hi,
@@ -351,24 +386,36 @@ class _CustomerLoginBgPainter extends CustomPainter {
   void _drawVan(Canvas canvas, Offset origin, double w) {
     final h = w * 0.5;
     final paint = Paint()..color = Colors.white.withValues(alpha: 0.15);
-    // Body
     final body = RRect.fromRectAndRadius(
       Rect.fromLTWH(origin.dx, origin.dy, w, h * 0.65),
       const Radius.circular(6),
     );
     canvas.drawRRect(body, paint);
-    // Cabin
+
     final cabin = RRect.fromRectAndRadius(
-      Rect.fromLTWH(origin.dx + w * 0.62, origin.dy - h * 0.3, w * 0.38, h * 0.62),
+      Rect.fromLTWH(
+        origin.dx + w * 0.62,
+        origin.dy - h * 0.3,
+        w * 0.38,
+        h * 0.62,
+      ),
       const Radius.circular(5),
     );
     canvas.drawRRect(cabin, paint);
-    // Wheels
+
     final wheel = Paint()..color = Colors.white.withValues(alpha: 0.25);
-    canvas.drawCircle(Offset(origin.dx + w * 0.2, origin.dy + h * 0.65), h * 0.18, wheel);
-    canvas.drawCircle(Offset(origin.dx + w * 0.78, origin.dy + h * 0.65), h * 0.18, wheel);
+    canvas.drawCircle(
+      Offset(origin.dx + w * 0.2, origin.dy + h * 0.65),
+      h * 0.18,
+      wheel,
+    );
+    canvas.drawCircle(
+      Offset(origin.dx + w * 0.78, origin.dy + h * 0.65),
+      h * 0.18,
+      wheel,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter o) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

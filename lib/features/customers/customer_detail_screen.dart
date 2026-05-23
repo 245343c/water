@@ -82,12 +82,20 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
 
         final now = DateTime.now();
         final currentMonth = DateTime(now.year, now.month);
-        final monthly = repo.monthlyStatsForCustomer(widget.customerId, currentMonth);
+        final monthly = repo.monthlyStatsForCustomer(
+          widget.customerId,
+          currentMonth,
+        );
         final totalPending = repo.customerBalance(widget.customerId);
         final advanceCredit = repo.customerAdvanceCredit(widget.customerId);
-        final previousPending =
-            repo.previousBalanceForMonth(widget.customerId, currentMonth);
+        final previousPending = repo.previousBalanceForMonth(
+          widget.customerId,
+          currentMonth,
+        );
         final idx = repo.customers.indexWhere((c) => c.id == widget.customerId);
+        final shopId = repo.shopIdForCustomer(customer.id);
+        final shopName =
+            repo.shopById(shopId)?.name ?? repo.settings.businessName;
 
         return Scaffold(
           backgroundColor: CustomerDetailColors.screenBg,
@@ -107,6 +115,12 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                         customer: customer,
                         colorIndex: idx >= 0 ? idx : 0,
                       ),
+                      const CustomerFixedAccountCard(),
+                      CustomerAppAccessStatusCard(
+                        phone: customer.phone,
+                        shopName: shopName,
+                        shopId: shopId,
+                      ),
                       CustomerPendingCard(
                         totalPending: totalPending,
                         advanceCredit: advanceCredit,
@@ -114,19 +128,24 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                         monthStats: monthly,
                       ),
                       CustomerMonthlyOverviewSection(
-                        statsForMonth: (m) =>
-                            repo.monthlyStatsForCustomer(widget.customerId, m),
+                        statsForMonth: (m) => repo.monthlyStatsForCustomer(
+                          widget.customerId,
+                          m,
+                        ),
                         onMonthTap: _openMonthlySummary,
                         year: now.year,
                         initialMonth: now.month,
                       ),
                       QuickActionsSection(
-                        onAddDelivery: () =>
-                            context.push('/customers/${widget.customerId}/delivery'),
-                        onRecordPayment: () =>
-                            context.push('/customers/${widget.customerId}/payment'),
-                        onViewBills: () =>
-                            context.push('/customers/${widget.customerId}/bill'),
+                        onAddDelivery: () => context.push(
+                          '/customers/${widget.customerId}/delivery',
+                        ),
+                        onRecordPayment: () => context.push(
+                          '/customers/${widget.customerId}/payment',
+                        ),
+                        onViewBills: () => context.push(
+                          '/customers/${widget.customerId}/bill',
+                        ),
                         onCall: () => _onCall(customer.phone),
                       ),
                       DeleteCustomerSection(

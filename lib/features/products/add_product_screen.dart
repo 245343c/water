@@ -181,6 +181,37 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         ),
                         AddEditCustomerFormCard(
                           children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0xFFBFDBFE),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.info_outline,
+                                    color: Color(0xFF2563EB),
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'Add the product here. Final customer price is assigned later in each customer profile.',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 12,
+                                        height: 1.35,
+                                        color: AddProductColors.labelGrey,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
                             AddEditCustomerField(
                               label: 'Product name',
                               controller: _nameController,
@@ -203,9 +234,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                 isCool: _isCoolCan,
                               ),
                             AddEditCustomerField(
-                              label: 'Price (₹)',
+                              label: 'Default rate',
                               controller: _priceController,
-                              hint: 'Selling price',
+                              hint: 'Used only as starting rate for customers',
                               icon: Icons.currency_rupee,
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
                               required: true,
@@ -234,7 +265,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   ),
                 ),
                 AddEditCustomerSaveButton(
-                  label: _saving ? 'Saving…' : 'Save product',
+                  label: _saving ? 'Saving...' : 'Save catalog product',
                   onPressed: _saving ? () {} : () => _save(repo),
                 ),
               ],

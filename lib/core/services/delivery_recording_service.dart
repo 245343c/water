@@ -66,6 +66,12 @@ class DeliveryRecordingService {
       throw DeliveryValidationException('Driver profile not linked');
     }
 
+    if (user.isDriver && !_plant.canDriverAccessCustomer(staffId, customerId)) {
+      throw DeliveryValidationException(
+        'This customer is not assigned to your water plant',
+      );
+    }
+
     final today = DateTime.now();
     final deliveryDate = driverMode
         ? DateTime(today.year, today.month, today.day, today.hour, today.minute)

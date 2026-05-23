@@ -11,123 +11,148 @@ class RolePickerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       body: Stack(
         children: [
           SizedBox.expand(child: CustomPaint(painter: _WelcomeBgPainter())),
           SafeArea(
-            child: SizedBox(
-              height: size.height,
-              child: Column(
-                children: [
-                  // Hero section
-                  Expanded(
-                    flex: 5,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(28, 20, 28, 0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: const Icon(
-                              Icons.water_drop_rounded,
-                              color: Colors.white,
-                              size: 38,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            'Pure water,\ndelivered home.',
-                            style: GoogleFonts.poppins(
-                              color: Colors.white,
-                              fontSize: 34,
-                              fontWeight: FontWeight.w800,
-                              height: 1.1,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Order RO water from trusted shops near you.\nFast · Fresh · Affordable',
-                            style: GoogleFonts.poppins(
-                              color: Colors.white.withValues(alpha: 0.75),
-                              fontSize: 13,
-                              height: 1.5,
-                            ),
-                          ),
-                          const SizedBox(height: 28),
-                        ],
-                      ),
-                    ),
-                  ),
-                  // Cards
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-                    ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(
-                          'CONTINUE AS',
-                          style: GoogleFonts.poppins(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.2,
-                            color: CustomerColors.labelGrey,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        _RoleTile(
-                          icon: Icons.water_drop_rounded,
-                          title: 'Order water',
-                          subtitle: 'Search shops · Place order · Home delivery',
-                          badge: 'Customer',
-                          accent: CustomerColors.accent,
-                          onTap: () => context.push(AppRoutes.customerLogin),
-                        ),
-                        const SizedBox(height: 12),
-                        _RoleTile(
-                          icon: Icons.storefront_rounded,
-                          title: 'Staff login',
-                          subtitle: 'Owner · Drivers · Billing & customers',
-                          badge: 'Team',
-                          accent: const Color(0xFF0F172A),
-                          onTap: () => context.push(AppRoutes.login),
-                        ),
-                        const SizedBox(height: 20),
-                        Center(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.lock_outline_rounded,
-                                  size: 13,
-                                  color: CustomerColors.labelGrey),
-                              const SizedBox(width: 5),
-                              Text(
-                                'Secure sign-in',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  color: CustomerColors.labelGrey,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        _WelcomeHero(minHeight: constraints.maxHeight * 0.46),
+                        const _RolePickerCard(),
                       ],
                     ),
                   ),
-                ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WelcomeHero extends StatelessWidget {
+  const _WelcomeHero({required this.minHeight});
+
+  final double minHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: math.max(220, minHeight)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(28, 18, 28, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(18),
               ),
+              child: const Icon(
+                Icons.water_drop_rounded,
+                color: Colors.white,
+                size: 34,
+              ),
+            ),
+            const SizedBox(height: 34),
+            Text(
+              'Pure water,\ndelivered home.',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontSize: 32,
+                fontWeight: FontWeight.w800,
+                height: 1.08,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Order RO water from trusted shops near you.\nFast - Fresh - Affordable',
+              style: GoogleFonts.poppins(
+                color: Colors.white.withValues(alpha: 0.75),
+                fontSize: 12,
+                height: 1.45,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RolePickerCard extends StatelessWidget {
+  const _RolePickerCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 26, 20, 24),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'CONTINUE AS',
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+              color: CustomerColors.labelGrey,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _RoleTile(
+            icon: Icons.water_drop_rounded,
+            title: 'Order water',
+            subtitle: 'Fixed customer login - Home delivery',
+            badge: 'Customer',
+            accent: CustomerColors.accent,
+            onTap: () => context.push(AppRoutes.customerLogin),
+          ),
+          const SizedBox(height: 12),
+          _RoleTile(
+            icon: Icons.storefront_rounded,
+            title: 'Staff login',
+            subtitle: 'Owner - Drivers - Billing and customers',
+            badge: 'Team',
+            accent: const Color(0xFF0F172A),
+            onTap: () => context.push(AppRoutes.login),
+          ),
+          const SizedBox(height: 20),
+          Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.lock_outline_rounded,
+                  size: 13,
+                  color: CustomerColors.labelGrey,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  'Secure sign-in',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: CustomerColors.labelGrey,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -142,7 +167,6 @@ class _WelcomeBgPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
 
-    // Background gradient
     final bg = Paint()
       ..shader = const LinearGradient(
         begin: Alignment.topLeft,
@@ -152,7 +176,6 @@ class _WelcomeBgPainter extends CustomPainter {
       ).createShader(Rect.fromLTWH(0, 0, w, h));
     canvas.drawRect(Rect.fromLTWH(0, 0, w, h), bg);
 
-    // Stars
     final starPaint = Paint()..color = Colors.white.withValues(alpha: 0.55);
     final rnd = math.Random(7);
     for (var i = 0; i < 40; i++) {
@@ -161,23 +184,14 @@ class _WelcomeBgPainter extends CustomPainter {
       canvas.drawCircle(Offset(x, y), rnd.nextDouble() * 1.6 + 0.4, starPaint);
     }
 
-    // Glow orbs
     final orb = Paint()..color = Colors.white.withValues(alpha: 0.05);
     canvas.drawCircle(Offset(w * 0.85, h * 0.08), w * 0.4, orb);
     canvas.drawCircle(Offset(w * 0.1, h * 0.35), w * 0.25, orb);
 
-    // Water plant silhouette (center-right)
-    _drawPlant(canvas, Offset(w * 0.72, h * 0.38), w * 0.20);
-
-    // Delivery van
     _drawVan(canvas, Offset(w * 0.05, h * 0.52), w * 0.38);
-
-    // Water cans
-    _drawCan(canvas, Offset(w * 0.08, h * 0.38), 20.0);
-    _drawCan(canvas, Offset(w * 0.19, h * 0.35), 15.0);
-    _drawCan(canvas, Offset(w * 0.88, h * 0.50), 22.0);
-
-    // Wave
+    _drawCan(canvas, Offset(w * 0.08, h * 0.38), 20);
+    _drawCan(canvas, Offset(w * 0.19, h * 0.35), 15);
+    _drawCan(canvas, Offset(w * 0.88, h * 0.50), 22);
     _drawWave(canvas, w, h, 0.68, 0.08, const Color(0xFF1E40AF));
     _drawWave(canvas, w, h, 0.74, 0.05, const Color(0xFF2563EB));
   }
@@ -198,33 +212,44 @@ class _WelcomeBgPainter extends CustomPainter {
     final p = Paint()..color = Colors.white.withValues(alpha: 0.13);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-          Rect.fromLTWH(origin.dx, origin.dy, w, h * 0.65), const Radius.circular(6)),
+        Rect.fromLTWH(origin.dx, origin.dy, w, h * 0.65),
+        const Radius.circular(6),
+      ),
       p,
     );
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-              origin.dx + w * 0.6, origin.dy - h * 0.28, w * 0.4, h * 0.60),
-          const Radius.circular(5)),
+        Rect.fromLTWH(
+          origin.dx + w * 0.6,
+          origin.dy - h * 0.28,
+          w * 0.4,
+          h * 0.60,
+        ),
+        const Radius.circular(5),
+      ),
       p,
     );
     final wheel = Paint()..color = Colors.white.withValues(alpha: 0.20);
-    canvas.drawCircle(Offset(origin.dx + w * 0.2, origin.dy + h * 0.65), h * 0.18, wheel);
-    canvas.drawCircle(Offset(origin.dx + w * 0.75, origin.dy + h * 0.65), h * 0.18, wheel);
+    canvas.drawCircle(
+      Offset(origin.dx + w * 0.2, origin.dy + h * 0.65),
+      h * 0.18,
+      wheel,
+    );
+    canvas.drawCircle(
+      Offset(origin.dx + w * 0.75, origin.dy + h * 0.65),
+      h * 0.18,
+      wheel,
+    );
   }
 
-  void _drawPlant(Canvas canvas, Offset origin, double s) {
-    final p = Paint()..color = Colors.white.withValues(alpha: 0.10);
-    // Base
-    canvas.drawRect(Rect.fromCenter(center: origin.translate(0, s * 0.5), width: s * 1.4, height: s * 0.2), p);
-    // Tower
-    canvas.drawRect(Rect.fromCenter(center: origin, width: s * 0.4, height: s * 1.2), p);
-    // Tank
-    canvas.drawCircle(origin.translate(0, -s * 0.6), s * 0.38, p);
-  }
-
-  void _drawWave(Canvas canvas, double w, double h, double yFrac, double amp,
-      Color color) {
+  void _drawWave(
+    Canvas canvas,
+    double w,
+    double h,
+    double yFrac,
+    double amp,
+    Color color,
+  ) {
     final paint = Paint()
       ..color = color.withValues(alpha: 0.20)
       ..style = PaintingStyle.fill;
@@ -239,7 +264,7 @@ class _WelcomeBgPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter o) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _RoleTile extends StatelessWidget {
@@ -294,7 +319,10 @@ class _RoleTile extends StatelessWidget {
               ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 14,
+                  ),
                   child: Row(
                     children: [
                       Container(
@@ -313,7 +341,9 @@ class _RoleTile extends StatelessWidget {
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: accent.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(20),
@@ -330,6 +360,8 @@ class _RoleTile extends StatelessWidget {
                             const SizedBox(height: 4),
                             Text(
                               title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.poppins(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
@@ -338,6 +370,8 @@ class _RoleTile extends StatelessWidget {
                             ),
                             Text(
                               subtitle,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.poppins(
                                 fontSize: 11,
                                 color: CustomerColors.labelGrey,
@@ -347,7 +381,11 @@ class _RoleTile extends StatelessWidget {
                           ],
                         ),
                       ),
-                      Icon(Icons.arrow_forward_ios_rounded, size: 15, color: accent),
+                      Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 15,
+                        color: accent,
+                      ),
                     ],
                   ),
                 ),

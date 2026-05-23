@@ -96,6 +96,7 @@ class _NotificationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unread = !notification.read;
+    final style = _NotificationIconStyle.forType(notification.type);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -121,13 +122,10 @@ class _NotificationTile extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0D9488).withValues(alpha: 0.12),
+                    color: style.color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
-                    Icons.local_shipping_rounded,
-                    color: Color(0xFF0D9488),
-                  ),
+                  child: Icon(style.icon, color: style.color),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -184,5 +182,37 @@ class _NotificationTile extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _NotificationIconStyle {
+  const _NotificationIconStyle({required this.icon, required this.color});
+
+  final IconData icon;
+  final Color color;
+
+  static _NotificationIconStyle forType(AppNotificationType type) {
+    return switch (type) {
+      AppNotificationType.orderPlaced => const _NotificationIconStyle(
+          icon: Icons.receipt_long_rounded,
+          color: Color(0xFF2563EB),
+        ),
+      AppNotificationType.orderAccepted => const _NotificationIconStyle(
+          icon: Icons.local_shipping_rounded,
+          color: Color(0xFF0D9488),
+        ),
+      AppNotificationType.orderRejected => const _NotificationIconStyle(
+          icon: Icons.cancel_rounded,
+          color: Color(0xFFDC2626),
+        ),
+      AppNotificationType.deliveryRecorded => const _NotificationIconStyle(
+          icon: Icons.inventory_2_rounded,
+          color: Color(0xFF16A34A),
+        ),
+      AppNotificationType.paymentReceived => const _NotificationIconStyle(
+          icon: Icons.payments_rounded,
+          color: Color(0xFF7C3AED),
+        ),
+    };
   }
 }

@@ -180,7 +180,7 @@ class _CustomerPricingEditorState extends State<CustomerPricingEditor> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Products & pricing',
+                        'Customer assigned rates',
                         style: GoogleFonts.poppins(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -189,7 +189,7 @@ class _CustomerPricingEditorState extends State<CustomerPricingEditor> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Set what this customer buys and their rates',
+                        'These rates are used by admin, driver, and customer app',
                         style: GoogleFonts.poppins(
                           fontSize: 11,
                           color: AddEditCustomerColors.labelGrey.withValues(alpha: 0.85),
@@ -202,7 +202,7 @@ class _CustomerPricingEditorState extends State<CustomerPricingEditor> {
                   onPressed: _resetToShopRates,
                   icon: const Icon(Icons.refresh_rounded, size: 16),
                   label: Text(
-                    'Shop rates',
+                    'Default rates',
                     style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                   style: TextButton.styleFrom(
@@ -315,8 +315,8 @@ class _CanPricingCard extends StatelessWidget {
       embedded: embedded,
       icon: Icons.water_drop_rounded,
       iconColor: const Color(0xFF2563EB),
-      title: '20L Water Cans',
-      subtitle: 'Normal & cool refill',
+      title: '20L water cans',
+      subtitle: 'Assign this customer normal and cool can rates',
       child: Column(
         children: [
           _VariantPriceRow(
@@ -529,7 +529,7 @@ class _VariantPriceRow extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Shop: ${CurrencyUtils.format(shopHint)}',
+                  'Default: ${CurrencyUtils.format(shopHint)}',
                   style: GoogleFonts.poppins(fontSize: 10, color: AddEditCustomerColors.labelGrey),
                 ),
               ],

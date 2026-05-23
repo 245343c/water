@@ -115,9 +115,11 @@ class AddProductLivePreview extends StatelessWidget {
                   style: GoogleFonts.poppins(fontSize: 12, color: AddProductColors.labelGrey),
                 ),
                 Text(
-                  price != null ? CurrencyUtils.format(price) : '₹ —',
+                  price != null
+                      ? 'Default ${CurrencyUtils.format(price)}'
+                      : 'Default rate',
                   style: GoogleFonts.poppins(
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: FontWeight.w800,
                     color: accent,
                   ),

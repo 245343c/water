@@ -127,7 +127,10 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
   }
 
   Future<void> _delete(WaterPlantRepository repo, String customerName) async {
-    final confirmed = await confirmDeleteCustomer(context, customerName: customerName);
+    final confirmed = await confirmDeleteCustomer(
+      context,
+      customerName: customerName,
+    );
     if (!confirmed || !mounted) return;
     repo.deleteCustomer(widget.customerId!);
     if (!mounted) return;
@@ -144,7 +147,9 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
   Widget build(BuildContext context) {
     return Consumer<WaterPlantRepository>(
       builder: (context, repo, _) {
-        final customer = widget.isEditing ? repo.customerById(widget.customerId!) : null;
+        final customer = widget.isEditing
+            ? repo.customerById(widget.customerId!)
+            : null;
         _loadCustomer(customer, repo);
         _initPricingForNewCustomer(repo);
 
@@ -162,7 +167,9 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
                     child: Center(
                       child: Text(
                         'Customer not found',
-                        style: GoogleFonts.poppins(color: AddEditCustomerColors.labelGrey),
+                        style: GoogleFonts.poppins(
+                          color: AddEditCustomerColors.labelGrey,
+                        ),
                       ),
                     ),
                   ),
@@ -181,7 +188,9 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
                 AddEditCustomerHeader(
                   title: widget.isEditing ? 'Edit Customer' : 'Add Customer',
                   onBack: () => context.pop(),
-                  onDelete: widget.isEditing ? () => _delete(repo, customer!.name) : null,
+                  onDelete: widget.isEditing
+                      ? () => _delete(repo, customer!.name)
+                      : null,
                 ),
                 Expanded(
                   child: Form(
@@ -209,8 +218,9 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
                               icon: Icons.person_outline_rounded,
                               textCapitalization: TextCapitalization.words,
                               required: true,
-                              validator: (v) =>
-                                  v == null || v.trim().isEmpty ? 'Name is required' : null,
+                              validator: (v) => v == null || v.trim().isEmpty
+                                  ? 'Name is required'
+                                  : null,
                             ),
                             AddEditCustomerField(
                               label: 'Phone Number',
@@ -220,9 +230,22 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
                               keyboardType: TextInputType.phone,
                               required: true,
                               validator: (v) {
-                                final digits = v?.replaceAll(RegExp(r'\D'), '') ?? '';
-                                if (digits.length < 10) return 'Valid phone required';
+                                final digits =
+                                    v?.replaceAll(RegExp(r'\D'), '') ?? '';
+                                if (digits.length < 10) {
+                                  return 'Valid phone required';
+                                }
                                 return null;
+                              },
+                            ),
+                            ValueListenableBuilder<TextEditingValue>(
+                              valueListenable: _phoneController,
+                              builder: (context, value, _) {
+                                return CustomerAppAccessInfoCard(
+                                  phone: value.text,
+                                  shopName: repo.settings.businessName,
+                                  isEditing: widget.isEditing,
+                                );
                               },
                             ),
                             AddEditCustomerField(
@@ -240,8 +263,9 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
                               icon: Icons.place_outlined,
                               textCapitalization: TextCapitalization.words,
                               required: true,
-                              validator: (v) =>
-                                  v == null || v.trim().isEmpty ? 'Place is required' : null,
+                              validator: (v) => v == null || v.trim().isEmpty
+                                  ? 'Place is required'
+                                  : null,
                             ),
                             AddEditCustomerField(
                               label: 'Address',
@@ -251,24 +275,31 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
                               textCapitalization: TextCapitalization.sentences,
                               maxLines: 3,
                               required: true,
-                              validator: (v) =>
-                                  v == null || v.trim().isEmpty ? 'Address is required' : null,
+                              validator: (v) => v == null || v.trim().isEmpty
+                                  ? 'Address is required'
+                                  : null,
                             ),
                             const AddEditCustomerFormDivider(),
                             AddEditCustomerSubsectionHeader(
                               title: 'Product rates',
-                              subtitle: 'Used when recording deliveries for this customer',
+                              subtitle:
+                                  'Customer-specific rates shown in admin, driver, and customer app',
                               trailing: TextButton(
                                 onPressed: () {
                                   setState(() {
-                                    _productPrices = repo.defaultCustomerPricing();
+                                    _productPrices = repo
+                                        .defaultCustomerPricing();
                                   });
                                 },
                                 style: TextButton.styleFrom(
-                                  foregroundColor: AddEditCustomerColors.primaryBtn,
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  foregroundColor:
+                                      AddEditCustomerColors.primaryBtn,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
                                   minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
                                 ),
                                 child: Text(
                                   'Shop rates',
@@ -283,7 +314,8 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
                               repo: repo,
                               entries: _productPrices,
                               embedded: true,
-                              onChanged: (list) => setState(() => _productPrices = list),
+                              onChanged: (list) =>
+                                  setState(() => _productPrices = list),
                             ),
                             const SizedBox(height: 16),
                           ],

@@ -27,6 +27,15 @@ class NotificationRepository extends ChangeNotifier {
   int unreadCountForAdmin() =>
       _items.where((n) => n.audience == AppRole.admin && !n.read).length;
 
+  int unreadCountForCustomer(String customerId) => _items
+      .where(
+        (n) =>
+            n.audience == AppRole.customer &&
+            n.customerId == customerId &&
+            !n.read,
+      )
+      .length;
+
   List<AppNotification> forDriver() =>
       _items.where((n) => n.audience == AppRole.driver).toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -51,6 +60,15 @@ class NotificationRepository extends ChangeNotifier {
   void markAllReadForAdmin() {
     for (final n in _items) {
       if (n.audience == AppRole.admin) n.read = true;
+    }
+    notifyListeners();
+  }
+
+  void markAllReadForCustomer(String customerId) {
+    for (final n in _items) {
+      if (n.audience == AppRole.customer && n.customerId == customerId) {
+        n.read = true;
+      }
     }
     notifyListeners();
   }
@@ -101,6 +119,28 @@ class NotificationRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  void notifyAdminOrderPlaced({
+    required CustomerOrder order,
+    required String customerName,
+    required String shopName,
+  }) {
+    _items.insert(
+      0,
+      AppNotification(
+        id: _uuid.v4(),
+        type: AppNotificationType.orderPlaced,
+        title: 'New water request',
+        body:
+            '$customerName requested ${order.cansSummary} from $shopName. Accept or decline from Orders.',
+        audience: AppRole.admin,
+        customerId: order.customerId,
+        orderId: order.id,
+        createdAt: DateTime.now(),
+      ),
+    );
+    notifyListeners();
+  }
+
   void notifyDriverOrderAccepted({
     required CustomerOrder order,
     required String customerName,
@@ -134,6 +174,48 @@ class NotificationRepository extends ChangeNotifier {
         title: 'Order sent to driver',
         body: '$customerName · ${order.cansSummary} — driver notified',
         audience: AppRole.admin,
+        customerId: order.customerId,
+        orderId: order.id,
+        createdAt: DateTime.now(),
+      ),
+    );
+    notifyListeners();
+  }
+
+  void notifyCustomerOrderAccepted({
+    required CustomerOrder order,
+    required String shopName,
+  }) {
+    _items.insert(
+      0,
+      AppNotification(
+        id: _uuid.v4(),
+        type: AppNotificationType.orderAccepted,
+        title: 'Request accepted',
+        body:
+            '$shopName confirmed ${order.cansSummary}. Driver will deliver soon.',
+        audience: AppRole.customer,
+        customerId: order.customerId,
+        orderId: order.id,
+        createdAt: DateTime.now(),
+      ),
+    );
+    notifyListeners();
+  }
+
+  void notifyCustomerOrderRejected({
+    required CustomerOrder order,
+    required String shopName,
+    required String reason,
+  }) {
+    _items.insert(
+      0,
+      AppNotification(
+        id: _uuid.v4(),
+        type: AppNotificationType.orderRejected,
+        title: 'Request declined',
+        body: '$shopName declined your request. Reason: $reason',
+        audience: AppRole.customer,
         customerId: order.customerId,
         orderId: order.id,
         createdAt: DateTime.now(),

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
+import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_route_widgets.dart';
@@ -15,14 +16,18 @@ class DriverRouteScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<WaterPlantRepository, NotificationRepository>(
-      builder: (context, repo, notifications, _) {
+    return Consumer3<WaterPlantRepository, NotificationRepository, AuthRepository>(
+      builder: (context, repo, notifications, auth, _) {
+        final driverId = auth.currentUser?.driverId;
+        final assignedShop = repo.shopForDriver(driverId);
         final today = DateTime.now();
-        final deliveries = repo.deliveriesOnDate(today);
-        final cans = repo.cansDeliveredOnDate(today);
-        final acceptedOrders = repo.driverAcceptedOrders();
-        final route = repo.todaysRouteCustomers;
-        final pendingRoute = route.where((c) => !repo.hasDeliveryToday(c.id)).toList();
+        final deliveries = repo.deliveriesOnDateForDriver(today, driverId);
+        final cans = repo.cansDeliveredOnDateForDriver(today, driverId);
+        final acceptedOrders = repo.driverAcceptedOrders(driverId: driverId);
+        final route = repo.todaysRouteCustomersForDriver(driverId);
+        final pendingRoute = route
+            .where((c) => !repo.hasDeliveryToday(c.id))
+            .toList();
         final driverAlerts = notifications.unreadCountForDriver();
 
         return Scaffold(
@@ -35,7 +40,9 @@ class DriverRouteScreen extends StatelessWidget {
                   title: 'My route',
                   subtitle: acceptedOrders.isNotEmpty
                       ? '${acceptedOrders.length} confirmed order(s) to deliver'
-                      : 'Visit customers → ask cans → save in app',
+                      : assignedShop == null
+                          ? 'Driver is not linked to a water plant'
+                          : '${assignedShop.name} customers only',
                 ),
                 Expanded(
                   child: ListView(
@@ -115,7 +122,10 @@ class DriverRouteScreen extends StatelessWidget {
                         )
                       else
                         ...pendingRoute.map((c) {
-                          final order = repo.acceptedOrderForCustomer(c.id);
+                          final order = repo.acceptedOrderForCustomer(
+                            c.id,
+                            driverId: driverId,
+                          );
                           return DriverRouteStopCard(
                             customerName: c.name,
                             place: c.place,

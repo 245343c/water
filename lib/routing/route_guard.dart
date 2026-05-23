@@ -46,6 +46,7 @@ bool isAdminOnlyRoute(String location) {
       location.startsWith('/notifications') ||
       location.startsWith('/settings') ||
       location.startsWith('/drivers') ||
+      location.startsWith('/subscription') ||
       location.startsWith('/products')) {
     return true;
   }

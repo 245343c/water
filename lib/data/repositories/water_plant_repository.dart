@@ -42,8 +42,12 @@ class WaterPlantRepository extends ChangeNotifier {
   final List<Driver> _drivers = [];
   final List<Shop> _shops = [];
   final List<Promotion> _promotions = [];
+
   /// CRM customer id → marketplace shop id (multi-shop bulk billing).
   final Map<String, String> _customerShopIds = {};
+
+  /// Driver id -> shop id. Mock uses one shop today, but this is Firebase-ready.
+  final Map<String, String> _driverShopIds = {};
   final Map<String, CustomerAppProfile> _customerProfiles = {};
   final Map<String, String> _routeNotes = {};
   List<String> _todaysRouteIds = [];
@@ -81,7 +85,9 @@ class WaterPlantRepository extends ChangeNotifier {
               s.name.toLowerCase().contains(q) ||
               s.address.toLowerCase().contains(q) ||
               s.place.toLowerCase().contains(q) ||
-              s.phone.replaceAll(RegExp(r'\D'), '').contains(q.replaceAll(RegExp(r'\D'), '')),
+              s.phone
+                  .replaceAll(RegExp(r'\D'), '')
+                  .contains(q.replaceAll(RegExp(r'\D'), '')),
         )
         .toList();
   }
@@ -110,9 +116,7 @@ class WaterPlantRepository extends ChangeNotifier {
     final digits = normalizePhone(phone);
     if (digits.length < 10) return null;
     try {
-      return _customers.firstWhere(
-        (c) => normalizePhone(c.phone) == digits,
-      );
+      return _customers.firstWhere((c) => normalizePhone(c.phone) == digits);
     } catch (_) {
       return null;
     }
@@ -136,8 +140,118 @@ class WaterPlantRepository extends ChangeNotifier {
     return null;
   }
 
+  List<Customer> linkedCrmCustomersForAppUser(String userId, {String? phone}) {
+    final profile = customerProfileByUserId(userId);
+    final linkedId = crmCustomerIdForAppUser(userId);
+    final digits = normalizePhone(profile?.phone ?? phone ?? '');
+    if (digits.isEmpty && linkedId == null) return const [];
+
+    final seen = <String>{};
+    final matches = <Customer>[];
+    for (final c in _customers) {
+      final byId = linkedId != null && c.id == linkedId;
+      final byPhone = digits.isNotEmpty && normalizePhone(c.phone) == digits;
+      if ((byId || byPhone) && seen.add(c.id)) {
+        matches.add(c);
+      }
+    }
+    return matches;
+  }
+
   String shopIdForCustomer(String customerId) =>
       _customerShopIds[customerId] ?? defaultShopId;
+
+  String shopIdForDriver(String driverId) =>
+      _driverShopIds[driverId] ?? defaultShopId;
+
+  Shop? shopForDriver(String? driverId) {
+    if (driverId == null || driverId.isEmpty) return null;
+    return shopById(shopIdForDriver(driverId));
+  }
+
+  List<Customer> customersForShop(String shopId) =>
+      _customers.where((c) => shopIdForCustomer(c.id) == shopId).toList();
+
+  List<Customer> customersForDriver(String? driverId) {
+    final shop = shopForDriver(driverId);
+    if (shop == null) return const [];
+    return customersForShop(shop.id);
+  }
+
+  bool canDriverAccessCustomer(String? driverId, String customerId) {
+    final shop = shopForDriver(driverId);
+    if (shop == null) return false;
+    return shopIdForCustomer(customerId) == shop.id;
+  }
+
+  List<Customer> searchCustomersForDriver(String? driverId, String query) {
+    final base = customersForDriver(driverId);
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return List<Customer>.from(base);
+    final qDigits = q.replaceAll(RegExp(r'\D'), '');
+    return base
+        .where(
+          (c) =>
+              c.name.toLowerCase().contains(q) ||
+              c.place.toLowerCase().contains(q) ||
+              (qDigits.isNotEmpty &&
+                  normalizePhone(c.phone).contains(qDigits)),
+        )
+        .toList();
+  }
+
+  List<Shop> linkedShopsForAppUser(String userId, {String? phone}) {
+    final seen = <String>{};
+    final shops = <Shop>[];
+    for (final customer in linkedCrmCustomersForAppUser(userId, phone: phone)) {
+      final shop = shopById(shopIdForCustomer(customer.id));
+      if (shop != null && seen.add(shop.id)) {
+        shops.add(shop);
+      }
+    }
+    shops.sort((a, b) {
+      if (a.id == defaultShopId) return -1;
+      if (b.id == defaultShopId) return 1;
+      return a.name.compareTo(b.name);
+    });
+    return shops;
+  }
+
+  List<Shop> searchLinkedShopsForAppUser(
+    String userId,
+    String query, {
+    String? phone,
+  }) {
+    final q = query.trim().toLowerCase();
+    final base = linkedShopsForAppUser(userId, phone: phone);
+    if (q.isEmpty) return base;
+    final qDigits = q.replaceAll(RegExp(r'\D'), '');
+    return base
+        .where(
+          (s) =>
+              s.name.toLowerCase().contains(q) ||
+              s.address.toLowerCase().contains(q) ||
+              s.place.toLowerCase().contains(q) ||
+              (qDigits.isNotEmpty &&
+                  s.phone.replaceAll(RegExp(r'\D'), '').contains(qDigits)),
+        )
+        .toList();
+  }
+
+  bool canAppUserAccessShop(String userId, String shopId, {String? phone}) {
+    return linkedShopsForAppUser(
+      userId,
+      phone: phone,
+    ).any((s) => s.id == shopId);
+  }
+
+  void _linkCustomerToShop(String customerId, String shopId) {
+    _customerShopIds[customerId] = shopId;
+  }
+
+  void _linkDriverToShop(String driverId, String shopId) {
+    _driverShopIds[driverId] = shopId;
+  }
 
   /// All monthly-contract CRM rows for this app user (one per shop).
   List<CustomerShopBilling> shopBillingsForAppUser(String userId) {
@@ -243,6 +357,7 @@ class WaterPlantRepository extends ChangeNotifier {
         email: 'driver@srisai.com',
       ),
     ]);
+    _linkDriverToShop('driver-1', defaultShopId);
 
     final abi = Customer(
       id: 'c1',
@@ -269,7 +384,7 @@ class WaterPlantRepository extends ChangeNotifier {
       id: 'c2',
       name: 'Ramesh Kumar',
       phone: '98850 12345',
-      billingMode: CustomerBillingMode.appOnDemand,
+      billingMode: CustomerBillingMode.monthlyContract,
       email: 'ramesh.kumar@email.com',
       place: 'Gandhi Nagar, Rajahmundry',
       address: 'Door No: 12-5-8, Gandhi Nagar',
@@ -278,7 +393,7 @@ class WaterPlantRepository extends ChangeNotifier {
       id: 'c3',
       name: 'Lakshmi Devi',
       phone: '98765 43210',
-      billingMode: CustomerBillingMode.appOnDemand,
+      billingMode: CustomerBillingMode.monthlyContract,
       place: 'RTC Colony, Rajahmundry',
       address: 'Plot 45, RTC Colony',
     );
@@ -286,19 +401,27 @@ class WaterPlantRepository extends ChangeNotifier {
       id: 'c4',
       name: 'Suresh Babu',
       phone: '91234 56789',
-      billingMode: CustomerBillingMode.appOnDemand,
+      billingMode: CustomerBillingMode.monthlyContract,
       place: 'Danavaipeta, Rajahmundry',
       address: 'Flat 302, Sai Residency',
     );
 
     _customers.addAll([abi, ramesh, lakshmi, suresh]);
-    _customerShopIds[abi.id] = defaultShopId;
+    for (final customer in [abi, ramesh, lakshmi, suresh]) {
+      _linkCustomerToShop(customer.id, defaultShopId);
+    }
     _seedAbiMultiShopAccounts(abi);
 
     final now = DateTime.now();
     final thisMonth = DateTime(now.year, now.month);
 
-    void addCans(String customerId, int day, int normal, int cool, {int hour = 10}) {
+    void addCans(
+      String customerId,
+      int day,
+      int normal,
+      int cool, {
+      int hour = 10,
+    }) {
       _deliveries.add(
         Delivery.fromLegacyCans(
           id: _uuid.v4(),
@@ -415,7 +538,7 @@ class WaterPlantRepository extends ChangeNotifier {
 
     for (final (id, shopId, _, _) in pairs) {
       if (_customers.any((c) => c.id == id)) continue;
-      _customerShopIds[id] = shopId;
+      _linkCustomerToShop(id, shopId);
       _customers.add(
         Customer(
           id: id,
@@ -486,6 +609,9 @@ class WaterPlantRepository extends ChangeNotifier {
         address: 'Shop 12, Main Road Complex',
       ),
     ]);
+    for (final customerId in ['c5', 'c6', 'c7']) {
+      _linkCustomerToShop(customerId, defaultShopId);
+    }
 
     _routeNotes.addAll({
       'c2': 'Weekly route — usually 3 normal + 1 cool',
@@ -551,9 +677,14 @@ class WaterPlantRepository extends ChangeNotifier {
   }
 
   List<Customer> get todaysRouteCustomers {
-    return _todaysRouteIds
-        .map(customerById)
-        .whereType<Customer>()
+    return _todaysRouteIds.map(customerById).whereType<Customer>().toList();
+  }
+
+  List<Customer> todaysRouteCustomersForDriver(String? driverId) {
+    final shop = shopForDriver(driverId);
+    if (shop == null) return const [];
+    return todaysRouteCustomers
+        .where((c) => shopIdForCustomer(c.id) == shop.id)
         .toList();
   }
 
@@ -573,9 +704,12 @@ class WaterPlantRepository extends ChangeNotifier {
   }
 
   PaymentAllocationResult _allocationFor(String customerId) {
-    final deliveries =
-        _deliveries.where((d) => d.customerId == customerId).toList();
-    final payments = _payments.where((p) => p.customerId == customerId).toList();
+    final deliveries = _deliveries
+        .where((d) => d.customerId == customerId)
+        .toList();
+    final payments = _payments
+        .where((p) => p.customerId == customerId)
+        .toList();
     return allocatePaymentsFifo(deliveries: deliveries, payments: payments);
   }
 
@@ -594,16 +728,20 @@ class WaterPlantRepository extends ChangeNotifier {
   double customerBalance(String customerId) {
     final pending = totalPendingFromLedger(customerLedger(customerId));
     if (pending > 0) return pending;
-    return (_deliveryTotal(customerId) - _paymentTotal(customerId))
-        .clamp(0, double.infinity);
+    return (_deliveryTotal(customerId) - _paymentTotal(customerId)).clamp(
+      0,
+      double.infinity,
+    );
   }
 
   /// Extra paid after all monthly bills are cleared — auto-used on next delivery.
   double customerAdvanceCredit(String customerId) {
     final fromFifo = _allocationFor(customerId).advanceCredit;
     if (fromFifo > 0) return fromFifo;
-    return (_paymentTotal(customerId) - _deliveryTotal(customerId))
-        .clamp(0, double.infinity);
+    return (_paymentTotal(customerId) - _deliveryTotal(customerId)).clamp(
+      0,
+      double.infinity,
+    );
   }
 
   /// Simulates a new payment before saving (FIFO + advance).
@@ -621,11 +759,13 @@ class WaterPlantRepository extends ChangeNotifier {
       );
     }
     final pendingBefore = customerBalance(customerId);
-    final appliedToDue =
-        paymentAmount < pendingBefore ? paymentAmount : pendingBefore;
+    final appliedToDue = paymentAmount < pendingBefore
+        ? paymentAmount
+        : pendingBefore;
     final advance = paymentAmount - appliedToDue;
-    final pendingAfter =
-        (pendingBefore - appliedToDue).clamp(0.0, double.infinity).toDouble();
+    final pendingAfter = (pendingBefore - appliedToDue)
+        .clamp(0.0, double.infinity)
+        .toDouble();
     return PaymentAllocationPreview(
       pendingBefore: pendingBefore,
       appliedToDue: appliedToDue,
@@ -634,10 +774,7 @@ class WaterPlantRepository extends ChangeNotifier {
     );
   }
 
-  List<Delivery> deliveriesForCustomer(
-    String customerId, {
-    DateTime? month,
-  }) {
+  List<Delivery> deliveriesForCustomer(String customerId, {DateTime? month}) {
     var list = _deliveries.where((d) => d.customerId == customerId).toList();
     if (month != null) {
       list = list.where((d) => d.date.isSameMonth(month)).toList();
@@ -661,14 +798,18 @@ class WaterPlantRepository extends ChangeNotifier {
   }
 
   double paymentsTotalForMonth(String customerId, DateTime month) {
-    return paymentsForCustomer(customerId, month: month)
-        .fold<double>(0, (sum, p) => sum + p.amount);
+    return paymentsForCustomer(
+      customerId,
+      month: month,
+    ).fold<double>(0, (sum, p) => sum + p.amount);
   }
 
   Map<String, int> _bottlesByLabelFromDeliveries(List<Delivery> deliveries) {
     final map = <String, int>{};
     for (final d in deliveries) {
-      for (final line in d.lines.where((l) => l.kind == DeliveryItemKind.bottle)) {
+      for (final line in d.lines.where(
+        (l) => l.kind == DeliveryItemKind.bottle,
+      )) {
         map[line.label] = (map[line.label] ?? 0) + line.quantity;
       }
     }
@@ -687,15 +828,15 @@ class WaterPlantRepository extends ChangeNotifier {
 
   MonthlyStats monthlyStatsForCustomer(String customerId, DateTime month) {
     final monthDeliveries = deliveriesForCustomer(customerId, month: month);
-    final normalCans =
-        monthDeliveries.fold<int>(0, (s, d) => s + d.normalQty);
+    final normalCans = monthDeliveries.fold<int>(0, (s, d) => s + d.normalQty);
     final coolCans = monthDeliveries.fold<int>(0, (s, d) => s + d.coolQty);
-    final bottleUnits =
-        monthDeliveries.fold<int>(0, (s, d) => s + d.bottleQty);
+    final bottleUnits = monthDeliveries.fold<int>(0, (s, d) => s + d.bottleQty);
     final bottlesByLabel = _bottlesByLabelFromDeliveries(monthDeliveries);
     final quantitiesByLabel = _quantitiesByLabelFromDeliveries(monthDeliveries);
-    final totalAmount =
-        monthDeliveries.fold<double>(0, (s, d) => s + d.totalAmount);
+    final totalAmount = monthDeliveries.fold<double>(
+      0,
+      (s, d) => s + d.totalAmount,
+    );
 
     final ledger = customerLedger(customerId);
     final entry = ledgerEntryForMonth(ledger, month);
@@ -718,15 +859,17 @@ class WaterPlantRepository extends ChangeNotifier {
       pendingBeforeMonth(customerLedger(customerId), month);
 
   DashboardStats dashboardStats(DateTime month) {
-    final monthDeliveries =
-        _deliveries.where((d) => d.date.isSameMonth(month)).toList();
+    final monthDeliveries = _deliveries
+        .where((d) => d.date.isSameMonth(month))
+        .toList();
     final totalCans = monthDeliveries.fold<int>(
       0,
       (s, d) => s + d.normalQty + d.coolQty + d.bottleQty,
     );
-    final totalSales =
-        monthDeliveries.fold<double>(0, (s, d) => s + d.totalAmount);
-    final activeIds = monthDeliveries.map((d) => d.customerId).toSet();
+    final totalSales = monthDeliveries.fold<double>(
+      0,
+      (s, d) => s + d.totalAmount,
+    );
     final paidThisMonth = _payments
         .where((p) => p.date.isSameMonth(month))
         .fold<double>(0, (s, p) => s + p.amount);
@@ -769,8 +912,14 @@ class WaterPlantRepository extends ChangeNotifier {
       final daysSincePay = lastPay == null
           ? null
           : today
-              .difference(DateTime(lastPay.date.year, lastPay.date.month, lastPay.date.day))
-              .inDays;
+                .difference(
+                  DateTime(
+                    lastPay.date.year,
+                    lastPay.date.month,
+                    lastPay.date.day,
+                  ),
+                )
+                .inDays;
 
       if (prior > 0 && monthStats.balance > 0) {
         consider(
@@ -778,7 +927,8 @@ class WaterPlantRepository extends ChangeNotifier {
             customerId: c.id,
             customerName: c.name,
             kind: DashboardActionKind.overdue,
-            subtitle: '${CurrencyUtils.format(totalBal)} overdue · prior month due',
+            subtitle:
+                '${CurrencyUtils.format(totalBal)} overdue · prior month due',
             priority: 0,
           ),
         );
@@ -793,7 +943,8 @@ class WaterPlantRepository extends ChangeNotifier {
             customerId: c.id,
             customerName: c.name,
             kind: DashboardActionKind.pendingPayment,
-            subtitle: '${CurrencyUtils.format(monthStats.balance)} pending$payHint',
+            subtitle:
+                '${CurrencyUtils.format(monthStats.balance)} pending$payHint',
             priority: 1,
           ),
         );
@@ -840,7 +991,8 @@ class WaterPlantRepository extends ChangeNotifier {
       }
     }
 
-    final list = best.values.toList()..sort((a, b) => a.priority.compareTo(b.priority));
+    final list = best.values.toList()
+      ..sort((a, b) => a.priority.compareTo(b.priority));
     return list.take(limit).toList();
   }
 
@@ -888,7 +1040,10 @@ class WaterPlantRepository extends ChangeNotifier {
   }
 
   int activeCustomersInRange(DateTime start, DateTime end) {
-    return deliveriesInRange(start, end).map((d) => d.customerId).toSet().length;
+    return deliveriesInRange(
+      start,
+      end,
+    ).map((d) => d.customerId).toSet().length;
   }
 
   Map<DateTime, ({int normal, int cool})> dailyCanTotals(
@@ -993,16 +1148,16 @@ class WaterPlantRepository extends ChangeNotifier {
   }
 
   bool customerUsesNormalCans(Customer customer) => customerVariantEnabled(
-        customer,
-        productId: CustomerPricingKeys.canProductId,
-        variantId: CustomerPricingKeys.normalVariantId,
-      );
+    customer,
+    productId: CustomerPricingKeys.canProductId,
+    variantId: CustomerPricingKeys.normalVariantId,
+  );
 
   bool customerUsesCoolCans(Customer customer) => customerVariantEnabled(
-        customer,
-        productId: CustomerPricingKeys.canProductId,
-        variantId: CustomerPricingKeys.coolVariantId,
-      );
+    customer,
+    productId: CustomerPricingKeys.canProductId,
+    variantId: CustomerPricingKeys.coolVariantId,
+  );
 
   Customer addCustomer({
     required String name,
@@ -1010,6 +1165,7 @@ class WaterPlantRepository extends ChangeNotifier {
     required String address,
     String email = '',
     String place = '',
+    CustomerBillingMode billingMode = CustomerBillingMode.monthlyContract,
     List<CustomerProductPrice>? productPrices,
   }) {
     final customer = Customer(
@@ -1019,9 +1175,11 @@ class WaterPlantRepository extends ChangeNotifier {
       address: address,
       email: email,
       place: place,
+      billingMode: billingMode,
       productPrices: productPrices ?? defaultCustomerPricing(),
     );
     _customers.insert(0, customer);
+    _linkCustomerToShop(customer.id, defaultShopId);
     notifyListeners();
     return customer;
   }
@@ -1036,6 +1194,7 @@ class WaterPlantRepository extends ChangeNotifier {
 
   void deleteCustomer(String id) {
     _customers.removeWhere((c) => c.id == id);
+    _customerShopIds.remove(id);
     _deliveries.removeWhere((d) => d.customerId == id);
     _payments.removeWhere((p) => p.customerId == id);
     _orders.removeWhere((o) => o.customerId == id);
@@ -1106,8 +1265,16 @@ class WaterPlantRepository extends ChangeNotifier {
     if (profile == null || !profile.onboardingComplete) {
       throw StateError('Complete your delivery address first');
     }
+    if (!canAppUserAccessShop(appUserId, shopId, phone: profile.phone)) {
+      throw StateError('This water plant is not linked to your account');
+    }
 
-    final crmId = _ensureAppCrmCustomer(appUserId, profile);
+    final crmId = _linkedCrmCustomerIdForOrder(
+      appUserId: appUserId,
+      profile: profile,
+      shopId: shopId,
+    );
+    _customerShopIds.putIfAbsent(crmId, () => shopId);
     final order = CustomerOrder(
       id: _uuid.v4(),
       customerId: crmId,
@@ -1123,46 +1290,23 @@ class WaterPlantRepository extends ChangeNotifier {
     return order;
   }
 
-  String _ensureAppCrmCustomer(String appUserId, CustomerAppProfile profile) {
-    if (profile.linkedCrmCustomerId != null) {
-      final existing = customerById(profile.linkedCrmCustomerId!);
-      if (existing != null) {
-        _customers[_customers.indexWhere((c) => c.id == existing.id)] =
-            existing.copyWith(
-          name: profile.name,
-          phone: profile.phone,
-          address: profile.address,
-          email: profile.email,
-          place: profile.place,
+  String _linkedCrmCustomerIdForOrder({
+    required String appUserId,
+    required CustomerAppProfile profile,
+    required String shopId,
+  }) {
+    for (final customer in linkedCrmCustomersForAppUser(
+      appUserId,
+      phone: profile.phone,
+    )) {
+      if (shopIdForCustomer(customer.id) == shopId) {
+        _customerProfiles[appUserId] = profile.copyWith(
+          linkedCrmCustomerId: customer.id,
         );
-        return existing.id;
+        return customer.id;
       }
     }
-
-    final appIdx = _customers.indexWhere((c) => c.appUserId == appUserId);
-    if (appIdx >= 0) {
-      _customerProfiles[appUserId] = profile.copyWith(
-        linkedCrmCustomerId: _customers[appIdx].id,
-      );
-      return _customers[appIdx].id;
-    }
-
-    final customer = Customer(
-      id: _uuid.v4(),
-      name: profile.name,
-      phone: profile.phone,
-      address: profile.address,
-      email: profile.email,
-      place: profile.place,
-      paymentFrequency: 'Per order',
-      billingMode: CustomerBillingMode.appOnDemand,
-      appUserId: appUserId,
-    );
-    _customers.add(customer);
-    _customerProfiles[appUserId] = profile.copyWith(
-      linkedCrmCustomerId: customer.id,
-    );
-    return customer.id;
+    throw StateError('Ask your water plant admin to add your phone number');
   }
 
   void respondToOrder(
@@ -1202,6 +1346,7 @@ class WaterPlantRepository extends ChangeNotifier {
       createdAt: DateTime.now(),
     );
     _drivers.add(driver);
+    _linkDriverToShop(driver.id, defaultShopId);
     notifyListeners();
     return driver;
   }
@@ -1223,24 +1368,54 @@ class WaterPlantRepository extends ChangeNotifier {
   }
 
   int cansDeliveredOnDate(DateTime day) {
-    return deliveriesOnDate(day).fold<int>(0, (s, d) => s + d.normalQty + d.coolQty);
+    return deliveriesOnDate(
+      day,
+    ).fold<int>(0, (s, d) => s + d.normalQty + d.coolQty);
+  }
+
+  List<Delivery> deliveriesOnDateForDriver(DateTime day, String? driverId) {
+    final shop = shopForDriver(driverId);
+    if (shop == null) return const [];
+    return deliveriesOnDate(day)
+        .where((d) => shopIdForCustomer(d.customerId) == shop.id)
+        .toList();
+  }
+
+  int cansDeliveredOnDateForDriver(DateTime day, String? driverId) {
+    return deliveriesOnDateForDriver(
+      day,
+      driverId,
+    ).fold<int>(0, (s, d) => s + d.normalQty + d.coolQty);
   }
 
   /// Accepted by admin, not yet delivered today — shown to driver only.
-  List<CustomerOrder> driverAcceptedOrders() {
-    return _orders
+  List<CustomerOrder> driverAcceptedOrders({String? driverId}) {
+    var list = _orders
         .where(
           (o) =>
               o.status == OrderStatus.accepted &&
               !hasDeliveryToday(o.customerId),
         )
-        .toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        .toList();
+    if (driverId != null) {
+      final shop = shopForDriver(driverId);
+      list = shop == null
+          ? <CustomerOrder>[]
+          : list
+                .where((o) => shopIdForCustomer(o.customerId) == shop.id)
+                .toList();
+    }
+    return list..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
-  CustomerOrder? acceptedOrderForCustomer(String customerId) {
+  CustomerOrder? acceptedOrderForCustomer(
+    String customerId, {
+    String? driverId,
+  }) {
     try {
-      return driverAcceptedOrders().firstWhere((o) => o.customerId == customerId);
+      return driverAcceptedOrders(driverId: driverId).firstWhere(
+        (o) => o.customerId == customerId,
+      );
     } catch (_) {
       return null;
     }
@@ -1434,7 +1609,8 @@ class WaterPlantRepository extends ChangeNotifier {
         shopId: defaultShopId,
         shopName: settings.businessName,
         headline: '🎉 Summer Special — Free Cool Can!',
-        body: 'Order 10 normal cans this month and get 1 cool can absolutely free. Valid till end of June.',
+        body:
+            'Order 10 normal cans this month and get 1 cool can absolutely free. Valid till end of June.',
         mediaType: PromotionMediaType.image,
         badge: 'FREE CAN',
         ctaLabel: 'Claim offer',
@@ -1445,7 +1621,8 @@ class WaterPlantRepository extends ChangeNotifier {
         shopId: 'shop-2',
         shopName: 'Aqua Pure RO Center',
         headline: '💧 New Customer Offer',
-        body: 'First-time customers get 2 cans free on their first order. Use code AQUAFIRST at checkout.',
+        body:
+            'First-time customers get 2 cans free on their first order. Use code AQUAFIRST at checkout.',
         mediaType: PromotionMediaType.image,
         badge: 'NEW',
         ctaLabel: 'Order now',
@@ -1456,7 +1633,8 @@ class WaterPlantRepository extends ChangeNotifier {
         shopId: 'shop-4',
         shopName: 'Crystal Clear Water Co.',
         headline: '🏆 ISO Certified — Best Quality',
-        body: 'TDS level tested daily. Our water meets the highest purity standards. Monthly plans starting ₹180.',
+        body:
+            'TDS level tested daily. Our water meets the highest purity standards. Monthly plans starting ₹180.',
         mediaType: PromotionMediaType.video,
         badge: 'QUALITY',
         ctaLabel: 'View plans',
@@ -1467,7 +1645,8 @@ class WaterPlantRepository extends ChangeNotifier {
         shopId: 'shop-3',
         shopName: 'Blue Drop Water Plant',
         headline: '⚡ Same-Day Delivery',
-        body: 'Order before 12 PM and get delivery by 6 PM. No extra charge. Available in all areas.',
+        body:
+            'Order before 12 PM and get delivery by 6 PM. No extra charge. Available in all areas.',
         mediaType: PromotionMediaType.image,
         badge: 'FAST',
         ctaLabel: 'Order now',
@@ -1478,7 +1657,8 @@ class WaterPlantRepository extends ChangeNotifier {
         shopId: 'shop-5',
         shopName: 'Neer Amrit Water Plant',
         headline: '📅 Monthly Plan — Save 15%',
-        body: 'Subscribe to our monthly plan and save up to 15% compared to per-can pricing. Min 20 cans/month.',
+        body:
+            'Subscribe to our monthly plan and save up to 15% compared to per-can pricing. Min 20 cans/month.',
         mediaType: PromotionMediaType.image,
         badge: 'SAVE 15%',
         ctaLabel: 'Subscribe',
@@ -1495,8 +1675,17 @@ class WaterPlantRepository extends ChangeNotifier {
       final i = _products.indexWhere((p) => p.id == 'p2');
       _products[i] = canProduct.copyWith(
         variants: [
-          ProductVariant(id: 'p2-v1', label: 'Normal Can', price: newSettings.normalPrice),
-          ProductVariant(id: 'p2-v2', label: 'Cool Can', price: newSettings.coolPrice, isCool: true),
+          ProductVariant(
+            id: 'p2-v1',
+            label: 'Normal Can',
+            price: newSettings.normalPrice,
+          ),
+          ProductVariant(
+            id: 'p2-v2',
+            label: 'Cool Can',
+            price: newSettings.coolPrice,
+            isCool: true,
+          ),
         ],
       );
     }
@@ -1526,7 +1715,9 @@ class WaterPlantRepository extends ChangeNotifier {
   }) async {
     String? savedImagePath;
     if (imageSourcePath != null && imageSourcePath.isNotEmpty) {
-      savedImagePath = await ProductImageService.persistFromFile(imageSourcePath);
+      savedImagePath = await ProductImageService.persistFromFile(
+        imageSourcePath,
+      );
     }
 
     final product = Product(
@@ -1558,7 +1749,8 @@ class WaterPlantRepository extends ChangeNotifier {
   }) {
     return switch (category) {
       ProductCategory.bottle => 'RO water bottle — $label',
-      ProductCategory.can => isCool ? 'Chilled 20L RO water can' : '20L RO water can — $label',
+      ProductCategory.can =>
+        isCool ? 'Chilled 20L RO water can' : '20L RO water can — $label',
     };
   }
 
@@ -1588,6 +1780,8 @@ class WaterPlantRepository extends ChangeNotifier {
     _orders.clear();
     _products.clear();
     _drivers.clear();
+    _customerShopIds.clear();
+    _driverShopIds.clear();
     _routeNotes.clear();
     _todaysRouteIds = [];
     _seedMockData();
