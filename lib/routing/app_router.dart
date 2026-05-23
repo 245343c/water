@@ -54,7 +54,6 @@ class AppRoutes {
   static const customerHome = '/customer/home';
   static const customerAccount = '/customer/account';
   static const customerOrders = '/customer/orders';
-  static const customerPromotions = '/customer/promotions';
   static const customerProfile = '/customer/profile';
   static const customerMonthDetail = '/customer/month';
   static const customerMonthlyBill = '/customer/monthly-bill';
@@ -162,10 +161,6 @@ GoRouter createAppRouter(AuthRepository auth, WaterPlantRepository plant) {
       ),
       GoRoute(
         path: AppRoutes.customerOrders,
-        builder: (context, state) => CustomerShell(location: state.uri),
-      ),
-      GoRoute(
-        path: AppRoutes.customerPromotions,
         builder: (context, state) => CustomerShell(location: state.uri),
       ),
       GoRoute(

@@ -83,6 +83,7 @@ class CustomerContractAccountScreen extends StatelessWidget {
                     (b) => _ShopBillingSection(
                       billing: b,
                       colorIndex: billings.indexOf(b),
+                      compactDetails: focusShopId != null,
                     ),
                   ),
                 ],
@@ -269,10 +270,15 @@ class _SummaryChip extends StatelessWidget {
 }
 
 class _ShopBillingSection extends StatelessWidget {
-  const _ShopBillingSection({required this.billing, required this.colorIndex});
+  const _ShopBillingSection({
+    required this.billing,
+    required this.colorIndex,
+    required this.compactDetails,
+  });
 
   final CustomerShopBilling billing;
   final int colorIndex;
+  final bool compactDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -290,17 +296,19 @@ class _ShopBillingSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _ShopBillingHeader(shop: shop, pending: pending),
-          _ShopMonthlyBillCard(
-            shop: shop,
-            customer: crm,
-            stats: monthly,
-            pending: pending,
-            onViewBill: () => context.push(
-              '${AppRoutes.customerMonthlyBill}?customerId=${crm.id}'
-              '&shopId=${shop.id}&year=${now.year}&month=${now.month}',
+          if (!compactDetails) ...[
+            _ShopMonthlyBillCard(
+              shop: shop,
+              customer: crm,
+              stats: monthly,
+              pending: pending,
+              onViewBill: () => context.push(
+                '${AppRoutes.customerMonthlyBill}?customerId=${crm.id}'
+                '&shopId=${shop.id}&year=${now.year}&month=${now.month}',
+              ),
             ),
-          ),
-          CustomerInfoBar(customer: crm, colorIndex: colorIndex),
+            CustomerInfoBar(customer: crm, colorIndex: colorIndex),
+          ],
           CustomerPendingCard(
             totalPending: pending,
             advanceCredit: repo.customerAdvanceCredit(crm.id),
