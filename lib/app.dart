@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/services/api/api_config.dart';
 import 'package:sri_sai_ro_water/core/services/delivery_recording_service.dart';
 import 'package:sri_sai_ro_water/core/services/order_workflow_service.dart';
 import 'package:sri_sai_ro_water/core/services/push_notification_service.dart';
@@ -25,6 +26,7 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
   late final DeliveryRecordingService _deliveryRecording;
   late final OrderWorkflowService _orderWorkflow;
   late final GoRouter _router;
+  bool _backendReady = !useBackend;
 
   @override
   void initState() {
@@ -46,6 +48,15 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
     );
     _router = createAppRouter(_auth, _repository);
     _push.initialize();
+
+    if (useBackend) {
+      Future.wait([
+        _repository.loadFromBackend(),
+        _notifications.loadFromBackend(),
+      ]).then((_) {
+        if (mounted) setState(() => _backendReady = true);
+      });
+    }
   }
 
   @override
@@ -59,6 +70,25 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_backendReady) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        home: const Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Connecting to server...'),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: _auth),

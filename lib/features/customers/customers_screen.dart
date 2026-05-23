@@ -89,31 +89,34 @@ class _CustomersScreenState extends State<CustomersScreen> {
                         onSelected: (f) => setState(() => _filter = f),
                       ),
                       Expanded(
-                        child: customers.isEmpty
-                            ? _EmptyCustomers(
-                                isSearch: _query.isNotEmpty || _filter != CustomerListFilter.all,
-                                onAdd: () => context.push('/customers/add'),
-                              )
-                            : ListView.builder(
-                                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                                itemCount: customers.length,
-                                itemBuilder: (_, i) {
-                                  final c = customers[i];
-                                  final monthly = repo.monthlyStatsForCustomer(c.id, month);
-                                  final deliveries = repo.deliveriesForCustomer(c.id);
-                                  final last = deliveries.isEmpty ? null : deliveries.first.date;
-                                  final idx = repo.customers.indexWhere((x) => x.id == c.id);
-                                  return CustomerListCard(
-                                    customer: c,
-                                    colorIndex: idx >= 0 ? idx : i,
-                                    unitsThisMonth: monthly.totalUnits,
-                                    lastDeliveryLabel: lastDeliveryRelativeLabel(last),
-                                    balance: repo.customerBalance(c.id).clamp(0, double.infinity),
-                                    category: _categoryFor(repo, c, month),
-                                    onTap: () => context.push('/customers/${c.id}'),
-                                  );
-                                },
-                              ),
+                        child: RefreshIndicator(
+                          onRefresh: () => repo.refreshFromBackend(),
+                          child: customers.isEmpty
+                              ? _EmptyCustomers(
+                                  isSearch: _query.isNotEmpty || _filter != CustomerListFilter.all,
+                                  onAdd: () => context.push('/customers/add'),
+                                )
+                              : ListView.builder(
+                                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                                  itemCount: customers.length,
+                                  itemBuilder: (_, i) {
+                                    final c = customers[i];
+                                    final monthly = repo.monthlyStatsForCustomer(c.id, month);
+                                    final deliveries = repo.deliveriesForCustomer(c.id);
+                                    final last = deliveries.isEmpty ? null : deliveries.first.date;
+                                    final idx = repo.customers.indexWhere((x) => x.id == c.id);
+                                    return CustomerListCard(
+                                      customer: c,
+                                      colorIndex: idx >= 0 ? idx : i,
+                                      unitsThisMonth: monthly.totalUnits,
+                                      lastDeliveryLabel: lastDeliveryRelativeLabel(last),
+                                      balance: repo.customerBalance(c.id).clamp(0, double.infinity),
+                                      category: _categoryFor(repo, c, month),
+                                      onTap: () => context.push('/customers/${c.id}'),
+                                    );
+                                  },
+                                ),
+                        ),
                       ),
                     ],
                   ),

@@ -1,6 +1,10 @@
-import 'package:flutter/foundation.dart';
 import 'package:sri_sai_ro_water/core/auth/app_role.dart';
+import 'package:sri_sai_ro_water/core/services/api/api_auth_service.dart';
+import 'package:sri_sai_ro_water/core/services/api/api_client.dart';
+import 'package:sri_sai_ro_water/core/services/api/api_config.dart';
 import 'package:sri_sai_ro_water/data/models/app_user.dart';
+import 'package:sri_sai_ro_water/data/mock/mock_auth_accounts.dart';
+import 'package:sri_sai_ro_water/data/repositories/i_auth_repository.dart';
 import 'package:uuid/uuid.dart';
 
 class _StoredAccount {
@@ -27,38 +31,23 @@ class _PendingPasswordReset {
   int attemptsLeft;
 }
 
-/// Mock authentication until backend is connected.
-class AuthRepository extends ChangeNotifier {
+/// Authentication repository.
+/// Uses the backend API when [useBackend] is true, otherwise uses mock in-memory data.
+class AuthRepository extends IAuthRepository {
   AuthRepository() {
-    _accounts.add(
-      _StoredAccount(
-        user: const AppUser(
-          id: 'admin-1',
-          ownerName: 'Shop Owner',
-          email: 'admin@srisai.com',
-          phone: '+91 98765 43210',
-          businessName: 'Sri Sai RO Water Plant',
-          role: AppRole.admin,
-        ),
-        password: 'admin123',
-      ),
-    );
-    _accounts.add(
-      _StoredAccount(
-        user: const AppUser(
-          id: 'user-driver-1',
-          ownerName: 'Rajesh Kumar',
-          email: 'driver@srisai.com',
-          phone: '+91 91234 56780',
-          businessName: 'Sri Sai RO Water Plant',
-          role: AppRole.driver,
-          driverId: 'driver-1',
-        ),
-        password: 'driver123',
-      ),
-    );
+    _api = ApiAuthService(ApiClient.instance);
+    if (!useBackend) {
+      for (final seed in seedAuthAccounts()) {
+        _accounts.add(_StoredAccount(user: seed.user, password: seed.password));
+      }
+    }
+    // Restore session from saved token if backend is enabled
+    if (useBackend) {
+      _restoreSession();
+    }
   }
 
+  late final ApiAuthService _api;
   static const _uuid = Uuid();
   final List<_StoredAccount> _accounts = [];
 
@@ -66,12 +55,26 @@ class AuthRepository extends ChangeNotifier {
   AppUser? get currentUser => _currentUser;
   bool get isAuthenticated => _currentUser != null;
 
+  Future<void> _restoreSession() async {
+    try {
+      final user = await _api.getMe();
+      if (user != null) {
+        _currentUser = user;
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
   List<AppUser> get driverAccounts => _accounts
       .where((a) => a.user.role == AppRole.driver)
       .map((a) => a.user)
       .toList();
 
   String? login({required String email, required String password}) {
+    if (useBackend) {
+      // Async login via backend — call loginAsync instead for backend mode
+      return 'Use loginAsync when backend is enabled';
+    }
     final normalized = email.trim().toLowerCase();
     if (normalized.isEmpty) return 'Email is required';
     if (password.isEmpty) return 'Password is required';
@@ -79,15 +82,62 @@ class AuthRepository extends ChangeNotifier {
     for (final account in _accounts) {
       if (account.user.email.toLowerCase() == normalized &&
           account.password == password) {
-        if (account.user.role == AppRole.driver) {
-          // Driver profile active check happens in UI via WaterPlantRepository.
-        }
         _currentUser = account.user;
         notifyListeners();
         return null;
       }
     }
     return 'Invalid email or password';
+  }
+
+  /// Async login for backend mode. Returns null on success, error string on failure.
+  Future<String?> loginAsync({required String email, required String password}) async {
+    if (!useBackend) {
+      return login(email: email, password: password);
+    }
+    try {
+      final result = await _api.login(email: email, password: password);
+      _currentUser = result.user;
+      notifyListeners();
+      return null;
+    } catch (e) {
+      if (e is ApiException) return e.message;
+      return e.toString();
+    }
+  }
+
+  /// Async register for backend mode.
+  Future<String?> registerAsync({
+    required String ownerName,
+    required String businessName,
+    required String phone,
+    required String email,
+    required String password,
+  }) async {
+    if (!useBackend) {
+      return register(
+        ownerName: ownerName,
+        businessName: businessName,
+        phone: phone,
+        email: email,
+        password: password,
+      );
+    }
+    try {
+      final result = await _api.register(
+        ownerName: ownerName,
+        businessName: businessName,
+        phone: phone,
+        email: email,
+        password: password,
+      );
+      _currentUser = result.user;
+      notifyListeners();
+      return null;
+    } catch (e) {
+      if (e is ApiException) return e.message;
+      return e.toString();
+    }
   }
 
   String? register({
@@ -202,9 +252,57 @@ class AuthRepository extends ChangeNotifier {
   }
 
   void logout() {
+    if (useBackend) {
+      _api.logout();
+    }
     _currentUser = null;
     _pendingCustomerOtp = null;
     notifyListeners();
+  }
+
+  /// Google sign-in for customer. In backend mode, calls `/auth/customer/google`.
+  /// In mock mode, creates a demo customer session from email/name.
+  Future<String?> loginWithGoogleAsync({
+    required String email,
+    required String name,
+    String? phone,
+    String? photoUrl,
+    String? idToken,
+  }) async {
+    if (useBackend) {
+      try {
+        final result = await _api.loginWithGoogle(
+          email: email,
+          name: name,
+          phone: phone,
+          photoUrl: photoUrl,
+          idToken: idToken,
+        );
+        _currentUser = result.user;
+        notifyListeners();
+        return null;
+      } catch (e) {
+        return e.toString();
+      }
+    }
+    // Mock: create customer user from provided details
+    final existing = _accounts.where((a) => a.user.email == email.toLowerCase().trim()).toList();
+    if (existing.isNotEmpty) {
+      _currentUser = existing.first.user;
+    } else {
+      final user = AppUser(
+        id: _uuid.v4(),
+        ownerName: name,
+        email: email.trim().toLowerCase(),
+        phone: phone ?? '',
+        businessName: '',
+        role: AppRole.customer,
+      );
+      _accounts.add(_StoredAccount(user: user, password: ''));
+      _currentUser = user;
+    }
+    notifyListeners();
+    return null;
   }
 
   _PendingCustomerOtp? _pendingCustomerOtp;

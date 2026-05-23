@@ -136,7 +136,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         onSelected: (f) => setState(() => _filter = f),
                       ),
                       Expanded(
-                        child: orders.isEmpty
+                        child: RefreshIndicator(
+                          onRefresh: () => repo.refreshFromBackend(),
+                          child: orders.isEmpty
                             ? _EmptyOrders(
                                 filter: _filter,
                                 isSearch: _query.isNotEmpty,
@@ -177,6 +179,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                   );
                                 },
                               ),
+                        ),
                       ),
                     ],
                   ),

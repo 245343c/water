@@ -51,7 +51,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _loading = true);
 
     final auth = context.read<AuthRepository>();
-    final error = auth.register(
+    final error = await auth.registerAsync(
       ownerName: _ownerController.text,
       businessName: _businessController.text,
       phone: _phoneController.text,

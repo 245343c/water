@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:sri_sai_ro_water/data/models/business_settings.dart';
 import 'package:sri_sai_ro_water/core/constants/customer_pricing_keys.dart';
 import 'package:sri_sai_ro_water/data/models/customer_app_profile.dart';
@@ -26,12 +25,40 @@ import 'package:sri_sai_ro_water/data/models/customer_shop_billing.dart';
 import 'package:sri_sai_ro_water/core/services/product_image_service.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/core/utils/payment_allocation.dart';
+import 'package:sri_sai_ro_water/data/mock/mock_customers.dart';
+import 'package:sri_sai_ro_water/data/mock/mock_drivers.dart';
+import 'package:sri_sai_ro_water/data/mock/mock_shops.dart';
+import 'package:sri_sai_ro_water/data/mock/mock_orders.dart';
+import 'package:sri_sai_ro_water/data/mock/mock_deliveries.dart';
+import 'package:sri_sai_ro_water/data/mock/mock_payments.dart';
+import 'package:sri_sai_ro_water/data/mock/mock_promotions.dart';
+import 'package:flutter/foundation.dart';
+import 'package:sri_sai_ro_water/core/services/api/api_config.dart';
+import 'package:sri_sai_ro_water/core/services/api/api_data_service.dart';
+import 'package:sri_sai_ro_water/core/services/api/api_client.dart';
+import 'package:sri_sai_ro_water/data/repositories/i_water_plant_repository.dart';
 import 'package:uuid/uuid.dart';
 
-class WaterPlantRepository extends ChangeNotifier {
+class WaterPlantRepository extends IWaterPlantRepository {
   WaterPlantRepository() {
-    _seedMockData();
+    _apiService = ApiDataService(ApiClient.instance);
+    if (!useBackend) {
+      _seedMockData();
+    } else {
+      // Start with empty state; loadFromBackend() populates it
+      settings = BusinessSettings(
+        businessName: 'Sri Sai RO Water Plant',
+        address: '',
+        phone: '',
+        email: '',
+        normalPrice: 20,
+        coolPrice: 30,
+        homeDeliveryAvailable: false,
+      );
+    }
   }
+
+  late final ApiDataService _apiService;
 
   static const _uuid = Uuid();
   final List<Customer> _customers = [];
@@ -344,274 +371,54 @@ class WaterPlantRepository extends ChangeNotifier {
     );
 
     _syncShopFromSettings();
-    _seedMarketplaceShops();
+    _shops.addAll(seedMarketplaceShops());
     _seedProducts();
-    _seedPromotions();
 
-    _drivers.addAll([
-      const Driver(
-        id: 'driver-1',
-        name: 'Rajesh Kumar',
-        phone: '+91 91234 56780',
-        email: 'driver@srisai.com',
-      ),
-    ]);
+    _promotions.addAll(seedPromotions(
+      shopId: defaultShopId,
+      shopName: settings.businessName,
+      now: DateTime.now(),
+    ));
+
+    _drivers.addAll(seedDrivers());
     _linkDriverToShop('driver-1', defaultShopId);
 
-    final abi = Customer(
-      id: 'c1',
-      name: 'Abi',
-      phone: '9632580741',
-      billingMode: CustomerBillingMode.monthlyContract,
-      email: 'abi@email.com',
-      place: 'Hyderabad, Telangana',
-      address: 'Hyderabad, Telangana',
-      productPrices: [
-        const CustomerProductPrice(
-          productId: CustomerPricingKeys.canProductId,
-          variantId: CustomerPricingKeys.normalVariantId,
-          unitPrice: 18,
-        ),
-        const CustomerProductPrice(
-          productId: CustomerPricingKeys.canProductId,
-          variantId: CustomerPricingKeys.coolVariantId,
-          unitPrice: 28,
-        ),
-      ],
-    );
-    final ramesh = Customer(
-      id: 'c2',
-      name: 'Ramesh Kumar',
-      phone: '98850 12345',
-      billingMode: CustomerBillingMode.monthlyContract,
-      email: 'ramesh.kumar@email.com',
-      place: 'Gandhi Nagar, Rajahmundry',
-      address: 'Door No: 12-5-8, Gandhi Nagar',
-    );
-    final lakshmi = Customer(
-      id: 'c3',
-      name: 'Lakshmi Devi',
-      phone: '98765 43210',
-      billingMode: CustomerBillingMode.monthlyContract,
-      place: 'RTC Colony, Rajahmundry',
-      address: 'Plot 45, RTC Colony',
-    );
-    final suresh = Customer(
-      id: 'c4',
-      name: 'Suresh Babu',
-      phone: '91234 56789',
-      billingMode: CustomerBillingMode.monthlyContract,
-      place: 'Danavaipeta, Rajahmundry',
-      address: 'Flat 302, Sai Residency',
-    );
-
-    _customers.addAll([abi, ramesh, lakshmi, suresh]);
-    for (final customer in [abi, ramesh, lakshmi, suresh]) {
-      _linkCustomerToShop(customer.id, defaultShopId);
-    }
-    _seedAbiMultiShopAccounts(abi);
-
-    final now = DateTime.now();
-    final thisMonth = DateTime(now.year, now.month);
-
-    void addCans(
-      String customerId,
-      int day,
-      int normal,
-      int cool, {
-      int hour = 10,
-    }) {
-      _deliveries.add(
-        Delivery.fromLegacyCans(
-          id: _uuid.v4(),
-          customerId: customerId,
-          date: DateTime(thisMonth.year, thisMonth.month, day, hour),
-          normalQty: normal,
-          coolQty: cool,
-          normalUnitPrice: settings.normalPrice,
-          coolUnitPrice: settings.coolPrice,
-        ),
-      );
+    final coreCustomers = seedCoreCustomers();
+    _customers.addAll(coreCustomers);
+    for (final c in coreCustomers) {
+      _linkCustomerToShop(c.id, defaultShopId);
     }
 
-    void addCansInMonth(
-      String customerId,
-      DateTime month,
-      int day,
-      int normal,
-      int cool,
-    ) {
-      _deliveries.add(
-        Delivery.fromLegacyCans(
-          id: _uuid.v4(),
-          customerId: customerId,
-          date: DateTime(month.year, month.month, day, 10),
-          normalQty: normal,
-          coolQty: cool,
-          normalUnitPrice: settings.normalPrice,
-          coolUnitPrice: settings.coolPrice,
-        ),
-      );
-    }
-
-    // Current month
-    addCans('c1', 5, 2, 3);
-    addCans('c1', 12, 1, 2);
-    addCans('c2', 8, 3, 1);
-    addCans('c2', 18, 2, 0);
-    addCans('c3', 10, 0, 4);
-    addCans('c4', 15, 4, 2);
-    addCans('c4', 22, 2, 1);
-
-    // Previous months (mixed paid / pending)
-    final prev1 = DateTime(thisMonth.year, thisMonth.month - 1);
-    final prev2 = DateTime(thisMonth.year, thisMonth.month - 2);
-    addCansInMonth('c1', prev1, 10, 2, 2);
-    addCansInMonth('c2', prev1, 14, 3, 1);
-    addCansInMonth('c4', prev1, 20, 2, 3);
-    addCansInMonth('c1', prev2, 8, 1, 1);
-    addCansInMonth('c3', prev2, 16, 2, 2);
-
-    _payments.addAll([
-      Payment(
-        id: _uuid.v4(),
-        customerId: 'c2',
-        date: DateTime(thisMonth.year, thisMonth.month, 6),
-        amount: 2000,
-        method: PaymentMethod.upi,
-      ),
-      Payment(
-        id: _uuid.v4(),
-        customerId: 'c4',
-        date: DateTime(thisMonth.year, thisMonth.month, 12),
-        amount: 500,
-        method: PaymentMethod.cash,
-        notes: 'Partial payment',
-      ),
-      Payment(
-        id: _uuid.v4(),
-        customerId: 'c1',
-        date: DateTime(prev1.year, prev1.month, 25),
-        amount: 1500,
-        method: PaymentMethod.upi,
-      ),
-    ]);
-
-    _seedDriverDemoData(now, thisMonth);
-  }
-
-  /// Bulk demo user (Abi) buys from 4 shops — separate CRM + deliveries per shop.
-  void _seedAbiMultiShopAccounts(Customer abiTemplate) {
-    final pairs = [
-      ('c1-shop2', 'shop-2', 22.0, 32.0),
-      ('c1-shop3', 'shop-3', 19.0, 29.0),
-      ('c1-shop4', 'shop-4', 20.0, 30.0),
+    // Abi multi-shop linked accounts
+    final abiTemplate = coreCustomers.first;
+    final multiShopPairs = [
+      ('c1-shop2', 'shop-2'),
+      ('c1-shop3', 'shop-3'),
+      ('c1-shop4', 'shop-4'),
     ];
-
-    final now = DateTime.now();
-    final thisMonth = DateTime(now.year, now.month);
-    final prev1 = DateTime(thisMonth.year, thisMonth.month - 1);
-
-    void addCansShop(
-      String customerId,
-      String shopId,
-      DateTime month,
-      int day,
-      int normal,
-      int cool,
-    ) {
-      final shop = shopById(shopId);
-      if (shop == null) return;
-      _deliveries.add(
-        Delivery.fromLegacyCans(
-          id: _uuid.v4(),
-          customerId: customerId,
-          date: DateTime(month.year, month.month, day, 10),
-          normalQty: normal,
-          coolQty: cool,
-          normalUnitPrice: shop.normalPrice,
-          coolUnitPrice: shop.coolPrice,
-        ),
-      );
-    }
-
-    for (final (id, shopId, _, _) in pairs) {
+    for (final (id, shopId) in multiShopPairs) {
       if (_customers.any((c) => c.id == id)) continue;
       _linkCustomerToShop(id, shopId);
-      _customers.add(
-        Customer(
-          id: id,
-          name: abiTemplate.name,
-          phone: abiTemplate.phone,
-          billingMode: CustomerBillingMode.monthlyContract,
-          email: abiTemplate.email,
-          place: abiTemplate.place,
-          address: abiTemplate.address,
-          productPrices: abiTemplate.productPrices,
-        ),
-      );
-      // Current month — different cadence per shop
-      addCansShop(id, shopId, thisMonth, 3 + id.hashCode % 5, 2, 1);
-      addCansShop(id, shopId, thisMonth, 10 + id.hashCode % 4, 3, 2);
-      addCansShop(id, shopId, thisMonth, 18 + id.hashCode % 3, 1, 0);
-      // Previous month
-      addCansShop(id, shopId, prev1, 8, 4, 2);
-      addCansShop(id, shopId, prev1, 20, 2, 1);
+      _customers.add(Customer(
+        id: id,
+        name: abiTemplate.name,
+        phone: abiTemplate.phone,
+        billingMode: CustomerBillingMode.monthlyContract,
+        email: abiTemplate.email,
+        place: abiTemplate.place,
+        address: abiTemplate.address,
+        productPrices: abiTemplate.productPrices,
+      ));
     }
 
-    // Partial payment at one shop; prev month paid at main shop already seeded
-    _payments.add(
-      Payment(
-        id: _uuid.v4(),
-        customerId: 'c1-shop2',
-        date: DateTime(thisMonth.year, thisMonth.month, 8),
-        amount: 400,
-        method: PaymentMethod.upi,
-        notes: 'Partial — Aqua Pure',
-      ),
-    );
-    _payments.add(
-      Payment(
-        id: _uuid.v4(),
-        customerId: 'c1-shop4',
-        date: DateTime(prev1.year, prev1.month, 28),
-        amount: 900,
-        method: PaymentMethod.cash,
-        notes: 'Crystal Clear — full month',
-      ),
-    );
-  }
-
-  void _seedDriverDemoData(DateTime now, DateTime thisMonth) {
-    _customers.addAll([
-      Customer(
-        id: 'c5',
-        name: 'Priya Sharma',
-        phone: '99887 76655',
-        email: 'priya@email.com',
-        place: 'Korukonda Road',
-        address: 'H.No 8-2-120, Korukonda Road',
-      ),
-      Customer(
-        id: 'c6',
-        name: 'Venkatesh Reddy',
-        phone: '98480 11223',
-        place: 'Morampudi',
-        address: 'Near Temple, Morampudi',
-      ),
-      Customer(
-        id: 'c7',
-        name: 'Anitha Stores',
-        phone: '95501 33445',
-        email: 'anitha.stores@email.com',
-        place: 'Main Road',
-        address: 'Shop 12, Main Road Complex',
-      ),
-    ]);
-    for (final customerId in ['c5', 'c6', 'c7']) {
-      _linkCustomerToShop(customerId, defaultShopId);
+    // Driver demo customers
+    final demoCustomers = seedDriverDemoCustomers();
+    _customers.addAll(demoCustomers);
+    for (final c in demoCustomers) {
+      _linkCustomerToShop(c.id, defaultShopId);
     }
 
+    // Route notes and today's route
     _routeNotes.addAll({
       'c2': 'Weekly route — usually 3 normal + 1 cool',
       'c3': 'Apartment — ask security for entry',
@@ -619,60 +426,23 @@ class WaterPlantRepository extends ChangeNotifier {
       'c6': 'Call 5 min before arrival',
       'c7': 'Shop — back entrance for cans',
     });
-
     _todaysRouteIds = ['c2', 'c3', 'c5', 'c6', 'c7'];
 
-    final today = DateTime(now.year, now.month, now.day, 9, 30);
-    _deliveries.add(
-      Delivery.fromLegacyCans(
-        id: _uuid.v4(),
-        customerId: 'c2',
-        date: today,
-        normalQty: 2,
-        coolQty: 0,
-        normalUnitPrice: settings.normalPrice,
-        coolUnitPrice: settings.coolPrice,
-        driverId: 'driver-1',
-      ),
-    );
+    // Deliveries
+    final now = DateTime.now();
+    _deliveries.addAll(seedDeliveries(
+      now: now,
+      normalPrice: settings.normalPrice,
+      coolPrice: settings.coolPrice,
+      shops: _shops,
+    ));
 
-    _orders.addAll([
-      CustomerOrder(
-        id: 'ord-1',
-        customerId: 'c3',
-        normalQty: 2,
-        coolQty: 2,
-        status: OrderStatus.accepted,
-        customerNote: 'Deliver before 12 noon',
-        createdAt: now.subtract(const Duration(hours: 3)),
-      ),
-      CustomerOrder(
-        id: 'ord-2',
-        customerId: 'c5',
-        normalQty: 1,
-        coolQty: 1,
-        status: OrderStatus.pending,
-        customerNote: 'First order this week',
-        createdAt: now.subtract(const Duration(hours: 1)),
-      ),
-      CustomerOrder(
-        id: 'ord-3',
-        customerId: 'c6',
-        normalQty: 4,
-        coolQty: 0,
-        status: OrderStatus.accepted,
-        createdAt: now.subtract(const Duration(minutes: 45)),
-      ),
-      CustomerOrder(
-        id: 'ord-4',
-        customerId: 'c7',
-        normalQty: 6,
-        coolQty: 2,
-        status: OrderStatus.accepted,
-        customerNote: 'Shop opens 8 AM',
-        createdAt: now.subtract(const Duration(minutes: 20)),
-      ),
-    ]);
+    // Payments
+    final thisMonth = DateTime(now.year, now.month);
+    _payments.addAll(seedPayments(thisMonth: thisMonth));
+
+    // Orders
+    _orders.addAll(seedOrders(now: now));
   }
 
   List<Customer> get todaysRouteCustomers {
@@ -1197,6 +967,15 @@ class WaterPlantRepository extends ChangeNotifier {
     _customers.insert(0, customer);
     _linkCustomerToShop(customer.id, defaultShopId);
     notifyListeners();
+
+    if (useBackend) {
+      _apiService.createCustomer({
+        'name': name, 'phone': phone, 'address': address,
+        'email': email, 'place': place,
+        'billingMode': billingMode == CustomerBillingMode.monthlyContract ? 'monthly_contract' : 'on_demand',
+      }).then((_) {}).catchError((Object e) { debugPrint('createCustomer API error: $e'); });
+    }
+
     return customer;
   }
 
@@ -1205,12 +984,24 @@ class WaterPlantRepository extends ChangeNotifier {
     if (index >= 0) {
       _customers[index] = customer;
       notifyListeners();
+
+      if (useBackend) {
+        _apiService.updateCustomer(customer.id, {
+          'name': customer.name, 'phone': customer.phone,
+          'address': customer.address, 'email': customer.email, 'place': customer.place,
+        }).then((_) {}).catchError((Object e) { debugPrint('updateCustomer API error: $e'); });
+      }
     }
   }
 
   void deleteCustomer(String id) {
     _customers.removeWhere((c) => c.id == id);
     _customerShopIds.remove(id);
+
+    if (useBackend) {
+      _apiService.deleteCustomer(id)
+          .then((_) {}).catchError((Object e) { debugPrint('deleteCustomer API error: $e'); });
+    }
     _deliveries.removeWhere((d) => d.customerId == id);
     _payments.removeWhere((p) => p.customerId == id);
     _orders.removeWhere((o) => o.customerId == id);
@@ -1303,6 +1094,17 @@ class WaterPlantRepository extends ChangeNotifier {
     );
     _orders.add(order);
     notifyListeners();
+
+    if (useBackend) {
+      _apiService.placeOrder({
+        'shopId': shopId,
+        'customerId': crmId,
+        'normalQty': normalQty,
+        'coolQty': coolQty,
+        if (order.customerNote != null) 'customerNote': order.customerNote,
+      }).then((_) {}).catchError((Object e) { debugPrint('placeOrder API error: $e'); });
+    }
+
     return order;
   }
 
@@ -1338,6 +1140,16 @@ class WaterPlantRepository extends ChangeNotifier {
     order.adminResponse = adminResponse;
     order.respondedAt = DateTime.now();
     notifyListeners();
+
+    if (useBackend) {
+      if (status == OrderStatus.accepted) {
+        _apiService.acceptOrder(orderId, adminNote: adminResponse)
+            .then((_) {}).catchError((Object e) { debugPrint('acceptOrder API error: $e'); });
+      } else if (status == OrderStatus.rejected) {
+        _apiService.rejectOrder(orderId, adminNote: adminResponse)
+            .then((_) {}).catchError((Object e) { debugPrint('rejectOrder API error: $e'); });
+      }
+    }
   }
 
   Driver? driverById(String? id) {
@@ -1364,6 +1176,15 @@ class WaterPlantRepository extends ChangeNotifier {
     _drivers.add(driver);
     _linkDriverToShop(driver.id, defaultShopId);
     notifyListeners();
+
+    if (useBackend) {
+      _apiService.createDriver({
+        'name': driver.name,
+        'phone': driver.phone,
+        'email': driver.email,
+      }).then((_) {}).catchError((Object e) { debugPrint('createDriver API error: $e'); });
+    }
+
     return driver;
   }
 
@@ -1372,6 +1193,11 @@ class WaterPlantRepository extends ChangeNotifier {
     if (i < 0) return;
     _drivers[i] = _drivers[i].copyWith(active: active);
     notifyListeners();
+
+    if (useBackend) {
+      _apiService.setDriverActive(driverId, active)
+          .then((_) {}).catchError((Object e) { debugPrint('setDriverActive API error: $e'); });
+    }
   }
 
   List<Delivery> deliveriesOnDate(DateTime day) {
@@ -1508,6 +1334,26 @@ class WaterPlantRepository extends ChangeNotifier {
     );
     _deliveries.insert(0, delivery);
     notifyListeners();
+
+    if (useBackend) {
+      _apiService.createDelivery({
+        'customerId': customerId,
+        'deliveryDate': date.toIso8601String(),
+        'normalQty': normalQty,
+        'coolQty': coolQty,
+        if (driverId != null) 'driverId': driverId,
+        'lines': lines.map((l) => {
+          'kind': l.kind.name,
+          'label': l.label,
+          'quantity': l.quantity,
+          'unitPrice': l.unitPrice,
+          if (l.productId != null) 'productId': l.productId,
+        }).toList(),
+        'totalAmount': delivery.totalAmount,
+        'deliveryType': 'manual_delivery',
+      }).then((_) {}).catchError((Object e) { debugPrint('createDelivery API error: $e'); });
+    }
+
     return delivery;
   }
 
@@ -1531,6 +1377,17 @@ class WaterPlantRepository extends ChangeNotifier {
     );
     _payments.insert(0, payment);
     notifyListeners();
+
+    if (useBackend) {
+      _apiService.recordCashCollection({
+        'customerId': customerId,
+        'amount': amount,
+        'collectionType': 'delivery_cash',
+        'collectionDate': date.toIso8601String(),
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+      }).then((_) {}).catchError((Object e) { debugPrint('recordCashCollection API error: $e'); });
+    }
+
     return payment;
   }
 
@@ -1544,144 +1401,7 @@ class WaterPlantRepository extends ChangeNotifier {
     }
   }
 
-  void _seedMarketplaceShops() {
-    if (_shops.length > 1) return;
-    _shops.addAll([
-      const Shop(
-        id: 'shop-2',
-        name: 'Aqua Pure RO Center',
-        address: 'MG Road, Rajahmundry, Andhra Pradesh',
-        place: 'MG Road',
-        phone: '+91 91234 00001',
-        latitude: 16.9850,
-        longitude: 81.7820,
-        subscriptionStatus: ShopSubscriptionStatus.active,
-        homeDeliveryAvailable: true,
-        normalPrice: 22,
-        coolPrice: 32,
-        tagline: 'Mineral-filtered · TDS tested daily',
-        rating: 4.7,
-        reviewCount: 128,
-      ),
-      const Shop(
-        id: 'shop-3',
-        name: 'Blue Drop Water Plant',
-        address: 'Kakinada Highway, Rajahmundry',
-        place: 'Kakinada Highway',
-        phone: '+91 91234 00002',
-        latitude: 16.9950,
-        longitude: 81.7700,
-        subscriptionStatus: ShopSubscriptionStatus.active,
-        homeDeliveryAvailable: true,
-        normalPrice: 19,
-        coolPrice: 29,
-        tagline: 'Budget-friendly · Same-day delivery',
-        rating: 4.4,
-        reviewCount: 89,
-      ),
-      const Shop(
-        id: 'shop-4',
-        name: 'Crystal Clear Water Co.',
-        address: 'Godavari Nagar, Rajahmundry',
-        place: 'Godavari Nagar',
-        phone: '+91 91234 00003',
-        latitude: 16.9780,
-        longitude: 81.7850,
-        subscriptionStatus: ShopSubscriptionStatus.active,
-        homeDeliveryAvailable: true,
-        normalPrice: 20,
-        coolPrice: 30,
-        tagline: 'ISO certified · Free monthly can service',
-        rating: 4.9,
-        reviewCount: 214,
-      ),
-      const Shop(
-        id: 'shop-5',
-        name: 'Neer Amrit Water Plant',
-        address: 'Danavaipeta, Rajahmundry',
-        place: 'Danavaipeta',
-        phone: '+91 91234 00004',
-        latitude: 16.9830,
-        longitude: 81.7760,
-        subscriptionStatus: ShopSubscriptionStatus.active,
-        homeDeliveryAvailable: true,
-        normalPrice: 18,
-        coolPrice: 28,
-        tagline: 'Pure water · Affordable monthly plans',
-        rating: 4.6,
-        reviewCount: 73,
-      ),
-    ]);
-  }
-
   List<Promotion> get promotions => List.unmodifiable(_promotions);
-
-  void _seedPromotions() {
-    if (_promotions.isNotEmpty) return;
-    final now = DateTime.now();
-    _promotions.addAll([
-      Promotion(
-        id: 'promo-1',
-        shopId: defaultShopId,
-        shopName: settings.businessName,
-        headline: '🎉 Summer Special — Free Cool Can!',
-        body:
-            'Order 10 normal cans this month and get 1 cool can absolutely free. Valid till end of June.',
-        mediaType: PromotionMediaType.image,
-        badge: 'FREE CAN',
-        ctaLabel: 'Claim offer',
-        createdAt: now.subtract(const Duration(hours: 2)),
-      ),
-      Promotion(
-        id: 'promo-2',
-        shopId: 'shop-2',
-        shopName: 'Aqua Pure RO Center',
-        headline: '💧 New Customer Offer',
-        body:
-            'First-time customers get 2 cans free on their first order. Use code AQUAFIRST at checkout.',
-        mediaType: PromotionMediaType.image,
-        badge: 'NEW',
-        ctaLabel: 'Order now',
-        createdAt: now.subtract(const Duration(hours: 5)),
-      ),
-      Promotion(
-        id: 'promo-3',
-        shopId: 'shop-4',
-        shopName: 'Crystal Clear Water Co.',
-        headline: '🏆 ISO Certified — Best Quality',
-        body:
-            'TDS level tested daily. Our water meets the highest purity standards. Monthly plans starting ₹180.',
-        mediaType: PromotionMediaType.video,
-        badge: 'QUALITY',
-        ctaLabel: 'View plans',
-        createdAt: now.subtract(const Duration(days: 1)),
-      ),
-      Promotion(
-        id: 'promo-4',
-        shopId: 'shop-3',
-        shopName: 'Blue Drop Water Plant',
-        headline: '⚡ Same-Day Delivery',
-        body:
-            'Order before 12 PM and get delivery by 6 PM. No extra charge. Available in all areas.',
-        mediaType: PromotionMediaType.image,
-        badge: 'FAST',
-        ctaLabel: 'Order now',
-        createdAt: now.subtract(const Duration(days: 1, hours: 3)),
-      ),
-      Promotion(
-        id: 'promo-5',
-        shopId: 'shop-5',
-        shopName: 'Neer Amrit Water Plant',
-        headline: '📅 Monthly Plan — Save 15%',
-        body:
-            'Subscribe to our monthly plan and save up to 15% compared to per-can pricing. Min 20 cans/month.',
-        mediaType: PromotionMediaType.image,
-        badge: 'SAVE 15%',
-        ctaLabel: 'Subscribe',
-        createdAt: now.subtract(const Duration(days: 2)),
-      ),
-    ]);
-  }
 
   void updateSettings(BusinessSettings newSettings) {
     settings = newSettings;
@@ -1706,6 +1426,20 @@ class WaterPlantRepository extends ChangeNotifier {
       );
     }
     notifyListeners();
+
+    if (useBackend) {
+      _apiService.updateShop({
+        'shopName': newSettings.businessName,
+        'address': newSettings.address,
+        'phone': newSettings.phone,
+        'email': newSettings.email,
+        'normalCanPrice': newSettings.normalPrice,
+        'coolCanPrice': newSettings.coolPrice,
+        'homeDeliveryAvailable': newSettings.homeDeliveryAvailable,
+        if (newSettings.shopLatitude != null) 'latitude': newSettings.shopLatitude,
+        if (newSettings.shopLongitude != null) 'longitude': newSettings.shopLongitude,
+      }).then((_) {}).catchError((Object e) { debugPrint('updateShop API error: $e'); });
+    }
   }
 
   void _seedProducts() {
@@ -1755,6 +1489,19 @@ class WaterPlantRepository extends ChangeNotifier {
     );
     _products.insert(0, product);
     notifyListeners();
+
+    if (useBackend) {
+      final firstVariant = product.variants.isNotEmpty ? product.variants.first : null;
+      _apiService.createProduct({
+        'name': product.name,
+        'description': product.description,
+        'category': product.category.name,
+        'variantLabel': firstVariant?.label ?? product.name,
+        'price': firstVariant?.price ?? 0,
+        'isCool': firstVariant?.isCool ?? false,
+      }).then((_) {}).catchError((Object e) { debugPrint('createProduct API error: $e'); });
+    }
+
     return product;
   }
 
@@ -1773,6 +1520,11 @@ class WaterPlantRepository extends ChangeNotifier {
   void deleteProduct(String id) {
     _products.removeWhere((p) => p.id == id);
     notifyListeners();
+
+    if (useBackend) {
+      _apiService.deleteProduct(id)
+          .then((_) {}).catchError((Object e) { debugPrint('deleteProduct API error: $e'); });
+    }
   }
 
   List<Product> searchProducts(String query) {
@@ -1789,6 +1541,9 @@ class WaterPlantRepository extends ChangeNotifier {
         .toList();
   }
 
+  /// Re-fetch all data from the backend (used for pull-to-refresh).
+  Future<void> refreshFromBackend() => loadFromBackend();
+
   void resetMockData() {
     _customers.clear();
     _deliveries.clear();
@@ -1796,12 +1551,213 @@ class WaterPlantRepository extends ChangeNotifier {
     _orders.clear();
     _products.clear();
     _drivers.clear();
+    _shops.clear();
+    _promotions.clear();
     _customerShopIds.clear();
     _driverShopIds.clear();
+    _customerProfiles.clear();
     _routeNotes.clear();
     _todaysRouteIds = [];
     _seedMockData();
     notifyListeners();
+  }
+
+  /// Load all data from the backend API (called when useBackend = true).
+  Future<void> loadFromBackend() async {
+    if (!useBackend) return;
+    try {
+      // Load shop settings
+      final shopData = await _apiService.getShop();
+      final shopJson = shopData['shop'] as Map<String, dynamic>;
+      settings = settings.copyWith(
+        businessName: shopJson['shopName'] as String? ?? settings.businessName,
+        address: shopJson['address'] as String? ?? settings.address,
+        phone: shopJson['phone'] as String? ?? settings.phone,
+        email: shopJson['email'] as String? ?? settings.email,
+        normalPrice: (shopJson['normalCanPrice'] as num?)?.toDouble() ?? settings.normalPrice,
+        coolPrice: (shopJson['coolCanPrice'] as num?)?.toDouble() ?? settings.coolPrice,
+        homeDeliveryAvailable: shopJson['homeDeliveryAvailable'] as bool? ?? settings.homeDeliveryAvailable,
+        shopLatitude: (shopJson['latitude'] as num?)?.toDouble(),
+        shopLongitude: (shopJson['longitude'] as num?)?.toDouble(),
+      );
+
+      // Load customers
+      final customersData = await _apiService.listCustomers();
+      _customers.clear();
+      for (final c in (customersData['customers'] as List<dynamic>? ?? [])) {
+        final map = c as Map<String, dynamic>;
+        final customer = _customerFromJson(map);
+        _customers.add(customer);
+        _customerShopIds[customer.id] = map['shopId'] as String? ?? defaultShopId;
+      }
+
+      // Load drivers
+      final driversData = await _apiService.listDrivers();
+      _drivers.clear();
+      for (final d in (driversData['drivers'] as List<dynamic>? ?? [])) {
+        final map = d as Map<String, dynamic>;
+        final driver = _driverFromJson(map);
+        _drivers.add(driver);
+        _driverShopIds[driver.id] = map['shopId'] as String? ?? defaultShopId;
+      }
+
+      // Load products
+      final productsData = await _apiService.listProducts();
+      _products.clear();
+      for (final p in (productsData['products'] as List<dynamic>? ?? [])) {
+        final map = p as Map<String, dynamic>;
+        _products.add(_productFromJson(map));
+      }
+
+      // Load recent deliveries (last 30 days)
+      final endDate = DateTime.now().toIso8601String().split('T')[0];
+      final startDate = DateTime.now().subtract(const Duration(days: 60)).toIso8601String().split('T')[0];
+      final deliveriesData = await _apiService.listDeliveries(startDate: startDate, endDate: endDate, limit: 200);
+      _deliveries.clear();
+      for (final d in (deliveriesData['deliveries'] as List<dynamic>? ?? [])) {
+        _deliveries.add(_deliveryFromJson(d as Map<String, dynamic>));
+      }
+
+      // Load recent orders
+      final ordersData = await _apiService.listOrders(limit: 100);
+      _orders.clear();
+      for (final o in (ordersData['orders'] as List<dynamic>? ?? [])) {
+        _orders.add(_orderFromJson(o as Map<String, dynamic>));
+      }
+
+      // Load promotions
+      final promosData = await _apiService.listPromotions();
+      _promotions.clear();
+      for (final p in (promosData['promotions'] as List<dynamic>? ?? [])) {
+        _promotions.add(_promotionFromJson(p as Map<String, dynamic>));
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('loadFromBackend error: $e');
+    }
+  }
+
+  // ─── JSON → Model converters ───────────────────────────────────────────────
+
+  Customer _customerFromJson(Map<String, dynamic> map) {
+    return Customer(
+      id: map['customerId'] as String? ?? map['_id'] as String,
+      name: map['name'] as String? ?? '',
+      phone: map['phone'] as String? ?? '',
+      email: map['email'] as String? ?? '',
+      address: map['address'] as String? ?? '',
+      place: map['place'] as String? ?? '',
+      billingMode: map['billingMode'] == 'on_demand'
+          ? CustomerBillingMode.monthlyContract
+          : CustomerBillingMode.monthlyContract,
+      productPrices: ((map['productPrices'] as List<dynamic>?) ?? [])
+          .map((e) => CustomerProductPrice(
+                productId: (e as Map<String, dynamic>)['productId'] as String,
+                variantId: e['variantId'] as String,
+                unitPrice: (e['unitPrice'] as num).toDouble(),
+                enabled: e['enabled'] as bool? ?? true,
+              ))
+          .toList(),
+    );
+  }
+
+  Driver _driverFromJson(Map<String, dynamic> map) {
+    return Driver(
+      id: map['driverId'] as String? ?? map['_id'] as String,
+      name: map['name'] as String? ?? '',
+      phone: map['phone'] as String? ?? '',
+      email: map['email'] as String? ?? '',
+      active: map['active'] as bool? ?? true,
+    );
+  }
+
+  Product _productFromJson(Map<String, dynamic> map) {
+    final catStr = map['category'] as String? ?? 'can';
+    final category = catStr == 'bottle' ? ProductCategory.bottle : ProductCategory.can;
+    final variants = ((map['variants'] as List<dynamic>?) ?? [])
+        .map((e) {
+          final v = e as Map<String, dynamic>;
+          return ProductVariant(
+            id: v['variantId'] as String,
+            label: v['label'] as String? ?? '',
+            price: (v['price'] as num).toDouble(),
+            isCool: v['isCool'] as bool? ?? false,
+          );
+        })
+        .toList();
+    return Product(
+      id: map['productId'] as String? ?? map['_id'] as String,
+      name: map['name'] as String? ?? '',
+      description: map['description'] as String? ?? '',
+      category: category,
+      variants: variants,
+      isActive: map['isActive'] as bool? ?? true,
+    );
+  }
+
+  Delivery _deliveryFromJson(Map<String, dynamic> map) {
+    final lines = ((map['lines'] as List<dynamic>?) ?? []).map((e) {
+      final l = e as Map<String, dynamic>;
+      final kindStr = l['kind'] as String? ?? 'normalCan';
+      final kind = switch (kindStr) {
+        'coolCan' => DeliveryItemKind.coolCan,
+        'bottle' => DeliveryItemKind.bottle,
+        _ => DeliveryItemKind.normalCan,
+      };
+      return DeliveryLineItem(
+        kind: kind,
+        label: l['label'] as String? ?? '',
+        quantity: (l['quantity'] as num).toInt(),
+        unitPrice: (l['unitPrice'] as num).toDouble(),
+        productId: l['productId'] as String?,
+      );
+    }).toList();
+
+    return Delivery(
+      id: map['deliveryId'] as String? ?? map['_id'] as String,
+      customerId: map['customerId'] as String,
+      date: DateTime.parse(map['deliveryDate'] as String),
+      lines: lines,
+      driverId: map['driverId'] as String?,
+    );
+  }
+
+  CustomerOrder _orderFromJson(Map<String, dynamic> map) {
+    final statusStr = map['orderStatus'] as String? ?? 'pending';
+    final status = switch (statusStr) {
+      'accepted' => OrderStatus.accepted,
+      'rejected' => OrderStatus.rejected,
+      _ => OrderStatus.pending,
+    };
+    return CustomerOrder(
+      id: map['orderId'] as String? ?? map['_id'] as String,
+      customerId: map['customerId'] as String,
+      shopId: map['shopId'] as String?,
+      placedByAppUserId: map['appUserId'] as String?,
+      normalQty: (map['normalQty'] as num?)?.toInt() ?? 0,
+      coolQty: (map['coolQty'] as num?)?.toInt() ?? 0,
+      status: status,
+      customerNote: map['customerNote'] as String?,
+      adminResponse: map['adminNote'] as String?,
+      createdAt: map['createdAt'] != null ? DateTime.parse(map['createdAt'] as String) : DateTime.now(),
+    );
+  }
+
+  Promotion _promotionFromJson(Map<String, dynamic> map) {
+    final mediaTypeStr = map['mediaType'] as String? ?? 'image';
+    final mediaType = mediaTypeStr == 'video' ? PromotionMediaType.video : PromotionMediaType.image;
+    return Promotion(
+      id: map['promotionId'] as String? ?? map['_id'] as String,
+      shopId: map['shopId'] as String? ?? '',
+      shopName: '',
+      headline: map['headline'] as String? ?? '',
+      body: map['body'] as String? ?? '',
+      mediaType: mediaType,
+      badge: map['badge'] as String?,
+      ctaLabel: map['ctaLabel'] as String? ?? 'Order now',
+      createdAt: map['createdAt'] != null ? DateTime.parse(map['createdAt'] as String) : DateTime.now(),
+    );
   }
 
   String customerActivityLabel(String customerId, DateTime month) {

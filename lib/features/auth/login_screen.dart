@@ -35,7 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final auth = context.read<AuthRepository>();
     final repo = context.read<WaterPlantRepository>();
-    final error = auth.login(
+    final error = await auth.loginAsync(
       email: _emailController.text,
       password: _passwordController.text,
     );

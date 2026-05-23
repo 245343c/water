@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/services/api/api_config.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customer/widgets/customer_theme.dart';
@@ -23,10 +24,16 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
   bool _loading = false;
   String? _demoOtp;
 
+  // Backend mode: Google sign-in fields
+  final _emailController = TextEditingController();
+  final _nameController = TextEditingController();
+
   @override
   void dispose() {
     _phoneController.dispose();
     _otpController.dispose();
+    _emailController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
@@ -94,6 +101,44 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
         (!currentUser.customerProfileComplete ||
             profile == null ||
             !profile.onboardingComplete);
+    context.go(
+      needsOnboarding ? AppRoutes.customerOnboarding : AppRoutes.customerHome,
+    );
+  }
+
+  Future<void> _signInWithGoogle() async {
+    final email = _emailController.text.trim();
+    final name = _nameController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      _snack('Enter a valid email address');
+      return;
+    }
+    if (name.isEmpty) {
+      _snack('Enter your name');
+      return;
+    }
+
+    setState(() => _loading = true);
+    final auth = context.read<AuthRepository>();
+    final error = await auth.loginWithGoogleAsync(
+      email: email,
+      name: name,
+    );
+    if (!mounted) return;
+    setState(() => _loading = false);
+
+    if (error != null) {
+      _snack(error);
+      return;
+    }
+
+    final user = auth.currentUser!;
+    final repo = context.read<WaterPlantRepository>();
+    repo.linkContractCustomerOnLogin(userId: user.id, phone: user.phone);
+    final profile = repo.customerProfileByUserId(user.id);
+    final needsOnboarding = !user.customerProfileComplete ||
+        profile == null ||
+        !profile.onboardingComplete;
     context.go(
       needsOnboarding ? AppRoutes.customerOnboarding : AppRoutes.customerHome,
     );
@@ -193,15 +238,22 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
                                 ),
                               ],
                             ),
-                            child: _LoginCard(
-                              otpSent: _otpSent,
-                              loading: _loading,
-                              demoOtp: _demoOtp,
-                              phoneController: _phoneController,
-                              otpController: _otpController,
-                              onSendOtp: _sendOtp,
-                              onVerify: _verify,
-                            ),
+                            child: useBackend
+                              ? _GoogleLoginCard(
+                                  loading: _loading,
+                                  emailController: _emailController,
+                                  nameController: _nameController,
+                                  onSignIn: _signInWithGoogle,
+                                )
+                              : _LoginCard(
+                                  otpSent: _otpSent,
+                                  loading: _loading,
+                                  demoOtp: _demoOtp,
+                                  phoneController: _phoneController,
+                                  otpController: _otpController,
+                                  onSendOtp: _sendOtp,
+                                  onVerify: _verify,
+                                ),
                           ),
                         ],
                       ),
@@ -297,6 +349,78 @@ class _LoginCard extends StatelessWidget {
         Center(
           child: Text(
             'Use shop-registered number. Demo: 9876543210 or 9632580741',
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              color: CustomerColors.labelGrey,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GoogleLoginCard extends StatelessWidget {
+  const _GoogleLoginCard({
+    required this.loading,
+    required this.emailController,
+    required this.nameController,
+    required this.onSignIn,
+  });
+
+  final bool loading;
+  final TextEditingController emailController;
+  final TextEditingController nameController;
+  final VoidCallback onSignIn;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Sign in',
+          style: GoogleFonts.poppins(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: CustomerColors.titleNavy,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Continue with your Google account',
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            color: CustomerColors.labelGrey,
+          ),
+        ),
+        const SizedBox(height: 20),
+        CustomerTextField(
+          label: 'Email',
+          controller: emailController,
+          hint: 'you@gmail.com',
+          icon: Icons.mail_outline_rounded,
+          keyboardType: TextInputType.emailAddress,
+        ),
+        const SizedBox(height: 12),
+        CustomerTextField(
+          label: 'Name',
+          controller: nameController,
+          hint: 'Your full name',
+          icon: Icons.person_outline_rounded,
+        ),
+        const SizedBox(height: 20),
+        CustomerPrimaryButton(
+          label: 'Continue with Google',
+          loading: loading,
+          icon: Icons.login_rounded,
+          onPressed: onSignIn,
+        ),
+        const SizedBox(height: 14),
+        Center(
+          child: Text(
+            'In production, Google Sign-In will authenticate automatically.',
             style: GoogleFonts.poppins(
               fontSize: 11,
               color: CustomerColors.labelGrey,

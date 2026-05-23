@@ -147,12 +147,14 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                   onFilter: _showFilterSheet,
                 ),
                 CustomersListPanel(
-                  child: deliveries.isEmpty
-                      ? _EmptyDeliveries(
-                          isSearch: _query.isNotEmpty,
-                          onAdd: () => _showCustomerPicker(context, repo),
-                        )
-                      : ListView(
+                  child: RefreshIndicator(
+                    onRefresh: () => repo.refreshFromBackend(),
+                    child: deliveries.isEmpty
+                        ? _EmptyDeliveries(
+                            isSearch: _query.isNotEmpty,
+                            onAdd: () => _showCustomerPicker(context, repo),
+                          )
+                        : ListView(
                           padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                           children: [
                             for (final entry in grouped) ...[
@@ -178,6 +180,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                             ],
                           ],
                         ),
+                  ),
                 ),
               ],
             ),
