@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/services/order_workflow_service.dart';
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/data/models/order_status.dart';
-import 'package:sri_sai_ro_water/core/services/order_workflow_service.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/features/orders/widgets/orders_screen_widgets.dart';
@@ -32,39 +32,56 @@ class _OrdersScreenState extends State<OrdersScreen> {
     var list = repo.ordersNewestFirst();
     if (_query.trim().isNotEmpty) {
       final q = _query.trim().toLowerCase();
+      final qDigits = q.replaceAll(RegExp(r'\D'), '');
       list = list.where((o) {
         final c = repo.customerById(o.customerId);
+        final shopName = o.shopId == null
+            ? ''
+            : repo.shopById(o.shopId!)?.name.toLowerCase() ?? '';
+        final phone = c?.phone.replaceAll(RegExp(r'\D'), '') ?? '';
         return (c?.name.toLowerCase().contains(q) ?? false) ||
-            (c?.phone.replaceAll(' ', '').contains(q.replaceAll(' ', '')) ?? false) ||
+            (qDigits.isNotEmpty && phone.contains(qDigits)) ||
+            shopName.contains(q) ||
             o.cansSummary.toLowerCase().contains(q);
       }).toList();
     }
     if (_filter == OrderListFilter.all) return list;
     return list
-        .where((o) => switch (_filter) {
-              OrderListFilter.pending => o.status == OrderStatus.pending,
-              OrderListFilter.accepted => o.status == OrderStatus.accepted,
-              OrderListFilter.rejected => o.status == OrderStatus.rejected,
-              OrderListFilter.all => true,
-            })
+        .where(
+          (o) => switch (_filter) {
+            OrderListFilter.pending => o.status == OrderStatus.pending,
+            OrderListFilter.accepted => o.status == OrderStatus.accepted,
+            OrderListFilter.rejected => o.status == OrderStatus.rejected,
+            OrderListFilter.all => true,
+          },
+        )
         .toList();
   }
 
-  void _openOrder(BuildContext context, WaterPlantRepository repo, CustomerOrder order) {
+  void _openOrder(
+    BuildContext context,
+    WaterPlantRepository repo,
+    CustomerOrder order,
+  ) {
     final customer = repo.customerById(order.customerId);
     if (customer == null) return;
+    final shopName = order.shopId == null
+        ? 'Your water plant'
+        : repo.shopById(order.shopId!)?.name ?? 'Your water plant';
 
     showOrderRespondSheet(
       context: context,
       order: order,
       customerName: customer.name,
       customerPhone: customer.phone,
+      shopName: shopName,
+      isMonthlyCustomer: customer.isMonthlyContract,
       onAccept: () {
         context.read<OrderWorkflowService>().acceptOrder(orderId: order.id);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Order accepted — driver notified to deliver to ${customer.name}',
+              'Request accepted. Driver notified to deliver to ${customer.name}',
               style: GoogleFonts.poppins(),
             ),
             behavior: SnackBarBehavior.floating,
@@ -72,10 +89,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
         );
       },
       onReject: (reason) {
-        context.read<OrderWorkflowService>().rejectOrder(orderId: order.id, reason: reason);
+        context.read<OrderWorkflowService>().rejectOrder(
+          orderId: order.id,
+          reason: reason,
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Order declined', style: GoogleFonts.poppins()),
+            content: Text('Request declined', style: GoogleFonts.poppins()),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -97,14 +117,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 CustomersHeader(
-                  title: 'Orders',
+                  title: 'Customer requests',
                   showAddButton: false,
                   onAdd: () {},
                   onMenu: () => context.go(AppRoutes.more),
                 ),
                 CustomersSearchRow(
                   controller: _search,
-                  hintText: 'Search orders...',
+                  hintText: 'Search requests, customer, plant...',
                   onChanged: (v) => setState(() => _query = v),
                 ),
                 CustomersListPanel(
@@ -122,20 +142,38 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                 isSearch: _query.isNotEmpty,
                               )
                             : ListView.builder(
-                                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  4,
+                                  16,
+                                  16,
+                                ),
                                 itemCount: orders.length,
                                 itemBuilder: (_, i) {
                                   final order = orders[i];
-                                  final customer = repo.customerById(order.customerId);
+                                  final customer = repo.customerById(
+                                    order.customerId,
+                                  );
+                                  final shopName = order.shopId == null
+                                      ? 'Your water plant'
+                                      : repo.shopById(order.shopId!)?.name ??
+                                            'Your water plant';
                                   final idx = customer == null
                                       ? 0
-                                      : repo.customers.indexWhere((c) => c.id == customer.id);
+                                      : repo.customers.indexWhere(
+                                          (c) => c.id == customer.id,
+                                        );
                                   return OrderListCard(
                                     order: order,
                                     customerName: customer?.name ?? 'Unknown',
+                                    customerPhone: customer?.phone ?? '',
+                                    shopName: shopName,
+                                    isMonthlyCustomer:
+                                        customer?.isMonthlyContract ?? false,
                                     initials: customer?.initials ?? '?',
                                     colorIndex: idx >= 0 ? idx : 0,
-                                    onTap: () => _openOrder(context, repo, order),
+                                    onTap: () =>
+                                        _openOrder(context, repo, order),
                                   );
                                 },
                               ),
@@ -161,12 +199,12 @@ class _EmptyOrders extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final message = isSearch
-        ? 'No orders match your search'
+        ? 'No requests match your search'
         : switch (filter) {
-            OrderListFilter.pending => 'No new orders',
-            OrderListFilter.accepted => 'No accepted orders',
-            OrderListFilter.rejected => 'No declined orders',
-            OrderListFilter.all => 'No orders yet',
+            OrderListFilter.pending => 'No new requests',
+            OrderListFilter.accepted => 'No accepted requests',
+            OrderListFilter.rejected => 'No declined requests',
+            OrderListFilter.all => 'No requests yet',
           };
 
     return Center(
@@ -181,12 +219,18 @@ class _EmptyOrders extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             message,
-            style: GoogleFonts.poppins(fontSize: 15, color: CustomersColors.labelGrey),
+            style: GoogleFonts.poppins(
+              fontSize: 15,
+              color: CustomersColors.labelGrey,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
-            'Customer orders will appear here',
-            style: GoogleFonts.poppins(fontSize: 12, color: CustomersColors.labelGrey),
+            'Customer app requests will appear here',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: CustomersColors.labelGrey,
+            ),
           ),
         ],
       ),

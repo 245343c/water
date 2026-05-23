@@ -14,7 +14,7 @@ import 'package:sri_sai_ro_water/features/customer/widgets/customer_theme.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customer_detail_widgets.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
-/// Bulk / monthly — billing per shop (multi-shop mock for Abi).
+/// Monthly account — billing per linked shop.
 class CustomerContractAccountScreen extends StatelessWidget {
   const CustomerContractAccountScreen({super.key});
 
@@ -23,10 +23,12 @@ class CustomerContractAccountScreen extends StatelessWidget {
     final auth = context.watch<AuthRepository>();
     final repo = context.watch<WaterPlantRepository>();
     final userId = auth.currentUser?.id;
-    final billings =
-        userId != null ? repo.shopBillingsForAppUser(userId) : <CustomerShopBilling>[];
-    final totalPending =
-        userId != null ? repo.totalPendingForAppUser(userId) : 0.0;
+    final billings = userId != null
+        ? repo.shopBillingsForAppUser(userId)
+        : <CustomerShopBilling>[];
+    final totalPending = userId != null
+        ? repo.totalPendingForAppUser(userId)
+        : 0.0;
 
     return CustomerScaffold(
       child: Column(
@@ -36,39 +38,41 @@ class CustomerContractAccountScreen extends StatelessWidget {
             shopCount: billings.length,
             totalPending: totalPending,
           ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.only(bottom: customerBottomInset(context, extra: 16)),
-                children: [
-                  const _ReadOnlyBanner(),
-                  if (billings.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
-                      child: CustomerEmptyState(
-                        icon: Icons.link_off_rounded,
-                        title: 'Billing not linked yet',
-                        message:
-                            'Your shop must add you as a monthly customer with this phone number. Then sign in again to see bills from each shop.',
-                      ),
-                    )
-                  else ...[
-                    if (billings.length > 1)
-                      _AllShopsSummary(
-                        billings: billings,
-                        totalPending: totalPending,
-                      ),
-                    ...billings.map(
-                      (b) => _ShopBillingSection(
-                        billing: b,
-                        colorIndex: billings.indexOf(b),
-                      ),
-                    ),
-                  ],
-                ],
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.only(
+                bottom: customerBottomInset(context, extra: 16),
               ),
+              children: [
+                const _ReadOnlyBanner(),
+                if (billings.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: CustomerEmptyState(
+                      icon: Icons.link_off_rounded,
+                      title: 'Billing not linked yet',
+                      message:
+                          'Your shop must add you as a monthly customer with this phone number. Then sign in again to see bills from each shop.',
+                    ),
+                  )
+                else ...[
+                  if (billings.length > 1)
+                    _AllShopsSummary(
+                      billings: billings,
+                      totalPending: totalPending,
+                    ),
+                  ...billings.map(
+                    (b) => _ShopBillingSection(
+                      billing: b,
+                      colorIndex: billings.indexOf(b),
+                    ),
+                  ),
+                ],
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -130,8 +134,11 @@ class _AccountTopHeader extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.account_balance_wallet_outlined,
-                      color: Colors.white, size: 22),
+                  const Icon(
+                    Icons.account_balance_wallet_outlined,
+                    color: Colors.white,
+                    size: 22,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -145,7 +152,9 @@ class _AccountTopHeader extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          CurrencyUtils.format(totalPending.clamp(0.0, double.infinity)),
+                          CurrencyUtils.format(
+                            totalPending.clamp(0.0, double.infinity),
+                          ),
                           style: GoogleFonts.poppins(
                             color: Colors.white,
                             fontSize: 20,
@@ -166,10 +175,7 @@ class _AccountTopHeader extends StatelessWidget {
 }
 
 class _AllShopsSummary extends StatelessWidget {
-  const _AllShopsSummary({
-    required this.billings,
-    required this.totalPending,
-  });
+  const _AllShopsSummary({required this.billings, required this.totalPending});
 
   final List<CustomerShopBilling> billings;
   final double totalPending;
@@ -181,7 +187,9 @@ class _AllShopsSummary extends StatelessWidget {
     final repo = context.watch<WaterPlantRepository>();
     var monthTotal = 0.0;
     for (final b in billings) {
-      monthTotal += repo.monthlyStatsForCustomer(b.customer.id, month).totalAmount;
+      monthTotal += repo
+          .monthlyStatsForCustomer(b.customer.id, month)
+          .totalAmount;
     }
 
     return Padding(
@@ -204,7 +212,9 @@ class _AllShopsSummary extends StatelessWidget {
               color: CustomerColors.contractPurple,
             ),
             _SummaryChip(
-              value: CurrencyUtils.format(totalPending.clamp(0.0, double.infinity)),
+              value: CurrencyUtils.format(
+                totalPending.clamp(0.0, double.infinity),
+              ),
               label: 'Due',
               icon: Icons.pending_actions_rounded,
               color: const Color(0xFFEA580C),
@@ -261,10 +271,7 @@ class _SummaryChip extends StatelessWidget {
 }
 
 class _ShopBillingSection extends StatelessWidget {
-  const _ShopBillingSection({
-    required this.billing,
-    required this.colorIndex,
-  });
+  const _ShopBillingSection({required this.billing, required this.colorIndex});
 
   final CustomerShopBilling billing;
   final int colorIndex;
@@ -321,7 +328,7 @@ class _ShopBillingSection extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 10),
               child: CustomerPrimaryButton(
-                label: 'Order from ${shop.name}',
+                label: 'Request water from ${shop.name}',
                 icon: Icons.shopping_bag_outlined,
                 onPressed: () => context.push('/customer/shop/${shop.id}'),
               ),
@@ -407,8 +414,11 @@ class _ShopBillingHeader extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(Icons.location_on_outlined,
-                        size: 12, color: CustomerColors.labelGrey),
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 12,
+                      color: CustomerColors.labelGrey,
+                    ),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
@@ -429,9 +439,7 @@ class _ShopBillingHeader extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: isDue
-                  ? const Color(0xFFFFF7ED)
-                  : const Color(0xFFF0FDF4),
+              color: isDue ? const Color(0xFFFFF7ED) : const Color(0xFFF0FDF4),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: isDue
@@ -444,7 +452,9 @@ class _ShopBillingHeader extends StatelessWidget {
               style: GoogleFonts.poppins(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
-                color: isDue ? const Color(0xFFEA580C) : const Color(0xFF16A34A),
+                color: isDue
+                    ? const Color(0xFFEA580C)
+                    : const Color(0xFF16A34A),
               ),
             ),
           ),
@@ -472,8 +482,18 @@ class _ShopMonthlyBillCard extends StatelessWidget {
   final VoidCallback onMonthHistory;
 
   static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   @override
@@ -516,13 +536,20 @@ class _ShopMonthlyBillCard extends StatelessWidget {
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    isPaid ? 'PAID' : stats.totalAmount > 0 ? 'DUE' : 'NO ACTIVITY',
+                    isPaid
+                        ? 'PAID'
+                        : stats.totalAmount > 0
+                        ? 'DUE'
+                        : 'NO ACTIVITY',
                     style: GoogleFonts.poppins(
                       fontSize: 9,
                       fontWeight: FontWeight.w800,

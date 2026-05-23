@@ -4,10 +4,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
+import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
+import 'package:sri_sai_ro_water/data/models/order_status.dart';
 import 'package:sri_sai_ro_water/data/models/payment.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
+import 'package:sri_sai_ro_water/features/customer/widgets/customer_request_card.dart';
 import 'package:sri_sai_ro_water/features/customer/widgets/customer_theme.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
@@ -19,8 +22,7 @@ class CustomerContractActivityScreen extends StatelessWidget {
     final auth = context.watch<AuthRepository>();
     final repo = context.watch<WaterPlantRepository>();
     final userId = auth.currentUser?.id;
-    final billings =
-        userId != null ? repo.shopBillingsForAppUser(userId) : [];
+    final billings = userId != null ? repo.shopBillingsForAppUser(userId) : [];
 
     if (billings.isEmpty) {
       return CustomerScaffold(
@@ -47,6 +49,12 @@ class CustomerContractActivityScreen extends StatelessWidget {
     var paymentTotal = 0.0;
     final allDeliveries = <({Delivery d, String shopName})>[];
     final allPayments = <({Payment p, String shopName})>[];
+    final requests = userId != null
+        ? repo.ordersForAppUser(userId)
+        : <CustomerOrder>[];
+    final pendingRequests = requests
+        .where((o) => o.status == OrderStatus.pending)
+        .length;
 
     for (final b in billings) {
       final shopName = b.shop.name;
@@ -69,125 +77,160 @@ class CustomerContractActivityScreen extends StatelessWidget {
     return CustomerScaffold(
       child: Column(
         children: [
-          _ActivityHeader(subtitle: month.monthYear),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.only(bottom: 24),
-                children: [
+          _ActivityHeader(
+            subtitle: requests.isEmpty
+                ? month.monthYear
+                : '$month.monthYear · $pendingRequests pending requests',
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.only(bottom: 24),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        _miniStat('$deliveryCount', 'Deliveries', Colors.white),
+                        _vDiv(),
+                        _miniStat(
+                          '${requests.length}',
+                          'Requests',
+                          Colors.white,
+                        ),
+                        _vDiv(),
+                        _miniStat(
+                          CurrencyUtils.format(deliveryTotal),
+                          'Can value',
+                          Colors.white,
+                        ),
+                        _vDiv(),
+                        _miniStat(
+                          CurrencyUtils.format(paymentTotal),
+                          'Paid',
+                          Colors.white,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (billings.length > 1)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Row(
-                        children: [
-                          _miniStat('$deliveryCount', 'Deliveries', Colors.white),
-                          _vDiv(),
-                          _miniStat(
-                            CurrencyUtils.format(deliveryTotal),
-                            'Can value',
-                            Colors.white,
-                          ),
-                          _vDiv(),
-                          _miniStat(
-                            CurrencyUtils.format(paymentTotal),
-                            'Paid',
-                            Colors.white,
-                          ),
-                        ],
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                    child: Text(
+                      'Activity across ${billings.length} shops',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: CustomerColors.labelGrey,
                       ),
                     ),
                   ),
-                  if (billings.length > 1)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                      child: Text(
-                        'Activity across ${billings.length} shops',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: CustomerColors.labelGrey,
-                        ),
-                      ),
+                CustomerSectionTitle(
+                  title: 'Water requests (${requests.length})',
+                ),
+                if (requests.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: CustomerEmptyState(
+                      icon: Icons.receipt_long_outlined,
+                      title: 'No water requests yet',
+                      message:
+                          'Open a linked plant from Home and send a request when you need cans.',
                     ),
-                  CustomerSectionTitle(
-                    title: 'Deliveries (${allDeliveries.length})',
+                  )
+                else
+                  ...requests.map((order) {
+                    final shopName = order.shopId != null
+                        ? repo.shopById(order.shopId!)?.name ??
+                              'Your water plant'
+                        : 'Your water plant';
+                    return CustomerRequestCard(
+                      order: order,
+                      shopName: shopName,
+                      delivery: repo.deliveryForOrder(order),
+                    );
+                  }),
+                CustomerSectionTitle(
+                  title: 'Deliveries (${allDeliveries.length})',
+                ),
+                if (allDeliveries.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: CustomerEmptyState(
+                      icon: Icons.local_shipping_outlined,
+                      title: 'No deliveries this month',
+                      message: 'Your shops will record cans when delivered.',
+                    ),
+                  )
+                else
+                  ...allDeliveries.map(
+                    (e) => _DeliveryTile(delivery: e.d, shopName: e.shopName),
                   ),
-                  if (allDeliveries.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: CustomerEmptyState(
-                        icon: Icons.local_shipping_outlined,
-                        title: 'No deliveries this month',
-                        message: 'Your shops will record cans when delivered.',
+                CustomerSectionTitle(title: 'Payments (${allPayments.length})'),
+                if (allPayments.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      'No payments recorded this month',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: CustomerColors.labelGrey,
                       ),
-                    )
-                  else
-                    ...allDeliveries.map(
-                      (e) => _DeliveryTile(delivery: e.d, shopName: e.shopName),
                     ),
-                  CustomerSectionTitle(
-                    title: 'Payments (${allPayments.length})',
+                  )
+                else
+                  ...allPayments.map(
+                    (e) => _PaymentTile(payment: e.p, shopName: e.shopName),
                   ),
-                  if (allPayments.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'No payments recorded this month',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: CustomerColors.labelGrey,
-                        ),
+                const SizedBox(height: 8),
+                ...billings.map(
+                  (b) => Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: OutlinedButton.icon(
+                      onPressed: () => context.push(
+                        '${AppRoutes.customerMonthDetail}?customerId=${b.customer.id}'
+                        '&shopId=${b.shop.id}&year=${month.year}&month=${month.month}',
                       ),
-                    )
-                  else
-                    ...allPayments.map(
-                      (e) => _PaymentTile(payment: e.p, shopName: e.shopName),
-                    ),
-                  const SizedBox(height: 8),
-                  ...billings.map(
-                    (b) => Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                      child: OutlinedButton.icon(
-                        onPressed: () => context.push(
-                          '${AppRoutes.customerMonthDetail}?customerId=${b.customer.id}'
-                          '&shopId=${b.shop.id}&year=${month.year}&month=${month.month}',
-                        ),
-                        icon: const Icon(Icons.receipt_long_outlined, size: 18),
-                        label: Text(
-                          '${b.shop.name} — month details',
-                          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: CustomerColors.accent,
-                          minimumSize: const Size.fromHeight(44),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                      icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                      label: Text(
+                        '${b.shop.name} — month details',
+                        style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: CustomerColors.accent,
+                        minimumSize: const Size.fromHeight(44),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
     );
   }
 
   static Widget _vDiv() => Container(
-        width: 1,
-        height: 36,
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        color: Colors.white24,
-      );
+    width: 1,
+    height: 36,
+    margin: const EdgeInsets.symmetric(horizontal: 8),
+    color: Colors.white24,
+  );
 
   static Widget _miniStat(String value, String label, Color color) {
     return Expanded(
@@ -275,8 +318,11 @@ class _DeliveryTile extends StatelessWidget {
                 color: CustomerColors.accent.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.local_shipping_rounded,
-                  color: CustomerColors.accent, size: 22),
+              child: const Icon(
+                Icons.local_shipping_rounded,
+                color: CustomerColors.accent,
+                size: 22,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -344,8 +390,11 @@ class _PaymentTile extends StatelessWidget {
                 color: const Color(0xFF16A34A).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.payments_rounded,
-                  color: Color(0xFF16A34A), size: 22),
+              child: const Icon(
+                Icons.payments_rounded,
+                color: Color(0xFF16A34A),
+                size: 22,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(

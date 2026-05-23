@@ -23,43 +23,30 @@ abstract final class DashboardColors {
   static const Color statCellBorder = Color(0xFFE5E7EB);
 
   static BoxDecoration get screenGradient => const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [bgTop, bgMid, bgBottom],
-        ),
-      );
+    gradient: LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [bgTop, bgMid, bgBottom],
+    ),
+  );
 
   static BoxDecoration get whiteCard => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x40000000),
-            blurRadius: 20,
-            offset: Offset(0, 8),
-          ),
-        ],
-      );
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(20),
+    boxShadow: const [
+      BoxShadow(color: Color(0x40000000), blurRadius: 20, offset: Offset(0, 8)),
+    ],
+  );
 }
 
 // ─── Greeting helpers ────────────────────────────────────────────────────────
 
 String _greetingText() {
   final h = DateTime.now().hour;
-  if (h >= 5  && h < 12) return 'Good Morning';
-  if (h >= 12 && h < 17) return 'Good Afternoon';
-  if (h >= 17 && h < 21) return 'Good Evening';
-  return 'Good Night';
-}
-
-/// Realistic time-of-day accent shown after the greeting text.
-String _greetingAccent() {
-  final h = DateTime.now().hour;
-  if (h >= 5 && h < 12) return '🌅';
-  if (h >= 12 && h < 17) return '☀️';
-  if (h >= 17 && h < 21) return '🌇';
-  return '🌃';
+  if (h >= 5 && h < 12) return 'Good morning';
+  if (h >= 12 && h < 17) return 'Good afternoon';
+  if (h >= 17 && h < 21) return 'Good evening';
+  return 'Good night';
 }
 
 // ─── Dashboard header with greeting + admin avatar ───────────────────────────
@@ -68,6 +55,7 @@ class DashboardHeader extends StatelessWidget {
   const DashboardHeader({
     super.key,
     required this.title,
+    required this.ownerName,
     this.adminImagePath,
     this.onAdminTap,
     this.onNotificationsTap,
@@ -75,6 +63,7 @@ class DashboardHeader extends StatelessWidget {
   });
 
   final String title;
+  final String ownerName;
   final String? adminImagePath;
   final VoidCallback? onAdminTap;
   final VoidCallback? onNotificationsTap;
@@ -83,7 +72,6 @@ class DashboardHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final greeting = _greetingText();
-    final accent = _greetingAccent();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
@@ -94,32 +82,25 @@ class DashboardHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        greeting,
-                        style: GoogleFonts.poppins(
-                          color: Colors.white.withValues(alpha: 0.92),
-                          fontSize: 22,
-                          fontWeight: FontWeight.w600,
-                          height: 1.15,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(accent, style: const TextStyle(fontSize: 32, height: 1.0)),
-                  ],
+                Text(
+                  '$greeting, $ownerName',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w700,
+                    height: 1.15,
+                  ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
                   title,
                   style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+                    color: Colors.white.withValues(alpha: 0.78),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
                     height: 1.25,
-                    letterSpacing: -0.2,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -133,7 +114,11 @@ class DashboardHeader extends StatelessWidget {
               icon: Badge(
                 isLabelVisible: notificationCount > 0,
                 label: Text('$notificationCount'),
-                child: const Icon(Icons.notifications_outlined, color: Colors.white, size: 26),
+                child: const Icon(
+                  Icons.notifications_outlined,
+                  color: Colors.white,
+                  size: 26,
+                ),
               ),
             ),
           ],
@@ -157,10 +142,7 @@ class DashboardHeader extends StatelessWidget {
                   ),
                   child: ClipOval(
                     child: adminImagePath != null
-                        ? Image.file(
-                            File(adminImagePath!),
-                            fit: BoxFit.cover,
-                          )
+                        ? Image.file(File(adminImagePath!), fit: BoxFit.cover)
                         : const Icon(
                             Icons.person_rounded,
                             color: Colors.white,
@@ -249,23 +231,13 @@ class DashboardOwnerSnapshot extends StatelessWidget {
     required this.todayDeliveries,
     required this.todayUnits,
     required this.pendingRequests,
-    required this.unpaidBalance,
-    required this.subscriptionLabel,
-    required this.subscriptionMessage,
-    required this.subscriptionColor,
     required this.onOrdersTap,
-    required this.onSubscriptionTap,
   });
 
   final int todayDeliveries;
   final int todayUnits;
   final int pendingRequests;
-  final String unpaidBalance;
-  final String subscriptionLabel;
-  final String subscriptionMessage;
-  final Color subscriptionColor;
   final VoidCallback onOrdersTap;
-  final VoidCallback onSubscriptionTap;
 
   @override
   Widget build(BuildContext context) {
@@ -292,19 +264,13 @@ class DashboardOwnerSnapshot extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Today owner view',
+                  'Today\'s summary',
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
                     color: DashboardColors.cardTitle,
                   ),
                 ),
-              ),
-              PremiumStatusBadge(
-                label: subscriptionLabel,
-                color: subscriptionColor,
-                icon: Icons.workspace_premium_rounded,
-                compact: true,
               ),
             ],
           ),
@@ -316,9 +282,16 @@ class DashboardOwnerSnapshot extends StatelessWidget {
                 _OwnerMetricTile(
                   label: 'Today deliveries',
                   value: '$todayDeliveries',
-                  helper: '$todayUnits units',
+                  helper: 'Saved today',
                   color: DashboardColors.statTeal,
                   icon: Icons.local_shipping_rounded,
+                ),
+                _OwnerMetricTile(
+                  label: 'Cans delivered',
+                  value: '$todayUnits',
+                  helper: 'Normal, cool and bottles',
+                  color: DashboardColors.statBlue,
+                  icon: Icons.water_drop_rounded,
                 ),
                 _OwnerMetricTile(
                   label: 'Pending requests',
@@ -327,13 +300,6 @@ class DashboardOwnerSnapshot extends StatelessWidget {
                   color: DashboardColors.statRed,
                   icon: Icons.receipt_long_rounded,
                   onTap: onOrdersTap,
-                ),
-                _OwnerMetricTile(
-                  label: 'Unpaid balance',
-                  value: unpaidBalance,
-                  helper: 'All customers',
-                  color: const Color(0xFFEA580C),
-                  icon: Icons.account_balance_wallet_rounded,
                 ),
               ];
 
@@ -357,43 +323,6 @@ class DashboardOwnerSnapshot extends StatelessWidget {
                 ],
               );
             },
-          ),
-          const SizedBox(height: 10),
-          Material(
-            color: subscriptionColor.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              onTap: onSubscriptionTap,
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.workspace_premium_rounded,
-                      size: 20,
-                      color: subscriptionColor,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        subscriptionMessage,
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF111827),
-                        ),
-                      ),
-                    ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: subscriptionColor,
-                      size: 20,
-                    ),
-                  ],
-                ),
-              ),
-            ),
           ),
         ],
       ),
@@ -487,150 +416,6 @@ class _OwnerMetricTile extends StatelessWidget {
   }
 }
 
-class DashboardCustomerAppAccessCard extends StatelessWidget {
-  const DashboardCustomerAppAccessCard({
-    super.key,
-    required this.readyCustomers,
-    required this.missingPhoneCustomers,
-    required this.monthlyCustomers,
-    required this.appOrderCustomers,
-    required this.shopVisible,
-    required this.onManageCustomers,
-  });
-
-  final int readyCustomers;
-  final int missingPhoneCustomers;
-  final int monthlyCustomers;
-  final int appOrderCustomers;
-  final bool shopVisible;
-  final VoidCallback onManageCustomers;
-
-  @override
-  Widget build(BuildContext context) {
-    final visibilityColor =
-        shopVisible ? DashboardColors.statGreen : DashboardColors.statRed;
-
-    return Container(
-      decoration: DashboardColors.whiteCard,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _DashboardCardHeader(
-            icon: Icons.lock_person_rounded,
-            iconColor: DashboardColors.linkBlue,
-            title: 'Customer app access',
-            actionLabel: 'Customers',
-            onAction: onManageCustomers,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Only admin-created customers with valid phone numbers can sign in and see this plant.',
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              height: 1.35,
-              color: DashboardColors.labelGrey,
-            ),
-          ),
-          const SizedBox(height: 12),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final wide = constraints.maxWidth >= 620;
-              final cards = [
-                _OwnerMetricTile(
-                  label: 'Can login',
-                  value: '$readyCustomers',
-                  helper: 'Valid phones',
-                  color: DashboardColors.statGreen,
-                  icon: Icons.verified_user_rounded,
-                  onTap: onManageCustomers,
-                ),
-                _OwnerMetricTile(
-                  label: 'Needs phone',
-                  value: '$missingPhoneCustomers',
-                  helper: 'Fix before login',
-                  color: missingPhoneCustomers == 0
-                      ? DashboardColors.statGreen
-                      : DashboardColors.statRed,
-                  icon: Icons.phone_disabled_rounded,
-                  onTap: onManageCustomers,
-                ),
-                _OwnerMetricTile(
-                  label: 'Monthly',
-                  value: '$monthlyCustomers',
-                  helper: 'Contract accounts',
-                  color: DashboardColors.statPurple,
-                  icon: Icons.calendar_month_rounded,
-                ),
-                _OwnerMetricTile(
-                  label: 'App orders',
-                  value: '$appOrderCustomers',
-                  helper: 'On-demand users',
-                  color: DashboardColors.statBlue,
-                  icon: Icons.shopping_bag_rounded,
-                ),
-              ];
-
-              if (wide) {
-                return Row(
-                  children: [
-                    for (var i = 0; i < cards.length; i++) ...[
-                      Expanded(child: cards[i]),
-                      if (i != cards.length - 1) const SizedBox(width: 10),
-                    ],
-                  ],
-                );
-              }
-
-              return Column(
-                children: [
-                  for (var i = 0; i < cards.length; i++) ...[
-                    cards[i],
-                    if (i != cards.length - 1) const SizedBox(height: 10),
-                  ],
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: visibilityColor.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  shopVisible
-                      ? Icons.visibility_rounded
-                      : Icons.visibility_off_rounded,
-                  color: visibilityColor,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    shopVisible
-                        ? 'Customer app visibility is enabled for linked customers.'
-                        : 'Customer app visibility is off. Enable home delivery and active subscription.',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      height: 1.35,
-                      color: const Color(0xFF111827),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class DashboardPendingRequestsCard extends StatelessWidget {
   const DashboardPendingRequestsCard({
     super.key,
@@ -657,7 +442,7 @@ class DashboardPendingRequestsCard extends StatelessWidget {
             icon: Icons.receipt_long_rounded,
             iconColor: DashboardColors.statRed,
             title: 'Pending requests',
-            actionLabel: requests.isEmpty ? null : 'Open',
+            actionLabel: requests.isEmpty ? null : 'View all',
             onAction: requests.isEmpty ? null : onOpenOrders,
           ),
           const SizedBox(height: 10),
@@ -673,6 +458,7 @@ class DashboardPendingRequestsCard extends StatelessWidget {
               return _PendingRequestRow(
                 request: request,
                 customerName: customerNameFor(request.customerId),
+                onTap: onOpenOrders,
                 showDivider: i < preview.length - 1,
               );
             }),
@@ -698,69 +484,105 @@ class _PendingRequestRow extends StatelessWidget {
   const _PendingRequestRow({
     required this.request,
     required this.customerName,
+    required this.onTap,
     required this.showDivider,
   });
 
   final DashboardPendingRequest request;
   final String customerName;
+  final VoidCallback onTap;
   final bool showDivider;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 9),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7ED),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.hourglass_top_rounded,
-                  color: Color(0xFFEA580C),
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      customerName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF111827),
-                      ),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 9),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF7ED),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    Text(
-                      request.summary,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        color: DashboardColors.labelGrey,
-                      ),
+                    child: const Icon(
+                      Icons.hourglass_top_rounded,
+                      color: Color(0xFFEA580C),
+                      size: 20,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          customerName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF111827),
+                          ),
+                        ),
+                        Text(
+                          request.summary,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: DashboardColors.labelGrey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        request.createdAt.timeLabel,
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          color: DashboardColors.labelGrey,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: DashboardColors.linkBlue.withValues(
+                            alpha: 0.1,
+                          ),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          'View',
+                          style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: DashboardColors.linkBlue,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              Text(
-                request.createdAt.timeLabel,
-                style: GoogleFonts.poppins(
-                  fontSize: 10,
-                  color: DashboardColors.labelGrey,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
         if (showDivider)
@@ -802,11 +624,19 @@ class DashboardDriverActivityCard extends StatelessWidget {
             onAction: onManageDrivers,
           ),
           const SizedBox(height: 4),
-          Text(
-            '$activeDrivers active of $totalDrivers driver${totalDrivers == 1 ? '' : 's'}',
-            style: GoogleFonts.poppins(
-              fontSize: 11,
-              color: DashboardColors.labelGrey,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: DashboardColors.statTeal.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '$activeDrivers active / $totalDrivers total',
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: DashboardColors.statTeal,
+              ),
             ),
           ),
           const SizedBox(height: 10),
@@ -845,17 +675,16 @@ class DashboardDriverActivity {
 }
 
 class _DriverActivityRow extends StatelessWidget {
-  const _DriverActivityRow({
-    required this.activity,
-    required this.showDivider,
-  });
+  const _DriverActivityRow({required this.activity, required this.showDivider});
 
   final DashboardDriverActivity activity;
   final bool showDivider;
 
   @override
   Widget build(BuildContext context) {
-    final color = activity.active ? DashboardColors.statTeal : DashboardColors.labelGrey;
+    final color = activity.active
+        ? DashboardColors.statTeal
+        : DashboardColors.labelGrey;
 
     return Column(
       children: [
@@ -863,14 +692,22 @@ class _DriverActivityRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 9),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: color.withValues(alpha: 0.12),
-                child: Text(
-                  activity.name.isEmpty ? '?' : activity.name[0].toUpperCase(),
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w800,
-                    color: color,
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Text(
+                    activity.name.isEmpty
+                        ? '?'
+                        : activity.name[0].toUpperCase(),
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                    ),
                   ),
                 ),
               ),
@@ -889,35 +726,58 @@ class _DriverActivityRow extends StatelessWidget {
                         color: const Color(0xFF111827),
                       ),
                     ),
+                    Row(
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          activity.active ? 'Active' : 'Inactive',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: DashboardColors.labelGrey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
                     Text(
-                      activity.active ? 'Active driver' : 'Inactive driver',
+                      '${activity.deliveries} trips',
                       style: GoogleFonts.poppins(
-                        fontSize: 11,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: color,
+                      ),
+                    ),
+                    Text(
+                      '${activity.units} cans',
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
                         color: DashboardColors.labelGrey,
                       ),
                     ),
                   ],
                 ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${activity.deliveries}',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: color,
-                    ),
-                  ),
-                  Text(
-                    '${activity.units} units',
-                    style: GoogleFonts.poppins(
-                      fontSize: 10,
-                      color: DashboardColors.labelGrey,
-                    ),
-                  ),
-                ],
               ),
             ],
           ),
@@ -953,13 +813,7 @@ class DashboardOperationsGrid extends StatelessWidget {
             ],
           );
         }
-        return Column(
-          children: [
-            left,
-            const SizedBox(height: 14),
-            right,
-          ],
-        );
+        return Column(children: [left, const SizedBox(height: 14), right]);
       },
     );
   }
@@ -1093,7 +947,7 @@ class _QuickActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.horizontal(
-      left:  Radius.circular(isFirst ? 20 : 0),
+      left: Radius.circular(isFirst ? 20 : 0),
       right: Radius.circular(isFirst ? 0 : 20),
     );
 
@@ -1467,7 +1321,6 @@ class _CompactMetric extends StatelessWidget {
   }
 }
 
-
 class _MonthChip extends StatelessWidget {
   const _MonthChip({required this.month, required this.onTap});
 
@@ -1487,7 +1340,11 @@ class _MonthChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.calendar_today_outlined, size: 14, color: Color(0xFF6B7280)),
+              const Icon(
+                Icons.calendar_today_outlined,
+                size: 14,
+                color: Color(0xFF6B7280),
+              ),
               const SizedBox(width: 4),
               Text(
                 month.monthYear,
@@ -1498,7 +1355,11 @@ class _MonthChip extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 2),
-              const Icon(Icons.keyboard_arrow_down, size: 18, color: Color(0xFF6B7280)),
+              const Icon(
+                Icons.keyboard_arrow_down,
+                size: 18,
+                color: Color(0xFF6B7280),
+              ),
             ],
           ),
         ),
@@ -1521,10 +1382,7 @@ class DashboardScaffold extends StatelessWidget {
       ),
       child: Container(
         decoration: DashboardColors.screenGradient,
-        child: PremiumResponsiveBody(
-          maxWidth: 1180,
-          child: child,
-        ),
+        child: PremiumResponsiveBody(maxWidth: 1180, child: child),
       ),
     );
   }

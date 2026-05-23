@@ -39,6 +39,14 @@ This document is the **source of truth** for roles, permissions, and UI scope. A
 
 Enforce in **three layers**: `AppPermissions` → **go_router redirect** → **hide UI actions**.
 
+## Customer model
+
+- Customers are monthly customers created by admins.
+- There is no separate on-demand customer type in the current scope.
+- Customers can request/order water from the customer app.
+- Requests are attached to the existing monthly customer record for the selected plant.
+- Multiple admins/plants can add the same customer phone number. The customer app shows every linked plant for that phone.
+
 ## Driver rules
 
 - Login: email + password (created by admin).

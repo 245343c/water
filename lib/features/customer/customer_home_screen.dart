@@ -30,50 +30,50 @@ class CustomerHomeScreen extends StatelessWidget {
 
     return ListView(
       padding: EdgeInsets.zero,
-        children: [
-          _CustomerHomeHeader(
-            name: firstName,
-            greeting: greeting,
-            linkedShopCount: shops.length,
+      children: [
+        _CustomerHomeHeader(
+          name: firstName,
+          greeting: greeting,
+          linkedShopCount: shops.length,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: _LinkedAccountCard(
+            shopCount: shops.length,
+            customerName: crm?.name ?? user?.ownerName ?? 'Customer',
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: _LinkedAccountCard(
-              shopCount: shops.length,
-              customerName: crm?.name ?? user?.ownerName ?? 'Customer',
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+          child: Text(
+            shops.length == 1 ? 'YOUR WATER PLANT' : 'LINKED WATER PLANTS',
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: CustomerColors.labelGrey,
+              letterSpacing: 0.6,
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
-            child: Text(
-              shops.length == 1 ? 'YOUR WATER PLANT' : 'LINKED WATER PLANTS',
-              style: GoogleFonts.poppins(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: CustomerColors.labelGrey,
-                letterSpacing: 0.6,
-              ),
+        ),
+        if (shops.isEmpty)
+          CustomerEmptyState(
+            icon: Icons.storefront_rounded,
+            title: userId == null
+                ? 'Sign in required'
+                : 'No water plant linked yet',
+            message: userId == null
+                ? 'Please sign in to view your water plant.'
+                : 'Ask your RO plant owner to add this mobile number in the customer list.',
+          )
+        else
+          ...shops.map(
+            (shop) => Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: _ShopCard(shop: shop),
             ),
           ),
-          if (shops.isEmpty)
-            CustomerEmptyState(
-              icon: Icons.storefront_rounded,
-              title: userId == null
-                  ? 'Sign in required'
-                  : 'No water plant linked yet',
-              message: userId == null
-                  ? 'Please sign in to view your water plant.'
-                  : 'Ask your RO plant owner to add this mobile number in the customer list.',
-            )
-          else
-            ...shops.map(
-              (shop) => Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: _ShopCard(shop: shop),
-              ),
-            ),
-          SizedBox(height: customerBottomInset(context, extra: 20)),
-        ],
+        SizedBox(height: customerBottomInset(context, extra: 20)),
+      ],
     );
   }
 
@@ -166,17 +166,15 @@ class _CustomerHomeHeader extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(
-                  Icons.lock_rounded,
-                  color: Colors.white,
-                  size: 18,
-                ),
+                const Icon(Icons.lock_rounded, color: Colors.white, size: 18),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     linkedShopCount == 0
                         ? 'Only admin-added customers can order'
-                        : 'You can order only from your linked plant',
+                        : linkedShopCount == 1
+                        ? 'You can order from your linked plant'
+                        : 'You can order from your linked plants',
                     style: GoogleFonts.poppins(
                       color: Colors.white.withValues(alpha: 0.92),
                       fontSize: 12,

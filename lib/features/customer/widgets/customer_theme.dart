@@ -17,25 +17,25 @@ abstract final class CustomerColors {
   static const Color contractPurple = Color(0xFF7C3AED);
 
   static BoxDecoration get headerGradient => const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [headerStart, headerEnd],
-        ),
-      );
+    gradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [headerStart, headerEnd],
+    ),
+  );
 
   static BoxDecoration get cardDecoration => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      );
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(color: cardBorder),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.06),
+        blurRadius: 12,
+        offset: const Offset(0, 4),
+      ),
+    ],
+  );
 }
 
 class CustomerScaffold extends StatelessWidget {
@@ -87,15 +87,18 @@ class CustomerHeader extends StatelessWidget {
             children: [
               if (onBack != null)
                 IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: Colors.white,
+                  ),
                   onPressed: onBack,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                  constraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
                 ),
-              if (trailing != null) ...[
-                const Spacer(),
-                trailing!,
-              ],
+              if (trailing != null) ...[const Spacer(), trailing!],
             ],
           ),
           Text(
@@ -174,11 +177,11 @@ class CustomerHeroStats extends StatelessWidget {
   }
 
   Widget _divider() => Container(
-        width: 1,
-        height: 40,
-        margin: const EdgeInsets.symmetric(horizontal: 6),
-        color: Colors.white.withValues(alpha: 0.25),
-      );
+    width: 1,
+    height: 40,
+    margin: const EdgeInsets.symmetric(horizontal: 6),
+    color: Colors.white.withValues(alpha: 0.25),
+  );
 }
 
 class _Stat extends StatelessWidget {
@@ -268,11 +271,20 @@ class CustomerSearchBar extends StatelessWidget {
       child: TextField(
         controller: controller,
         onChanged: onChanged,
-        style: GoogleFonts.poppins(fontSize: 14, color: CustomerColors.titleNavy),
+        style: GoogleFonts.poppins(
+          fontSize: 14,
+          color: CustomerColors.titleNavy,
+        ),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: GoogleFonts.poppins(fontSize: 13, color: CustomerColors.labelGrey),
-          prefixIcon: const Icon(Icons.search_rounded, color: CustomerColors.accent),
+          hintStyle: GoogleFonts.poppins(
+            fontSize: 13,
+            color: CustomerColors.labelGrey,
+          ),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: CustomerColors.accent,
+          ),
           suffixIcon: ValueListenableBuilder<TextEditingValue>(
             valueListenable: controller,
             builder: (_, value, _) {
@@ -391,12 +403,18 @@ class CustomerPrimaryButton extends StatelessWidget {
                       Icon(icon, size: 20, color: Colors.white),
                       const SizedBox(width: 8),
                     ],
-                    Text(
-                      label,
-                      style: GoogleFonts.poppins(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          style: GoogleFonts.poppins(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -506,7 +524,9 @@ class CustomerTextField extends StatelessWidget {
               prefixIcon: icon != null ? Icon(icon, size: 20) : null,
               filled: true,
               fillColor: const Color(0xFFF9FAFB),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
         ],
@@ -556,7 +576,8 @@ class CustomerInfoBanner extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (onTap != null) Icon(Icons.chevron_right, color: c, size: 20),
+                if (onTap != null)
+                  Icon(Icons.chevron_right, color: c, size: 20),
               ],
             ),
           ),

@@ -10,14 +10,12 @@ import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/widgets/month_year_wheel_picker.dart';
 import 'package:sri_sai_ro_water/data/models/order_status.dart';
-import 'package:sri_sai_ro_water/data/models/shop.dart';
+import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/notifications/notifications_screen.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
-import 'package:sri_sai_ro_water/features/dashboard/widgets/dashboard_action_center.dart';
 import 'package:sri_sai_ro_water/features/dashboard/widgets/dashboard_home_widgets.dart';
-import 'package:sri_sai_ro_water/features/dashboard/widgets/dashboard_listing_badge.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -74,10 +72,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     color: const Color(0xFFEFF6FF),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.camera_alt_rounded, color: Color(0xFF1A73E8)),
+                  child: const Icon(
+                    Icons.camera_alt_rounded,
+                    color: Color(0xFF1A73E8),
+                  ),
                 ),
-                title: Text('Take Photo', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-                subtitle: Text('Use camera', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
+                title: Text(
+                  'Take Photo',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  'Use camera',
+                  style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
+                ),
                 onTap: () => Navigator.pop(ctx, ImageSource.camera),
               ),
               ListTile(
@@ -87,10 +94,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     color: const Color(0xFFECFDF5),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.photo_library_rounded, color: Color(0xFF16A34A)),
+                  child: const Icon(
+                    Icons.photo_library_rounded,
+                    color: Color(0xFF16A34A),
+                  ),
                 ),
-                title: Text('Choose from Gallery', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-                subtitle: Text('Select existing photo', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
+                title: Text(
+                  'Choose from Gallery',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  'Select existing photo',
+                  style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
+                ),
                 onTap: () => Navigator.pop(ctx, ImageSource.gallery),
               ),
               if (repo.adminImagePath != null)
@@ -101,9 +117,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       color: const Color(0xFFFEF2F2),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.delete_outline_rounded, color: Color(0xFFDC2626)),
+                    child: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: Color(0xFFDC2626),
+                    ),
                   ),
-                  title: Text('Remove Photo', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                  title: Text(
+                    'Remove Photo',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                  ),
                   onTap: () {
                     Navigator.pop(ctx);
                     repo.updateAdminImage(null);
@@ -127,7 +149,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (picked == null || !mounted) return;
 
     // Copy to app documents so the path persists through restarts
-    final dir  = await getApplicationDocumentsDirectory();
+    final dir = await getApplicationDocumentsDirectory();
     final dest = File('${dir.path}/admin_profile.jpg');
     await dest.writeAsBytes(await picked.readAsBytes());
 
@@ -142,41 +164,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       lastDate: DateTime.now(),
     );
     if (picked != null) setState(() => _month = picked);
-  }
-
-  ({String label, String message, Color color}) _subscriptionUi(Shop? shop) {
-    if (shop == null) {
-      return (
-        label: 'Setup',
-        message: 'Complete shop setup to enable customer app access.',
-        color: DashboardColors.statRed,
-      );
-    }
-
-    return switch (shop.subscriptionStatus) {
-      ShopSubscriptionStatus.trial => (
-          label: 'Trial',
-          message: shop.trialEndsAt == null
-              ? 'Trial is active. Add a paid plan before launch.'
-              : 'Trial active until ${DateFormat('dd MMM').format(shop.trialEndsAt!)}.',
-          color: const Color(0xFFEA580C),
-        ),
-      ShopSubscriptionStatus.active => (
-          label: 'Active',
-          message: 'Subscription active. Customer app access is enabled.',
-          color: DashboardColors.statGreen,
-        ),
-      ShopSubscriptionStatus.grace => (
-          label: 'Grace',
-          message: 'Renew soon to keep customer app access uninterrupted.',
-          color: const Color(0xFFEA580C),
-        ),
-      ShopSubscriptionStatus.expired => (
-          label: 'Expired',
-          message: 'Renew subscription to restore customer app visibility.',
-          color: DashboardColors.statRed,
-        ),
-    };
   }
 
   void _showCustomerPicker(BuildContext context, WaterPlantRepository repo) {
@@ -204,29 +191,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.all(16),
               child: Text(
                 'Select Customer',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 18),
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                ),
               ),
             ),
             Expanded(
               child: ListView.separated(
                 controller: controller,
                 itemCount: repo.customers.length,
-                separatorBuilder: (_, _) => const Divider(height: 1, color: CustomersColors.divider),
+                separatorBuilder: (_, _) =>
+                    const Divider(height: 1, color: CustomersColors.divider),
                 itemBuilder: (_, i) {
                   final c = repo.customers[i];
-                  final bg = CustomersColors.avatarBgs[i % CustomersColors.avatarBgs.length];
+                  final bg = CustomersColors
+                      .avatarBgs[i % CustomersColors.avatarBgs.length];
                   return ListTile(
                     leading: CircleAvatar(
                       backgroundColor: bg,
                       child: Text(
                         c.initials,
-                        style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w700),
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                    title: Text(c.name, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                    title: Text(
+                      c.name,
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                    ),
                     subtitle: Text(
                       c.phone,
-                      style: GoogleFonts.poppins(fontSize: 13, color: CustomersColors.labelGrey),
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: CustomersColors.labelGrey,
+                      ),
                     ),
                     onTap: () {
                       Navigator.pop(ctx);
@@ -246,8 +247,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Consumer2<WaterPlantRepository, NotificationRepository>(
       builder: (context, repo, notifications, _) {
+        final ownerName =
+            context.watch<AuthRepository>().currentUser?.ownerName ?? 'Owner';
         final stats = repo.dashboardStats(_month);
-        final actions = repo.dashboardActionItems(limit: 12);
         final business = repo.settings.businessName;
         final today = DateTime.now();
         final todayDeliveries = repo.deliveriesOnDate(today);
@@ -255,44 +257,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
           0,
           (sum, d) => sum + d.normalQty + d.coolQty + d.bottleQty,
         );
-        final pendingOrders = repo.ordersNewestFirst()
+        final pendingOrders = repo
+            .ordersNewestFirst()
             .where((o) => o.status == OrderStatus.pending)
             .toList();
-        final unpaidBalance = repo.customers.fold<double>(
-          0,
-          (sum, c) => sum + repo.customerBalance(c.id),
-        );
-        final shop = repo.shopById(WaterPlantRepository.defaultShopId);
-        final subscription = _subscriptionUi(shop);
-        final customerAppReady = repo.customers
-            .where((c) => WaterPlantRepository.normalizePhone(c.phone).length >= 10)
-            .length;
-        final customersMissingPhone = repo.customers.length - customerAppReady;
-        final monthlyCustomers =
-            repo.customers.where((c) => c.isMonthlyContract).length;
-        final appOrderCustomers =
-            repo.customers.where((c) => c.isAppOnDemand).length;
-        final driverActivities = repo.drivers.map((driver) {
-          final deliveries = todayDeliveries
-              .where((d) => d.driverId == driver.id)
-              .toList();
-          final units = deliveries.fold<int>(
-            0,
-            (sum, d) => sum + d.normalQty + d.coolQty + d.bottleQty,
-          );
-          return DashboardDriverActivity(
-            name: driver.name,
-            deliveries: deliveries.length,
-            units: units,
-            active: driver.active,
-          );
-        }).toList()
-          ..sort((a, b) {
-            final byDeliveries = b.deliveries.compareTo(a.deliveries);
-            if (byDeliveries != 0) return byDeliveries;
-            if (a.active != b.active) return a.active ? -1 : 1;
-            return a.name.compareTo(b.name);
-          });
+        final driverActivities =
+            repo.drivers.map((driver) {
+              final deliveries = todayDeliveries
+                  .where((d) => d.driverId == driver.id)
+                  .toList();
+              final units = deliveries.fold<int>(
+                0,
+                (sum, d) => sum + d.normalQty + d.coolQty + d.bottleQty,
+              );
+              return DashboardDriverActivity(
+                name: driver.name,
+                deliveries: deliveries.length,
+                units: units,
+                active: driver.active,
+              );
+            }).toList()..sort((a, b) {
+              final byDeliveries = b.deliveries.compareTo(a.deliveries);
+              if (byDeliveries != 0) return byDeliveries;
+              if (a.active != b.active) return a.active ? -1 : 1;
+              return a.name.compareTo(b.name);
+            });
         final pendingRequestCards = pendingOrders
             .map(
               (o) => DashboardPendingRequest(
@@ -324,50 +313,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   DashboardHeader(
                     title: business,
+                    ownerName: ownerName,
                     adminImagePath: repo.adminImagePath,
                     onAdminTap: () => _pickAdminImage(repo),
                     notificationCount: notifications.unreadCountForAdmin(),
                     onNotificationsTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
+                      MaterialPageRoute<void>(
+                        builder: (_) => const NotificationsScreen(),
+                      ),
                     ),
                   ),
                   Expanded(
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                       children: [
-                        DashboardListingBadge(
-                          homeDeliveryAvailable:
-                              repo.settings.homeDeliveryAvailable,
+                        DashboardQuickActions(
+                          onAddDelivery: openAddDelivery,
+                          onAddCustomer: () => context.push('/customers/add'),
                         ),
                         const SizedBox(height: 14),
                         DashboardOwnerSnapshot(
                           todayDeliveries: todayDeliveries.length,
                           todayUnits: todayUnits,
                           pendingRequests: pendingOrders.length,
-                          unpaidBalance: CurrencyUtils.format(unpaidBalance),
-                          subscriptionLabel: subscription.label,
-                          subscriptionMessage: subscription.message,
-                          subscriptionColor: subscription.color,
                           onOrdersTap: () => context.go(AppRoutes.orders),
-                          onSubscriptionTap: () =>
-                              context.push(AppRoutes.subscription),
-                        ),
-                        const SizedBox(height: 14),
-                        DashboardCustomerAppAccessCard(
-                          readyCustomers: customerAppReady,
-                          missingPhoneCustomers: customersMissingPhone,
-                          monthlyCustomers: monthlyCustomers,
-                          appOrderCustomers: appOrderCustomers,
-                          shopVisible:
-                              shop?.isVisibleToCustomers ?? false,
-                          onManageCustomers: () =>
-                              context.go(AppRoutes.customers),
-                        ),
-                        const SizedBox(height: 14),
-                        DashboardQuickActions(
-                          onAddDelivery: openAddDelivery,
-                          onAddCustomer: () => context.push('/customers/add'),
                         ),
                         const SizedBox(height: 14),
                         DashboardOperationsGrid(
@@ -380,8 +350,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           right: DashboardDriverActivityCard(
                             activities: driverActivities,
-                            activeDrivers:
-                                repo.drivers.where((d) => d.active).length,
+                            activeDrivers: repo.drivers
+                                .where((d) => d.active)
+                                .length,
                             totalDrivers: repo.drivers.length,
                             onManageDrivers: () =>
                                 context.push(AppRoutes.drivers),
@@ -392,12 +363,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           month: _month,
                           onMonthTap: _pickMonth,
                           data: overview,
-                        ),
-                        const SizedBox(height: 16),
-                        DashboardActionCenter(
-                          items: actions,
-                          onViewCustomers: () => context.go(AppRoutes.customers),
-                          onItemTap: (item) => context.push('/customers/${item.customerId}'),
                         ),
                       ],
                     ),

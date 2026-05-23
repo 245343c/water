@@ -112,6 +112,9 @@ class OrderListCard extends StatelessWidget {
     super.key,
     required this.order,
     required this.customerName,
+    required this.customerPhone,
+    required this.shopName,
+    required this.isMonthlyCustomer,
     required this.initials,
     required this.colorIndex,
     required this.onTap,
@@ -119,13 +122,17 @@ class OrderListCard extends StatelessWidget {
 
   final CustomerOrder order;
   final String customerName;
+  final String customerPhone;
+  final String shopName;
+  final bool isMonthlyCustomer;
   final String initials;
   final int colorIndex;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final accent = CustomersColors.avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
+    final accent = CustomersColors
+        .avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
     final statusStyle = _statusStyle(order.status);
 
     return Padding(
@@ -140,7 +147,9 @@ class OrderListCard extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: order.isPending ? statusStyle.border : CustomersColors.cardBorder,
+                color: order.isPending
+                    ? statusStyle.border
+                    : CustomersColors.cardBorder,
                 width: order.isPending ? 1.5 : 1,
               ),
               boxShadow: [
@@ -186,23 +195,63 @@ class OrderListCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          _StatusBadge(style: statusStyle, label: order.status.label),
+                          _StatusBadge(
+                            style: statusStyle,
+                            label: order.status.label,
+                          ),
                         ],
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        shopName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: CustomersColors.addButton,
+                        ),
+                      ),
                       const SizedBox(height: 6),
-                      Row(
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
                         children: [
-                          if (order.normalQty > 0) _CanChip(label: '${order.normalQty} Normal', cool: false),
-                          if (order.normalQty > 0 && order.coolQty > 0) const SizedBox(width: 6),
-                          if (order.coolQty > 0) _CanChip(label: '${order.coolQty} Cool', cool: true),
+                          _InfoChip(
+                            icon: Icons.account_balance_wallet_outlined,
+                            label: isMonthlyCustomer
+                                ? 'Monthly customer'
+                                : 'Customer',
+                            color: CustomersColors.addButton,
+                          ),
+                          if (customerPhone.isNotEmpty)
+                            _InfoChip(
+                              icon: Icons.phone_outlined,
+                              label: customerPhone,
+                              color: CustomersColors.labelGrey,
+                            ),
+                          if (order.normalQty > 0)
+                            _CanChip(
+                              label: '${order.normalQty} Normal',
+                              cool: false,
+                            ),
+                          if (order.coolQty > 0)
+                            _CanChip(
+                              label: '${order.coolQty} Cool',
+                              cool: true,
+                            ),
                         ],
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        _timeAgo(order.createdAt),
-                        style: GoogleFonts.poppins(fontSize: 11, color: CustomersColors.labelGrey),
+                        'Requested ${_timeAgo(order.createdAt)}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: CustomersColors.labelGrey,
+                        ),
                       ),
-                      if (order.adminResponse != null && order.adminResponse!.isNotEmpty) ...[
+                      if (order.adminResponse != null &&
+                          order.adminResponse!.isNotEmpty) ...[
                         const SizedBox(height: 4),
                         Text(
                           order.adminResponse!,
@@ -220,7 +269,9 @@ class OrderListCard extends StatelessWidget {
                 ),
                 Icon(
                   Icons.chevron_right,
-                  color: order.isPending ? CustomersColors.addButton : CustomersColors.labelGrey,
+                  color: order.isPending
+                      ? CustomersColors.addButton
+                      : CustomersColors.labelGrey,
                   size: 22,
                 ),
               ],
@@ -275,14 +326,60 @@ class _CanChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: color),
+        style: GoogleFonts.poppins(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
 class _StatusStyle {
-  const _StatusStyle({required this.bg, required this.text, required this.border});
+  const _StatusStyle({
+    required this.bg,
+    required this.text,
+    required this.border,
+  });
 
   final Color bg;
   final Color text;
@@ -292,20 +389,20 @@ class _StatusStyle {
 _StatusStyle _statusStyle(OrderStatus status) {
   return switch (status) {
     OrderStatus.pending => const _StatusStyle(
-        bg: Color(0xFFFFF7ED),
-        text: Color(0xFF9A3412),
-        border: Color(0xFFFDBA74),
-      ),
+      bg: Color(0xFFFFF7ED),
+      text: Color(0xFF9A3412),
+      border: Color(0xFFFDBA74),
+    ),
     OrderStatus.accepted => const _StatusStyle(
-        bg: Color(0xFFECFDF5),
-        text: Color(0xFF166534),
-        border: Color(0xFF86EFAC),
-      ),
+      bg: Color(0xFFECFDF5),
+      text: Color(0xFF166534),
+      border: Color(0xFF86EFAC),
+    ),
     OrderStatus.rejected => const _StatusStyle(
-        bg: Color(0xFFFEF2F2),
-        text: Color(0xFF991B1B),
-        border: Color(0xFFFECACA),
-      ),
+      bg: Color(0xFFFEF2F2),
+      text: Color(0xFF991B1B),
+      border: Color(0xFFFECACA),
+    ),
   };
 }
 
@@ -315,7 +412,9 @@ String _timeAgo(DateTime date) {
   if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
   if (diff.inHours < 24) return '${diff.inHours} hr ago';
   if (diff.inDays == 1) {
-    final h = date.hour > 12 ? date.hour - 12 : (date.hour == 0 ? 12 : date.hour);
+    final h = date.hour > 12
+        ? date.hour - 12
+        : (date.hour == 0 ? 12 : date.hour);
     final ampm = date.hour >= 12 ? 'PM' : 'AM';
     return 'Yesterday, $h:${date.minute.toString().padLeft(2, '0')} $ampm';
   }
@@ -329,6 +428,8 @@ Future<void> showOrderRespondSheet({
   required CustomerOrder order,
   required String customerName,
   required String customerPhone,
+  required String shopName,
+  required bool isMonthlyCustomer,
   required VoidCallback onAccept,
   required void Function(String reason) onReject,
 }) {
@@ -343,6 +444,8 @@ Future<void> showOrderRespondSheet({
       order: order,
       customerName: customerName,
       customerPhone: customerPhone,
+      shopName: shopName,
+      isMonthlyCustomer: isMonthlyCustomer,
       onAccept: () {
         Navigator.pop(ctx);
         onAccept();
@@ -360,6 +463,8 @@ class _OrderRespondSheet extends StatefulWidget {
     required this.order,
     required this.customerName,
     required this.customerPhone,
+    required this.shopName,
+    required this.isMonthlyCustomer,
     required this.onAccept,
     required this.onReject,
   });
@@ -367,6 +472,8 @@ class _OrderRespondSheet extends StatefulWidget {
   final CustomerOrder order;
   final String customerName;
   final String customerPhone;
+  final String shopName;
+  final bool isMonthlyCustomer;
   final VoidCallback onAccept;
   final void Function(String reason) onReject;
 
@@ -424,7 +531,7 @@ class _OrderRespondSheetState extends State<_OrderRespondSheet> {
           ),
           const SizedBox(height: 16),
           Text(
-            isPending ? 'Respond to order' : 'Order details',
+            isPending ? 'Review customer request' : 'Request details',
             style: GoogleFonts.poppins(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -434,8 +541,13 @@ class _OrderRespondSheetState extends State<_OrderRespondSheet> {
           const SizedBox(height: 16),
           _DetailRow(label: 'Customer', value: widget.customerName),
           _DetailRow(label: 'Phone', value: widget.customerPhone),
-          _DetailRow(label: 'Water order', value: order.cansSummary),
-          _DetailRow(label: 'Ordered', value: _timeAgo(order.createdAt)),
+          _DetailRow(label: 'Plant', value: widget.shopName),
+          _DetailRow(
+            label: 'Account',
+            value: widget.isMonthlyCustomer ? 'Monthly customer' : 'Customer',
+          ),
+          _DetailRow(label: 'Request', value: order.cansSummary),
+          _DetailRow(label: 'Requested', value: _timeAgo(order.createdAt)),
           if (order.customerNote != null && order.customerNote!.isNotEmpty)
             _DetailRow(label: 'Customer note', value: order.customerNote!),
           if (order.adminResponse != null && order.adminResponse!.isNotEmpty)
@@ -469,7 +581,10 @@ class _OrderRespondSheetState extends State<_OrderRespondSheet> {
                   ),
                 ),
                 ChoiceChip(
-                  label: Text('Other', style: GoogleFonts.poppins(fontSize: 11)),
+                  label: Text(
+                    'Other',
+                    style: GoogleFonts.poppins(fontSize: 11),
+                  ),
                   selected: _selectedReason == 'Other',
                   onSelected: (_) => setState(() => _selectedReason = 'Other'),
                 ),
@@ -482,7 +597,9 @@ class _OrderRespondSheetState extends State<_OrderRespondSheet> {
                 decoration: InputDecoration(
                   hintText: 'Type your message to customer',
                   hintStyle: GoogleFonts.poppins(fontSize: 13),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 maxLines: 2,
               ),
@@ -492,15 +609,19 @@ class _OrderRespondSheetState extends State<_OrderRespondSheet> {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: _selectedReason != null &&
-                            (_selectedReason != 'Other' || _customReason.text.trim().isNotEmpty)
+                    onPressed:
+                        _selectedReason != null &&
+                            (_selectedReason != 'Other' ||
+                                _customReason.text.trim().isNotEmpty)
                         ? _submitReject
                         : null,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: CustomersColors.balanceRed,
                       side: const BorderSide(color: CustomersColors.balanceRed),
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: Text(
                       'Decline',
@@ -515,10 +636,12 @@ class _OrderRespondSheetState extends State<_OrderRespondSheet> {
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF16A34A),
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: Text(
-                      'Accept',
+                      'Accept request',
                       style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -533,9 +656,14 @@ class _OrderRespondSheetState extends State<_OrderRespondSheet> {
                 style: FilledButton.styleFrom(
                   backgroundColor: CustomersColors.addButton,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-                child: Text('Close', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                child: Text(
+                  'Close',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
               ),
             ),
         ],
@@ -561,7 +689,10 @@ class _DetailRow extends StatelessWidget {
             width: 100,
             child: Text(
               label,
-              style: GoogleFonts.poppins(fontSize: 12, color: CustomersColors.labelGrey),
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: CustomersColors.labelGrey,
+              ),
             ),
           ),
           Expanded(

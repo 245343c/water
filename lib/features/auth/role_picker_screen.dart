@@ -21,12 +21,16 @@ class RolePickerScreen extends StatelessWidget {
               builder: (context, constraints) {
                 return SingleChildScrollView(
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                    child: Column(
-                      children: [
-                        _WelcomeHero(minHeight: constraints.maxHeight * 0.46),
-                        const _RolePickerCard(),
-                      ],
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: IntrinsicHeight(
+                      child: Column(
+                        children: [
+                          _WelcomeHero(minHeight: constraints.maxHeight * 0.42),
+                          const Expanded(child: _RolePickerCard()),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -47,9 +51,9 @@ class _WelcomeHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: BoxConstraints(minHeight: math.max(220, minHeight)),
+      constraints: BoxConstraints(minHeight: math.max(210, minHeight)),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(28, 18, 28, 20),
+        padding: const EdgeInsets.fromLTRB(28, 12, 28, 18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.end,
@@ -66,7 +70,7 @@ class _WelcomeHero extends StatelessWidget {
                 size: 34,
               ),
             ),
-            const SizedBox(height: 34),
+            const SizedBox(height: 26),
             Text(
               'Pure water,\ndelivered home.',
               style: GoogleFonts.poppins(

@@ -16,7 +16,11 @@ class DriverRouteScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer3<WaterPlantRepository, NotificationRepository, AuthRepository>(
+    return Consumer3<
+      WaterPlantRepository,
+      NotificationRepository,
+      AuthRepository
+    >(
       builder: (context, repo, notifications, auth, _) {
         final driverId = auth.currentUser?.driverId;
         final assignedShop = repo.shopForDriver(driverId);
@@ -24,9 +28,16 @@ class DriverRouteScreen extends StatelessWidget {
         final deliveries = repo.deliveriesOnDateForDriver(today, driverId);
         final cans = repo.cansDeliveredOnDateForDriver(today, driverId);
         final acceptedOrders = repo.driverAcceptedOrders(driverId: driverId);
+        final acceptedCustomerIds = acceptedOrders
+            .map((order) => order.customerId)
+            .toSet();
         final route = repo.todaysRouteCustomersForDriver(driverId);
         final pendingRoute = route
-            .where((c) => !repo.hasDeliveryToday(c.id))
+            .where(
+              (c) =>
+                  !repo.hasDeliveryToday(c.id) &&
+                  !acceptedCustomerIds.contains(c.id),
+            )
             .toList();
         final driverAlerts = notifications.unreadCountForDriver();
 
@@ -39,10 +50,10 @@ class DriverRouteScreen extends StatelessWidget {
                 DriverHeader(
                   title: 'My route',
                   subtitle: acceptedOrders.isNotEmpty
-                      ? '${acceptedOrders.length} confirmed order(s) to deliver'
+                      ? '${acceptedOrders.length} confirmed request(s) to deliver'
                       : assignedShop == null
-                          ? 'Driver is not linked to a water plant'
-                          : '${assignedShop.name} customers only',
+                      ? 'Driver is not linked to a water plant'
+                      : '${assignedShop.name} customers only',
                 ),
                 Expanded(
                   child: ListView(
@@ -63,11 +74,16 @@ class DriverRouteScreen extends StatelessWidget {
                               onTap: () => context.go(AppRoutes.driverProfile),
                               borderRadius: BorderRadius.circular(12),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.notifications_active_rounded,
-                                        color: Color(0xFFEA580C)),
+                                    const Icon(
+                                      Icons.notifications_active_rounded,
+                                      color: Color(0xFFEA580C),
+                                    ),
                                     const SizedBox(width: 10),
                                     Expanded(
                                       child: Text(
@@ -104,7 +120,8 @@ class DriverRouteScreen extends StatelessWidget {
                       DriverSectionTitle(
                         title: "Today's stops (${pendingRoute.length} left)",
                         trailing: TextButton(
-                          onPressed: () => context.go(AppRoutes.driverCustomers),
+                          onPressed: () =>
+                              context.go(AppRoutes.driverCustomers),
                           child: Text(
                             'All customers',
                             style: GoogleFonts.poppins(
@@ -133,7 +150,8 @@ class DriverRouteScreen extends StatelessWidget {
                             done: repo.hasDeliveryToday(c.id),
                             note: repo.routeNoteForCustomer(c.id),
                             hasAcceptedOrder: order != null,
-                            onTap: () => context.push('/driver/customers/${c.id}'),
+                            onTap: () =>
+                                context.push('/driver/customers/${c.id}'),
                           );
                         }),
                       const DriverSectionTitle(title: 'Completed today'),
@@ -149,25 +167,40 @@ class DriverRouteScreen extends StatelessWidget {
                             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                             child: ListTile(
                               onTap: c != null
-                                  ? () => context.push('/driver/customers/${c.id}')
+                                  ? () => context.push(
+                                      '/driver/customers/${c.id}',
+                                    )
                                   : null,
                               tileColor: Colors.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
-                                side: const BorderSide(color: DriverColors.cardBorder),
+                                side: const BorderSide(
+                                  color: DriverColors.cardBorder,
+                                ),
                               ),
                               leading: CircleAvatar(
-                                backgroundColor: DriverColors.success.withValues(alpha: 0.12),
-                                child: const Icon(Icons.check, color: DriverColors.success, size: 20),
+                                backgroundColor: DriverColors.success
+                                    .withValues(alpha: 0.12),
+                                child: const Icon(
+                                  Icons.check,
+                                  color: DriverColors.success,
+                                  size: 20,
+                                ),
                               ),
                               title: Text(
                                 c?.name ?? 'Customer',
-                                style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14),
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
                               ),
                               subtitle: Text(d.cansSummary),
                               trailing: Text(
                                 d.date.timeLabel,
-                                style: GoogleFonts.poppins(fontSize: 11, color: DriverColors.labelGrey),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  color: DriverColors.labelGrey,
+                                ),
                               ),
                             ),
                           );
@@ -199,12 +232,19 @@ class _EmptyCard extends StatelessWidget {
       decoration: DriverColors.cardDecoration,
       child: Column(
         children: [
-          Icon(icon, size: 40, color: DriverColors.accent.withValues(alpha: 0.5)),
+          Icon(
+            icon,
+            size: 40,
+            color: DriverColors.accent.withValues(alpha: 0.5),
+          ),
           const SizedBox(height: 8),
           Text(
             message,
             textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(fontSize: 13, color: DriverColors.labelGrey),
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: DriverColors.labelGrey,
+            ),
           ),
         ],
       ),

@@ -28,7 +28,6 @@ class Customer {
   final String? appUserId;
   final DateTime createdAt;
 
-  bool get isAppOnDemand => billingMode == CustomerBillingMode.appOnDemand;
   bool get isMonthlyContract =>
       billingMode == CustomerBillingMode.monthlyContract;
 

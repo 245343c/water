@@ -51,15 +51,17 @@ All roles share:
 
 ## 4. Customer model (closed network)
 
-Customers are fixed admin-created customers, not public marketplace users.
+Customers are fixed admin-created monthly customers, not public marketplace users.
 
 **Rules:**
 
 - Admin creates every customer record.
 - Customer app access is matched by the saved phone number.
 - Customer sees only the shop(s) that added that phone number.
-- Customer app orders are attached to the existing admin-created customer record.
+- Multiple admins/plants can add the same customer phone; the customer app then shows multiple linked plants.
+- Customer app orders/requests are attached to the existing admin-created monthly customer record for the selected plant.
 - The app must not create outside/public customers automatically.
+- There is no separate on-demand customer type in the current scope.
 
 ---
 
@@ -90,7 +92,7 @@ Set on **admin register** and editable in **Settings → Customer app**. Synced 
 ## 7. Order & delivery flow (end-to-end)
 
 ```text
-CUSTOMER (fixed admin-created customer)
+CUSTOMER (fixed admin-created monthly customer)
   Sign in with linked phone -> Linked plant -> Request cans/products
         ↓
 ADMIN
@@ -106,6 +108,8 @@ CUSTOMER + ADMIN
 **Contract customers:** deliveries without app order → monthly bill at month-end (existing admin flow).
 
 ---
+
+**Monthly customers:** direct deliveries and customer app requests both belong to the monthly account and appear in month-end billing.
 
 ## 8. Feature matrix (complete)
 
@@ -133,7 +137,7 @@ CUSTOMER + ADMIN
 | Monthly bill PDF + WhatsApp | Done |
 | Drivers management | Done |
 | Subscription screen (trial/paywall) | Planned |
-| Customer billing mode filter | Planned |
+| Monthly customer account focus | Current scope |
 | Shop registration / multi-shop | Planned |
 
 ### 7.3 Driver (existing)
@@ -180,12 +184,15 @@ userFavorites/{uid}/shops/{shopId}
 promotions/{id}                        // shopId null = platform-wide
 
 appCustomers/{uid}                     // or embed in users
-  linkedCustomerId, phone
+  phone, defaultAddress, lat, lng
+
+customerShopLinks/{uid_shopId}
+  uid, shopId, customerId              // one customer app login can link to multiple shops
 ```
 
 ### 8.3 Security rules (principles)
 
-- Customer reads only shops linked to their admin-created customer record.
+- Customer reads only shops linked to their admin-created monthly customer record.
 - Customer writes only own orders under valid shop.
 - Admin reads/writes only own `shopId`.
 - Driver reads shop data + writes deliveries for assigned shop.
@@ -238,7 +245,7 @@ appCustomers/{uid}                     // or embed in users
 |-------|-------------|
 | **A** ✓ | Admin + Driver roles |
 | **B** (current) | Master plan + Customer UI mock + welcome screen |
-| **C** | Billing mode on CRM customers + hide bill for app type |
+| **C** | Monthly customer account polish + multi-admin customer links |
 | **D** | Admin subscription mock UI |
 | **E** | Firebase Auth + Firestore |
 | **F** | Razorpay + multi-shop + promotions |

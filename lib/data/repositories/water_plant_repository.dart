@@ -194,8 +194,7 @@ class WaterPlantRepository extends ChangeNotifier {
           (c) =>
               c.name.toLowerCase().contains(q) ||
               c.place.toLowerCase().contains(q) ||
-              (qDigits.isNotEmpty &&
-                  normalizePhone(c.phone).contains(qDigits)),
+              (qDigits.isNotEmpty && normalizePhone(c.phone).contains(qDigits)),
         )
         .toList();
   }
@@ -693,6 +692,23 @@ class WaterPlantRepository extends ChangeNotifier {
   bool hasDeliveryToday(String customerId) {
     final today = DateTime.now();
     return deliveriesOnDate(today).any((d) => d.customerId == customerId);
+  }
+
+  Delivery? deliveryForOrder(CustomerOrder order) {
+    if (order.status != OrderStatus.accepted) return null;
+    final start = order.respondedAt ?? order.createdAt;
+    final matches =
+        _deliveries
+            .where(
+              (d) =>
+                  d.customerId == order.customerId &&
+                  !d.date.isBefore(start) &&
+                  d.normalQty >= order.normalQty &&
+                  d.coolQty >= order.coolQty,
+            )
+            .toList()
+          ..sort((a, b) => b.date.compareTo(a.date));
+    return matches.isEmpty ? null : matches.first;
   }
 
   Customer? customerById(String id) {
@@ -1376,9 +1392,9 @@ class WaterPlantRepository extends ChangeNotifier {
   List<Delivery> deliveriesOnDateForDriver(DateTime day, String? driverId) {
     final shop = shopForDriver(driverId);
     if (shop == null) return const [];
-    return deliveriesOnDate(day)
-        .where((d) => shopIdForCustomer(d.customerId) == shop.id)
-        .toList();
+    return deliveriesOnDate(
+      day,
+    ).where((d) => shopIdForCustomer(d.customerId) == shop.id).toList();
   }
 
   int cansDeliveredOnDateForDriver(DateTime day, String? driverId) {
@@ -1413,9 +1429,9 @@ class WaterPlantRepository extends ChangeNotifier {
     String? driverId,
   }) {
     try {
-      return driverAcceptedOrders(driverId: driverId).firstWhere(
-        (o) => o.customerId == customerId,
-      );
+      return driverAcceptedOrders(
+        driverId: driverId,
+      ).firstWhere((o) => o.customerId == customerId);
     } catch (_) {
       return null;
     }

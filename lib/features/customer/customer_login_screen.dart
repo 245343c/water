@@ -74,7 +74,10 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
     final user = auth.currentUser!;
     repo.linkContractCustomerOnLogin(userId: user.id, phone: user.phone);
 
-    final isContract = repo.isMonthlyContractAppUser(user.id, phone: user.phone);
+    final isContract = repo.isMonthlyContractAppUser(
+      user.id,
+      phone: user.phone,
+    );
     final crm = repo.linkedCrmCustomerForAppUser(user.id);
     if (crm == null) {
       auth.logout();
@@ -82,14 +85,12 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
       return;
     }
 
-    auth.markCustomerOnboardingComplete(
-      user.id,
-      name: crm.name,
-    );
+    auth.markCustomerOnboardingComplete(user.id, name: crm.name);
 
     final profile = repo.customerProfileByUserId(user.id);
     final currentUser = auth.currentUser ?? user;
-    final needsOnboarding = !isContract &&
+    final needsOnboarding =
+        !isContract &&
         (!currentUser.customerProfileComplete ||
             profile == null ||
             !profile.onboardingComplete);
@@ -118,7 +119,9 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
               builder: (context, constraints) {
                 return SingleChildScrollView(
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
                     child: IntrinsicHeight(
                       child: Column(
                         children: [
@@ -293,7 +296,7 @@ class _LoginCard extends StatelessWidget {
         const SizedBox(height: 14),
         Center(
           child: Text(
-            'Bulk customers use shop-registered number',
+            'Use shop-registered number. Demo: 9876543210 or 9632580741',
             style: GoogleFonts.poppins(
               fontSize: 11,
               color: CustomerColors.labelGrey,

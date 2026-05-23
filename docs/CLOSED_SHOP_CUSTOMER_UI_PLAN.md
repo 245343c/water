@@ -39,7 +39,8 @@ A customer must not see all active water plants. Another shop appears in the cus
 - Logs in with phone.
 - Sees only linked shop(s).
 - Views deliveries, monthly activity, bills, payments, balance, and notifications.
-- Can request/order water only from an admin-linked fixed customer account.
+- Can request/order water only from an admin-linked monthly customer account.
+- Can be linked to multiple admins/plants when each admin adds the same phone number.
 - Does not pay subscription.
 
 ## Current Concept Change
@@ -63,6 +64,7 @@ Use:
 - Monthly activity
 - Fixed customer
 - Linked customer account
+- Monthly customer
 
 Avoid:
 
@@ -71,6 +73,7 @@ Avoid:
 - Featured shops
 - Public ratings/reviews unless real
 - App request customer type
+- On-demand customer
 
 ## Mock Data Plan
 
@@ -85,6 +88,7 @@ Add only the missing relationship data:
 - Which app customer user is linked to which CRM customer.
 - Which shop(s) a customer can see.
 - Customer app orders must use an existing admin-created customer record.
+- Customer app orders must remain part of monthly account activity and billing.
 - The app must not create outside/public CRM customers automatically.
 
 Optional small demo additions:
