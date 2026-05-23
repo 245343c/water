@@ -12,10 +12,12 @@ class DriverAcceptedOrderCard extends StatelessWidget {
     super.key,
     required this.order,
     required this.repo,
+    required this.driverId,
   });
 
   final CustomerOrder order;
   final WaterPlantRepository repo;
+  final String? driverId;
 
   @override
   Widget build(BuildContext context) {
@@ -141,12 +143,33 @@ class DriverAcceptedOrderCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-                DriverPrimaryButton(
-                  label: 'Open & record delivery',
-                  icon: Icons.arrow_forward_rounded,
-                  onPressed: () =>
-                      context.push('/driver/customers/${customer.id}'),
-                ),
+                if (!order.isDriverAssigned)
+                  DriverPrimaryButton(
+                    label: 'Accept delivery',
+                    icon: Icons.assignment_turned_in_outlined,
+                    onPressed: () {
+                      final id = driverId;
+                      if (id == null) return;
+                      repo.driverAcceptOrder(orderId: order.id, driverId: id);
+                    },
+                  )
+                else if (!order.isOutForDelivery)
+                  DriverPrimaryButton(
+                    label: 'Start delivery',
+                    icon: Icons.delivery_dining_rounded,
+                    onPressed: () {
+                      final id = driverId;
+                      if (id == null) return;
+                      repo.driverStartDelivery(orderId: order.id, driverId: id);
+                    },
+                  )
+                else
+                  DriverPrimaryButton(
+                    label: 'Open & record delivery',
+                    icon: Icons.arrow_forward_rounded,
+                    onPressed: () =>
+                        context.push('/driver/customers/${customer.id}'),
+                  ),
               ],
             ),
           ),

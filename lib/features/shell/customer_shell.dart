@@ -24,19 +24,21 @@ abstract final class _CustomerRoutes {
 class CustomerShell extends StatelessWidget {
   const CustomerShell({super.key, required this.location});
 
-  final String location;
+  final Uri location;
+
+  String get _path => location.path;
 
   int _navIndexForLocation(bool isContract) {
-    if (location.startsWith(_CustomerRoutes.account)) {
+    if (_path.startsWith(_CustomerRoutes.account)) {
       return isContract ? 1 : 0;
     }
-    if (location.startsWith(_CustomerRoutes.orders)) {
+    if (_path.startsWith(_CustomerRoutes.orders)) {
       return isContract ? 2 : 1;
     }
-    if (location.startsWith(_CustomerRoutes.promotions)) {
+    if (_path.startsWith(_CustomerRoutes.promotions)) {
       return isContract ? 3 : 2;
     }
-    if (location.startsWith(_CustomerRoutes.profile)) {
+    if (_path.startsWith(_CustomerRoutes.profile)) {
       return isContract ? 4 : 3;
     }
     return 0;
@@ -100,16 +102,18 @@ class CustomerShell extends StatelessWidget {
 
   Widget _tabForLocation({required bool isContract}) {
     try {
-      if (location.startsWith(_CustomerRoutes.account)) {
-        return const CustomerContractAccountScreen();
+      if (_path.startsWith(_CustomerRoutes.account)) {
+        return CustomerContractAccountScreen(
+          focusShopId: location.queryParameters['shopId'],
+        );
       }
-      if (location.startsWith(_CustomerRoutes.orders)) {
+      if (_path.startsWith(_CustomerRoutes.orders)) {
         return const CustomerOrdersScreen();
       }
-      if (location.startsWith(_CustomerRoutes.promotions)) {
+      if (_path.startsWith(_CustomerRoutes.promotions)) {
         return const CustomerPromotionsScreen();
       }
-      if (location.startsWith(_CustomerRoutes.profile)) {
+      if (_path.startsWith(_CustomerRoutes.profile)) {
         return const CustomerProfileScreen();
       }
       return const CustomerHomeScreen();

@@ -72,6 +72,7 @@ class AppRoutes {
   static const subscription = '/subscription';
 
   static const driverRoute = '/driver/route';
+
   /// Legacy paths — redirected to [driverRoute].
   static const driverToday = '/driver/today';
   static const driverOrders = '/driver/orders';
@@ -79,10 +80,7 @@ class AppRoutes {
   static const driverProfile = '/driver/profile';
 }
 
-GoRouter createAppRouter(
-  AuthRepository auth,
-  WaterPlantRepository plant,
-) {
+GoRouter createAppRouter(AuthRepository auth, WaterPlantRepository plant) {
   return GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: AppRoutes.welcome,
@@ -111,6 +109,7 @@ GoRouter createAppRouter(
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => CustomerShopScreen(
           shopId: state.pathParameters['id']!,
+          orderId: state.uri.queryParameters['orderId'],
         ),
       ),
       GoRoute(
@@ -137,7 +136,9 @@ GoRouter createAppRouter(
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) {
           final customerId = state.uri.queryParameters['customerId'] ?? '';
-          final shopId = state.uri.queryParameters['shopId'] ?? WaterPlantRepository.defaultShopId;
+          final shopId =
+              state.uri.queryParameters['shopId'] ??
+              WaterPlantRepository.defaultShopId;
           final year = int.tryParse(state.uri.queryParameters['year'] ?? '');
           final month = int.tryParse(state.uri.queryParameters['month'] ?? '');
           DateTime? initial;
@@ -153,23 +154,23 @@ GoRouter createAppRouter(
       ),
       GoRoute(
         path: AppRoutes.customerHome,
-        builder: (context, state) => CustomerShell(location: state.uri.path),
+        builder: (context, state) => CustomerShell(location: state.uri),
       ),
       GoRoute(
         path: AppRoutes.customerAccount,
-        builder: (context, state) => CustomerShell(location: state.uri.path),
+        builder: (context, state) => CustomerShell(location: state.uri),
       ),
       GoRoute(
         path: AppRoutes.customerOrders,
-        builder: (context, state) => CustomerShell(location: state.uri.path),
+        builder: (context, state) => CustomerShell(location: state.uri),
       ),
       GoRoute(
         path: AppRoutes.customerPromotions,
-        builder: (context, state) => CustomerShell(location: state.uri.path),
+        builder: (context, state) => CustomerShell(location: state.uri),
       ),
       GoRoute(
         path: AppRoutes.customerProfile,
-        builder: (context, state) => CustomerShell(location: state.uri.path),
+        builder: (context, state) => CustomerShell(location: state.uri),
       ),
       GoRoute(
         path: AppRoutes.login,
@@ -199,9 +200,8 @@ GoRouter createAppRouter(
             routes: [
               GoRoute(
                 path: AppRoutes.dashboard,
-                pageBuilder: (context, state) => const NoTransitionPage(
-                  child: DashboardScreen(),
-                ),
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: DashboardScreen()),
               ),
             ],
           ),
@@ -209,9 +209,8 @@ GoRouter createAppRouter(
             routes: [
               GoRoute(
                 path: AppRoutes.customers,
-                pageBuilder: (context, state) => const NoTransitionPage(
-                  child: CustomersScreen(),
-                ),
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: CustomersScreen()),
               ),
             ],
           ),
@@ -219,9 +218,8 @@ GoRouter createAppRouter(
             routes: [
               GoRoute(
                 path: AppRoutes.orders,
-                pageBuilder: (context, state) => const NoTransitionPage(
-                  child: OrdersScreen(),
-                ),
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: OrdersScreen()),
               ),
             ],
           ),
@@ -229,9 +227,8 @@ GoRouter createAppRouter(
             routes: [
               GoRoute(
                 path: AppRoutes.products,
-                pageBuilder: (context, state) => const NoTransitionPage(
-                  child: ProductsScreen(),
-                ),
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: ProductsScreen()),
               ),
             ],
           ),
@@ -239,9 +236,8 @@ GoRouter createAppRouter(
             routes: [
               GoRoute(
                 path: AppRoutes.more,
-                pageBuilder: (context, state) => const NoTransitionPage(
-                  child: MoreScreen(),
-                ),
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: MoreScreen()),
               ),
             ],
           ),
@@ -256,9 +252,8 @@ GoRouter createAppRouter(
             routes: [
               GoRoute(
                 path: AppRoutes.driverRoute,
-                pageBuilder: (context, state) => const NoTransitionPage(
-                  child: DriverRouteScreen(),
-                ),
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: DriverRouteScreen()),
               ),
             ],
           ),
@@ -266,9 +261,8 @@ GoRouter createAppRouter(
             routes: [
               GoRoute(
                 path: AppRoutes.driverCustomers,
-                pageBuilder: (context, state) => const NoTransitionPage(
-                  child: DriverCustomersScreen(),
-                ),
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: DriverCustomersScreen()),
               ),
             ],
           ),
@@ -276,9 +270,8 @@ GoRouter createAppRouter(
             routes: [
               GoRoute(
                 path: AppRoutes.driverProfile,
-                pageBuilder: (context, state) => const NoTransitionPage(
-                  child: DriverProfileScreen(),
-                ),
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: DriverProfileScreen()),
               ),
             ],
           ),
@@ -287,9 +280,8 @@ GoRouter createAppRouter(
       GoRoute(
         path: '/driver/customers/:id',
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => DriverCustomerDetailScreen(
-          customerId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) =>
+            DriverCustomerDetailScreen(customerId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/customers/add',
@@ -299,23 +291,20 @@ GoRouter createAppRouter(
       GoRoute(
         path: '/customers/:id/edit',
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => AddEditCustomerScreen(
-          customerId: state.pathParameters['id'],
-        ),
+        builder: (context, state) =>
+            AddEditCustomerScreen(customerId: state.pathParameters['id']),
       ),
       GoRoute(
         path: '/customers/:id',
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => CustomerDetailScreen(
-          customerId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) =>
+            CustomerDetailScreen(customerId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/customers/:id/delivery',
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => AddDeliveryScreen(
-          customerId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) =>
+            AddDeliveryScreen(customerId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/customers/:id/delivery/success',
@@ -331,9 +320,8 @@ GoRouter createAppRouter(
       GoRoute(
         path: '/customers/:id/history',
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => DeliveryHistoryScreen(
-          customerId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) =>
+            DeliveryHistoryScreen(customerId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/customers/:id/summary',
@@ -354,23 +342,20 @@ GoRouter createAppRouter(
       GoRoute(
         path: '/customers/:id/bill',
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => MonthlyBillScreen(
-          customerId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) =>
+            MonthlyBillScreen(customerId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/customers/:id/payment',
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => RecordPaymentScreen(
-          customerId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) =>
+            RecordPaymentScreen(customerId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/customers/:id/payments',
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => PaymentHistoryScreen(
-          customerId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) =>
+            PaymentHistoryScreen(customerId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/products/add',
@@ -380,9 +365,8 @@ GoRouter createAppRouter(
       GoRoute(
         path: '/products/:id',
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => ProductDetailScreen(
-          productId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) =>
+            ProductDetailScreen(productId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: AppRoutes.reports,

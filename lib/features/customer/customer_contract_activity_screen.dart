@@ -17,6 +17,41 @@ import 'package:sri_sai_ro_water/routing/app_router.dart';
 class CustomerContractActivityScreen extends StatelessWidget {
   const CustomerContractActivityScreen({super.key});
 
+  Future<void> _confirmCancel(
+    BuildContext context,
+    WaterPlantRepository repo,
+    AuthRepository auth,
+    CustomerOrder order,
+  ) async {
+    final user = auth.currentUser;
+    if (user == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          'Cancel request?',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          'You can cancel before the plant confirms it.',
+          style: GoogleFonts.poppins(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Back'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Cancel request'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    repo.cancelPendingAppOrder(orderId: order.id, appUserId: user.id);
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthRepository>();
@@ -159,6 +194,14 @@ class CustomerContractActivityScreen extends StatelessWidget {
                       order: order,
                       shopName: shopName,
                       delivery: repo.deliveryForOrder(order),
+                      onEdit: order.canCustomerEdit && order.shopId != null
+                          ? () => context.push(
+                              '/customer/shop/${order.shopId}?orderId=${order.id}',
+                            )
+                          : null,
+                      onCancel: order.canCustomerCancel
+                          ? () => _confirmCancel(context, repo, auth, order)
+                          : null,
                     );
                   }),
                 CustomerSectionTitle(

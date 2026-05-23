@@ -403,6 +403,11 @@ _StatusStyle _statusStyle(OrderStatus status) {
       text: Color(0xFF991B1B),
       border: Color(0xFFFECACA),
     ),
+    OrderStatus.cancelled => const _StatusStyle(
+      bg: Color(0xFFF3F4F6),
+      text: Color(0xFF4B5563),
+      border: Color(0xFFD1D5DB),
+    ),
   };
 }
 

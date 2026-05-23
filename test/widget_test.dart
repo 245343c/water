@@ -74,7 +74,7 @@ void main() {
               GoRoute(
                 path: '/',
                 builder: (context, state) =>
-                    const CustomerShell(location: '/customer/home'),
+                    CustomerShell(location: Uri.parse('/customer/home')),
               ),
             ],
           ),
@@ -247,7 +247,7 @@ void main() {
               GoRoute(
                 path: '/',
                 builder: (context, state) =>
-                    const CustomerShell(location: '/customer/orders'),
+                    CustomerShell(location: Uri.parse('/customer/orders')),
               ),
             ],
           ),
@@ -287,5 +287,66 @@ void main() {
     expect(order.customerId, isNot('c1'));
     expect(repo.shopIdForCustomer(order.customerId), 'shop-2');
     expect(repo.ordersForAppUser(user.id).first.id, order.id);
+  });
+
+  test(
+    'Pending customer request can be edited and cancelled before admin accepts',
+    () {
+      final auth = AuthRepository();
+      final repo = WaterPlantRepository();
+      auth.requestCustomerOtp('9876543210');
+      final error = auth.verifyCustomerOtp(phone: '9876543210', otp: '123456');
+      expect(error, isNull);
+
+      final user = auth.currentUser!;
+      repo.linkContractCustomerOnLogin(userId: user.id, phone: user.phone);
+
+      final order = repo.placeAppOrder(
+        shopId: 'shop-1',
+        appUserId: user.id,
+        normalQty: 1,
+        coolQty: 0,
+      );
+      repo.updatePendingAppOrder(
+        orderId: order.id,
+        appUserId: user.id,
+        normalQty: 3,
+        coolQty: 1,
+        customerNote: 'Updated request',
+      );
+
+      final edited = repo.orderById(order.id)!;
+      expect(edited.normalQty, 3);
+      expect(edited.coolQty, 1);
+      expect(edited.customerNote, 'Updated request');
+
+      repo.cancelPendingAppOrder(orderId: order.id, appUserId: user.id);
+      expect(repo.orderById(order.id)!.status, OrderStatus.cancelled);
+    },
+  );
+
+  test('Driver accepted and started states are tracked for customer order', () {
+    final auth = AuthRepository();
+    final repo = WaterPlantRepository();
+    auth.requestCustomerOtp('9876543210');
+    final error = auth.verifyCustomerOtp(phone: '9876543210', otp: '123456');
+    expect(error, isNull);
+
+    final user = auth.currentUser!;
+    repo.linkContractCustomerOnLogin(userId: user.id, phone: user.phone);
+    final order = repo.placeAppOrder(
+      shopId: 'shop-1',
+      appUserId: user.id,
+      normalQty: 1,
+      coolQty: 0,
+    );
+    repo.respondToOrder(order.id, OrderStatus.accepted);
+
+    repo.driverAcceptOrder(orderId: order.id, driverId: 'driver-1');
+    expect(repo.orderById(order.id)!.isDriverAssigned, isTrue);
+    expect(repo.orderById(order.id)!.isOutForDelivery, isFalse);
+
+    repo.driverStartDelivery(orderId: order.id, driverId: 'driver-1');
+    expect(repo.orderById(order.id)!.isOutForDelivery, isTrue);
   });
 }
