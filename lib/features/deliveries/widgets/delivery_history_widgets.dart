@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
@@ -20,10 +21,7 @@ abstract final class DeliveryHistoryColors {
 }
 
 class DeliveryHistoryHeader extends StatelessWidget {
-  const DeliveryHistoryHeader({
-    super.key,
-    required this.onBack,
-  });
+  const DeliveryHistoryHeader({super.key, required this.onBack});
 
   final VoidCallback onBack;
 
@@ -31,7 +29,12 @@ class DeliveryHistoryHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(4, MediaQuery.paddingOf(context).top + 4, 4, 16),
+      padding: EdgeInsets.fromLTRB(
+        4,
+        MediaQuery.paddingOf(context).top + 4,
+        4,
+        16,
+      ),
       child: Row(
         children: [
           IconButton(
@@ -68,7 +71,8 @@ class DeliveryHistoryCustomerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = CustomersColors.avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
+    final bg = CustomersColors
+        .avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
 
     return Container(
       color: Colors.white,
@@ -292,10 +296,7 @@ class DeliveryHistoryGroupedList extends StatelessWidget {
         physics: const BouncingScrollPhysics(),
         children: [
           for (final group in groups) ...[
-            _MonthSectionHeader(
-              label: group.key,
-              count: group.value.length,
-            ),
+            _MonthSectionHeader(label: group.key, count: group.value.length),
             for (var i = 0; i < group.value.length; i++)
               _DeliveryTimelineTile(
                 delivery: group.value[i],
@@ -387,7 +388,9 @@ class _DeliveryTimelineTile extends StatelessWidget {
                     border: Border.all(color: Colors.white, width: 2),
                     boxShadow: [
                       BoxShadow(
-                        color: DeliveryHistoryColors.statBlue.withValues(alpha: 0.35),
+                        color: DeliveryHistoryColors.statBlue.withValues(
+                          alpha: 0.35,
+                        ),
                         blurRadius: 4,
                       ),
                     ],
@@ -395,10 +398,7 @@ class _DeliveryTimelineTile extends StatelessWidget {
                 ),
                 if (!isLastInGroup)
                   Expanded(
-                    child: Container(
-                      width: 2,
-                      color: const Color(0xFFBFDBFE),
-                    ),
+                    child: Container(width: 2, color: const Color(0xFFBFDBFE)),
                   ),
               ],
             ),
@@ -471,7 +471,7 @@ class DeliveryHistoryScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: child,
+      child: PremiumResponsiveBody(maxWidth: 920, child: child),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/core/widgets/month_wheel_scroll.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/data/models/monthly_stats.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
@@ -240,11 +241,7 @@ class CustomerFixedAccountCard extends StatelessWidget {
               color: bg,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(
-              Icons.link_rounded,
-              color: color,
-              size: 22,
-            ),
+            child: const Icon(Icons.link_rounded, color: color, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1402,7 +1399,7 @@ class CustomerDetailScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: child,
+      child: PremiumResponsiveBody(maxWidth: 1040, child: child),
     );
   }
 }

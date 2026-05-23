@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/payment.dart';
 import 'package:sri_sai_ro_water/data/models/payment_method.dart';
@@ -26,7 +27,12 @@ class PaymentHistoryHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(4, MediaQuery.paddingOf(context).top + 4, 8, 14),
+      padding: EdgeInsets.fromLTRB(
+        4,
+        MediaQuery.paddingOf(context).top + 4,
+        8,
+        14,
+      ),
       child: Row(
         children: [
           IconButton(
@@ -63,7 +69,8 @@ class PaymentHistoryCustomerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = CustomersColors.avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
+    final bg = CustomersColors
+        .avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
 
     return Container(
       color: Colors.white,
@@ -150,7 +157,11 @@ class PaymentHistoryHeroCard extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 26),
+            child: const Icon(
+              Icons.account_balance_wallet_rounded,
+              color: Colors.white,
+              size: 26,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -439,7 +450,7 @@ class PaymentHistoryScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: child,
+      child: PremiumResponsiveBody(maxWidth: 920, child: child),
     );
   }
 }

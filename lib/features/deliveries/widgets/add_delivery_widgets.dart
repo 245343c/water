@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
@@ -29,7 +30,12 @@ class AddDeliveryHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(4, MediaQuery.paddingOf(context).top + 4, 4, 16),
+      padding: EdgeInsets.fromLTRB(
+        4,
+        MediaQuery.paddingOf(context).top + 4,
+        4,
+        16,
+      ),
       child: Row(
         children: [
           IconButton(
@@ -66,7 +72,8 @@ class AddDeliveryCustomerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = CustomersColors.avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
+    final bg = CustomersColors
+        .avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
 
     return Column(
       children: [
@@ -110,11 +117,19 @@ class AddDeliveryCustomerBar extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chat, color: AddDeliveryColors.whatsapp, size: 26),
+              const Icon(
+                Icons.chat,
+                color: AddDeliveryColors.whatsapp,
+                size: 26,
+              ),
             ],
           ),
         ),
-        const Divider(height: 1, thickness: 1, color: AddDeliveryColors.divider),
+        const Divider(
+          height: 1,
+          thickness: 1,
+          color: AddDeliveryColors.divider,
+        ),
       ],
     );
   }
@@ -154,7 +169,10 @@ class AddDeliveryDateRow extends StatelessWidget {
                   onTap: onTap,
                   borderRadius: BorderRadius.circular(10),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: AddDeliveryColors.fieldBorder),
@@ -171,7 +189,11 @@ class AddDeliveryDateRow extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        const Icon(Icons.calendar_today_outlined, size: 18, color: AddDeliveryColors.labelGrey),
+                        const Icon(
+                          Icons.calendar_today_outlined,
+                          size: 18,
+                          color: AddDeliveryColors.labelGrey,
+                        ),
                       ],
                     ),
                   ),
@@ -180,14 +202,22 @@ class AddDeliveryDateRow extends StatelessWidget {
             ],
           ),
         ),
-        const Divider(height: 1, thickness: 1, color: AddDeliveryColors.divider),
+        const Divider(
+          height: 1,
+          thickness: 1,
+          color: AddDeliveryColors.divider,
+        ),
       ],
     );
   }
 }
 
 class AddDeliverySectionTitle extends StatelessWidget {
-  const AddDeliverySectionTitle({super.key, required this.title, this.subtitle});
+  const AddDeliverySectionTitle({
+    super.key,
+    required this.title,
+    this.subtitle,
+  });
 
   final String title;
   final String? subtitle;
@@ -211,7 +241,10 @@ class AddDeliverySectionTitle extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               subtitle!,
-              style: GoogleFonts.poppins(fontSize: 12, color: AddDeliveryColors.labelGrey),
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: AddDeliveryColors.labelGrey,
+              ),
             ),
           ],
         ],
@@ -239,7 +272,10 @@ class AddDeliveryBottleCatalog extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
         child: Text(
           'Add bottle products from the Products tab first.',
-          style: GoogleFonts.poppins(fontSize: 13, color: AddDeliveryColors.labelGrey),
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            color: AddDeliveryColors.labelGrey,
+          ),
         ),
       );
     }
@@ -307,7 +343,10 @@ class AddDeliveryBottleRow extends StatelessWidget {
                     ),
                     Text(
                       CurrencyUtils.format(price),
-                      style: GoogleFonts.poppins(fontSize: 12, color: AddDeliveryColors.labelGrey),
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: AddDeliveryColors.labelGrey,
+                      ),
                     ),
                   ],
                 ),
@@ -338,7 +377,11 @@ class AddDeliveryBottleRow extends StatelessWidget {
             ],
           ),
         ),
-        const Divider(height: 1, thickness: 1, color: AddDeliveryColors.divider),
+        const Divider(
+          height: 1,
+          thickness: 1,
+          color: AddDeliveryColors.divider,
+        ),
       ],
     );
   }
@@ -400,7 +443,11 @@ class AddDeliveryCanStepper extends StatelessWidget {
             ],
           ),
         ),
-        const Divider(height: 1, thickness: 1, color: AddDeliveryColors.divider),
+        const Divider(
+          height: 1,
+          thickness: 1,
+          color: AddDeliveryColors.divider,
+        ),
       ],
     );
   }
@@ -473,7 +520,10 @@ class AddDeliveryPriceSection extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
               'Add cans or bottles to see price breakdown',
-              style: GoogleFonts.poppins(fontSize: 13, color: AddDeliveryColors.labelGrey),
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: AddDeliveryColors.labelGrey,
+              ),
             ),
           )
         else
@@ -483,7 +533,11 @@ class AddDeliveryPriceSection extends StatelessWidget {
               calc: line.calc,
               amount: CurrencyUtils.format(line.amount),
             ),
-        const Divider(height: 1, thickness: 1, color: AddDeliveryColors.divider),
+        const Divider(
+          height: 1,
+          thickness: 1,
+          color: AddDeliveryColors.divider,
+        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
           child: Row(
@@ -519,7 +573,11 @@ class AddDeliveryPriceSection extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.info_outline, size: 18, color: AddDeliveryColors.labelGrey),
+                const Icon(
+                  Icons.info_outline,
+                  size: 18,
+                  color: AddDeliveryColors.labelGrey,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -561,7 +619,10 @@ class _PriceLine extends StatelessWidget {
             flex: 2,
             child: Text(
               name,
-              style: GoogleFonts.poppins(fontSize: 14, color: AddDeliveryColors.titleNavy),
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: AddDeliveryColors.titleNavy,
+              ),
             ),
           ),
           Expanded(
@@ -569,7 +630,10 @@ class _PriceLine extends StatelessWidget {
             child: Text(
               calc,
               textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(fontSize: 13, color: AddDeliveryColors.labelGrey),
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: AddDeliveryColors.labelGrey,
+              ),
             ),
           ),
           Expanded(
@@ -612,10 +676,17 @@ class AddDeliverySaveButton extends StatelessWidget {
             onPressed: enabled ? onPressed : null,
             style: FilledButton.styleFrom(
               backgroundColor: AddDeliveryColors.primaryBtn,
-              disabledBackgroundColor: AddDeliveryColors.primaryBtn.withValues(alpha: 0.45),
+              disabledBackgroundColor: AddDeliveryColors.primaryBtn.withValues(
+                alpha: 0.45,
+              ),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              textStyle: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              textStyle: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             child: const Text('Save Delivery'),
           ),
@@ -637,7 +708,7 @@ class AddDeliveryScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: child,
+      child: PremiumResponsiveBody(maxWidth: 920, child: child),
     );
   }
 }

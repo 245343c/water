@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/data/models/monthly_stats.dart';
@@ -11,25 +12,25 @@ import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_wid
 // ─── Colour palette ──────────────────────────────────────────────────────────
 
 abstract final class MonthlyBillColors {
-  static const Color billBlue        = Color(0xFF1E40AF);
-  static const Color tableNavy       = Color(0xFF1E3A8A);
-  static const Color titleNavy       = Color(0xFF111827);
-  static const Color tableHeaderBg   = Color(0xFFF3F4F6);
-  static const Color tableTotalBg    = Color(0xFFEFF6FF);
-  static const Color screenBg        = Color(0xFFF3F4F6);
-  static const Color labelGrey       = Color(0xFF6B7280);
-  static const Color balanceRed      = Color(0xFFDC2626);
-  static const Color primaryBtn      = Color(0xFF1A73E8);
-  static const Color whatsappBtn     = Color(0xFF25D366);
-  static const Color tableBorder     = Color(0xFFD1D5DB);
-  static const Color cardBorder      = Color(0xFFE5E7EB);
-  static const Color rowAlt          = Color(0xFFF8FAFF);
-  static const Color amountGreen     = Color(0xFF16A34A);
-  static const Color paidStampBg     = Color(0xFFDCFCE7);
+  static const Color billBlue = Color(0xFF1E40AF);
+  static const Color tableNavy = Color(0xFF1E3A8A);
+  static const Color titleNavy = Color(0xFF111827);
+  static const Color tableHeaderBg = Color(0xFFF3F4F6);
+  static const Color tableTotalBg = Color(0xFFEFF6FF);
+  static const Color screenBg = Color(0xFFF3F4F6);
+  static const Color labelGrey = Color(0xFF6B7280);
+  static const Color balanceRed = Color(0xFFDC2626);
+  static const Color primaryBtn = Color(0xFF1A73E8);
+  static const Color whatsappBtn = Color(0xFF25D366);
+  static const Color tableBorder = Color(0xFFD1D5DB);
+  static const Color cardBorder = Color(0xFFE5E7EB);
+  static const Color rowAlt = Color(0xFFF8FAFF);
+  static const Color amountGreen = Color(0xFF16A34A);
+  static const Color paidStampBg = Color(0xFFDCFCE7);
   static const Color paidStampBorder = Color(0xFF86EFAC);
-  static const Color paidStampText   = Color(0xFF15803D);
-  static const Color qtyBlue         = Color(0xFF1D4ED8);
-  static const Color dashColor       = Color(0xFFD1D5DB);
+  static const Color paidStampText = Color(0xFF15803D);
+  static const Color qtyBlue = Color(0xFF1D4ED8);
+  static const Color dashColor = Color(0xFFD1D5DB);
 }
 
 // ─── Bill number ─────────────────────────────────────────────────────────────
@@ -48,7 +49,7 @@ String generateBillNumber(String customerId, DateTime month) {
 /// Collect distinct product labels from deliveries, sorted:
 /// Normal Can → Cool Can → Bottles by ascending size.
 List<String> productLabelsFrom(List<Delivery> deliveries) {
-  final seen   = <String>{};
+  final seen = <String>{};
   final labels = <String>[];
   for (final d in deliveries) {
     for (final line in d.lines) {
@@ -67,7 +68,7 @@ List<String> productLabelsFrom(List<Delivery> deliveries) {
 int _labelPriority(String label) {
   final l = label.toLowerCase();
   if (l.contains('normal')) return 0;
-  if (l.contains('cool'))   return 1;
+  if (l.contains('cool')) return 1;
   return 2;
 }
 
@@ -101,7 +102,7 @@ class MonthlyBillScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: child,
+      child: PremiumResponsiveBody(maxWidth: 920, child: child),
     );
   }
 }
@@ -174,7 +175,7 @@ class MonthlyBillDocument extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final billNo       = generateBillNumber(customer.id, month);
+    final billNo = generateBillNumber(customer.id, month);
     final productLabels = productLabelsFrom(deliveries);
 
     return Container(
@@ -301,10 +302,7 @@ class MonthlyBillDocument extends StatelessWidget {
           const SizedBox(height: 14),
 
           // ── Premium delivery ledger table ────────────────────────────────
-          _DeliveryLedger(
-            deliveries: deliveries,
-            productLabels: productLabels,
-          ),
+          _DeliveryLedger(deliveries: deliveries, productLabels: productLabels),
           const SizedBox(height: 20),
 
           const Divider(color: MonthlyBillColors.cardBorder),
@@ -478,13 +476,13 @@ class _DeliveryLedger extends StatelessWidget {
   final List<String> productLabels;
 
   // Fixed column widths (px)
-  static const _kSnoW  = 32.0;
+  static const _kSnoW = 32.0;
   static const _kDateW = 68.0;
-  static const _kAmtW  = 76.0;
+  static const _kAmtW = 76.0;
 
   // Fixed row heights — applied uniformly across left / middle / right sections
-  static const _kHeadH  = 46.0;
-  static const _kRowH   = 46.0;
+  static const _kHeadH = 46.0;
+  static const _kRowH = 46.0;
   static const _kTotalH = 46.0;
 
   @override
@@ -540,11 +538,8 @@ class _DeliveryLedger extends StatelessWidget {
             ],
           ),
           clipBehavior: Clip.antiAlias,
-          child: deliveries.isEmpty
-              ? _ledgerEmpty()
-              : _ledgerTable(),
+          child: deliveries.isEmpty ? _ledgerEmpty() : _ledgerTable(),
         ),
-
       ],
     );
   }
@@ -573,8 +568,7 @@ class _DeliveryLedger extends StatelessWidget {
   }
 
   Widget _ledgerTable() {
-    final grandTotal =
-        deliveries.fold<double>(0, (s, d) => s + d.totalAmount);
+    final grandTotal = deliveries.fold<double>(0, (s, d) => s + d.totalAmount);
 
     return Column(
       children: [
@@ -596,7 +590,12 @@ class _DeliveryLedger extends StatelessWidget {
             height: _kRowH,
             background: i.isOdd ? MonthlyBillColors.rowAlt : Colors.white,
             cells: [
-              _FlexCell.fixed('${i + 1}', _kSnoW, TextAlign.center, muted: true),
+              _FlexCell.fixed(
+                '${i + 1}',
+                _kSnoW,
+                TextAlign.center,
+                muted: true,
+              ),
               _FlexCell.fixed(
                 deliveries[i].date.dayMonth,
                 _kDateW,
@@ -677,19 +676,18 @@ class _FlexCell {
     bool isAmount = false,
     bool isTotal = false,
     bool highlight = false,
-  }) =>
-      _FlexCell._(
-        text: text,
-        align: align,
-        width: width,
-        header: header,
-        muted: muted,
-        isQty: isQty,
-        isDash: isDash,
-        isAmount: isAmount,
-        isTotal: isTotal,
-        highlight: highlight,
-      );
+  }) => _FlexCell._(
+    text: text,
+    align: align,
+    width: width,
+    header: header,
+    muted: muted,
+    isQty: isQty,
+    isDash: isDash,
+    isAmount: isAmount,
+    isTotal: isTotal,
+    highlight: highlight,
+  );
 
   factory _FlexCell.expanded(
     String text,
@@ -699,17 +697,16 @@ class _FlexCell {
     bool isDash = false,
     bool isTotal = false,
     bool highlight = false,
-  }) =>
-      _FlexCell._(
-        text: text,
-        align: align,
-        expanded: true,
-        header: header,
-        isQty: isQty,
-        isDash: isDash,
-        isTotal: isTotal,
-        highlight: highlight,
-      );
+  }) => _FlexCell._(
+    text: text,
+    align: align,
+    expanded: true,
+    header: header,
+    isQty: isQty,
+    isDash: isDash,
+    isTotal: isTotal,
+    highlight: highlight,
+  );
 
   final String text;
   final TextAlign align;
@@ -746,7 +743,9 @@ class _FlexLedgerRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: background,
         border: isTotal
-            ? const Border(top: BorderSide(color: MonthlyBillColors.tableBorder))
+            ? const Border(
+                top: BorderSide(color: MonthlyBillColors.tableBorder),
+              )
             : null,
       ),
       child: Row(
@@ -810,14 +809,14 @@ class _FlexCellWidget extends StatelessWidget {
       color: cell.header
           ? Colors.white
           : cell.isDash
-              ? MonthlyBillColors.dashColor
-              : cell.isAmount
-                  ? MonthlyBillColors.amountGreen
-                  : cell.isQty || cell.highlight
-                      ? MonthlyBillColors.qtyBlue
-                      : cell.muted
-                          ? MonthlyBillColors.labelGrey
-                          : MonthlyBillColors.titleNavy,
+          ? MonthlyBillColors.dashColor
+          : cell.isAmount
+          ? MonthlyBillColors.amountGreen
+          : cell.isQty || cell.highlight
+          ? MonthlyBillColors.qtyBlue
+          : cell.muted
+          ? MonthlyBillColors.labelGrey
+          : MonthlyBillColors.titleNavy,
     );
 
     Widget child = Text(
@@ -829,7 +828,11 @@ class _FlexCellWidget extends StatelessWidget {
     );
 
     if (cell.isDash) {
-      child = Text('—', textAlign: cell.align, style: style.copyWith(color: MonthlyBillColors.dashColor));
+      child = Text(
+        '—',
+        textAlign: cell.align,
+        style: style.copyWith(color: MonthlyBillColors.dashColor),
+      );
     }
 
     final aligned = Padding(

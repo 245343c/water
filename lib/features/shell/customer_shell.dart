@@ -74,10 +74,11 @@ class CustomerShell extends StatelessWidget {
       backgroundColor: CustomerColors.screenBg,
       body: LayoutBuilder(
         builder: (context, constraints) {
+          final maxWidth = _customerShellMaxWidth(context);
           return Align(
             alignment: Alignment.topCenter,
             child: SizedBox(
-              width: math.min(constraints.maxWidth, 860),
+              width: math.min(constraints.maxWidth, maxWidth),
               child: _tabForLocation(isContract: isContract),
             ),
           );
@@ -163,11 +164,12 @@ class _CustomerBottomNavigation extends StatelessWidget {
       top: false,
       child: LayoutBuilder(
         builder: (context, constraints) {
+          final maxWidth = _customerShellMaxWidth(context);
           return Align(
             alignment: Alignment.bottomCenter,
             heightFactor: 1,
             child: SizedBox(
-              width: math.min(constraints.maxWidth, 860),
+              width: math.min(constraints.maxWidth, maxWidth),
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(18),
@@ -263,4 +265,11 @@ class _CustomerBottomNavigation extends StatelessWidget {
       label: 'Orders',
     );
   }
+}
+
+double _customerShellMaxWidth(BuildContext context) {
+  final width = MediaQuery.sizeOf(context).width;
+  if (width >= 1100) return 960;
+  if (width >= 700) return 860;
+  return width;
 }

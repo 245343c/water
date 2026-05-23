@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/payment_allocation_preview.dart';
 import 'package:sri_sai_ro_water/data/models/payment_method.dart';
@@ -30,7 +31,12 @@ class RecordPaymentHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(4, MediaQuery.paddingOf(context).top + 4, 4, 16),
+      padding: EdgeInsets.fromLTRB(
+        4,
+        MediaQuery.paddingOf(context).top + 4,
+        4,
+        16,
+      ),
       child: Row(
         children: [
           IconButton(
@@ -67,7 +73,8 @@ class RecordPaymentCustomerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = CustomersColors.avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
+    final bg = CustomersColors
+        .avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
@@ -167,13 +174,22 @@ class RecordPaymentSummaryBox extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: _miniColumn('Older due', CurrencyUtils.format(previousBalance)),
+                    child: _miniColumn(
+                      'Older due',
+                      CurrencyUtils.format(previousBalance),
+                    ),
                   ),
-                  const VerticalDivider(width: 1, thickness: 1, color: RecordPaymentColors.summaryBorder),
+                  const VerticalDivider(
+                    width: 1,
+                    thickness: 1,
+                    color: RecordPaymentColors.summaryBorder,
+                  ),
                   Expanded(
                     child: _miniColumn(
                       'Total due',
-                      CurrencyUtils.format(totalPayable.clamp(0, double.infinity)),
+                      CurrencyUtils.format(
+                        totalPayable.clamp(0, double.infinity),
+                      ),
                     ),
                   ),
                 ],
@@ -183,7 +199,10 @@ class RecordPaymentSummaryBox extends StatelessWidget {
               const SizedBox(height: 12),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF0FDFA),
                   borderRadius: BorderRadius.circular(10),
@@ -191,7 +210,11 @@ class RecordPaymentSummaryBox extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.savings_outlined, size: 18, color: Color(0xFF0D9488)),
+                    const Icon(
+                      Icons.savings_outlined,
+                      size: 18,
+                      color: Color(0xFF0D9488),
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -219,7 +242,10 @@ class RecordPaymentSummaryBox extends StatelessWidget {
         Text(
           label,
           textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(fontSize: 11, color: RecordPaymentColors.labelGrey),
+          style: GoogleFonts.poppins(
+            fontSize: 11,
+            color: RecordPaymentColors.labelGrey,
+          ),
         ),
         const SizedBox(height: 6),
         Text(
@@ -274,12 +300,19 @@ class RecordPaymentMethodRow extends StatelessWidget {
                     onTap: () => onSelected(m),
                     borderRadius: BorderRadius.circular(10),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 8,
+                      ),
                       decoration: BoxDecoration(
-                        color: isSel ? RecordPaymentColors.selectedBg : Colors.white,
+                        color: isSel
+                            ? RecordPaymentColors.selectedBg
+                            : Colors.white,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: isSel ? RecordPaymentColors.selectedBorder : RecordPaymentColors.fieldBorder,
+                          color: isSel
+                              ? RecordPaymentColors.selectedBorder
+                              : RecordPaymentColors.fieldBorder,
                           width: isSel ? 1.5 : 1,
                         ),
                       ),
@@ -287,9 +320,13 @@ class RecordPaymentMethodRow extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            isSel ? Icons.radio_button_checked : Icons.radio_button_off,
+                            isSel
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_off,
                             size: 18,
-                            color: isSel ? RecordPaymentColors.selectedBorder : RecordPaymentColors.labelGrey,
+                            color: isSel
+                                ? RecordPaymentColors.selectedBorder
+                                : RecordPaymentColors.labelGrey,
                           ),
                           const SizedBox(width: 6),
                           Flexible(
@@ -386,7 +423,11 @@ class RecordPaymentDateField extends StatelessWidget {
                   ),
                 ),
               ),
-              const Icon(Icons.calendar_today_outlined, size: 20, color: RecordPaymentColors.labelGrey),
+              const Icon(
+                Icons.calendar_today_outlined,
+                size: 20,
+                color: RecordPaymentColors.labelGrey,
+              ),
             ],
           ),
         ),
@@ -428,7 +469,9 @@ class RecordPaymentAllocationPreview extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: RecordPaymentColors.selectedBorder.withValues(alpha: 0.12),
+                    color: RecordPaymentColors.selectedBorder.withValues(
+                      alpha: 0.12,
+                    ),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
@@ -456,7 +499,8 @@ class RecordPaymentAllocationPreview extends StatelessWidget {
                 value: CurrencyUtils.format(preview.appliedToDue),
                 color: RecordPaymentColors.totalGreen,
               ),
-            if (preview.appliedToDue > 0 && preview.hasAdvance) const SizedBox(height: 8),
+            if (preview.appliedToDue > 0 && preview.hasAdvance)
+              const SizedBox(height: 8),
             if (preview.hasAdvance)
               _splitRow(
                 icon: Icons.savings_outlined,
@@ -507,7 +551,10 @@ class RecordPaymentAllocationPreview extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: GoogleFonts.poppins(fontSize: 12, color: RecordPaymentColors.labelGrey),
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: RecordPaymentColors.labelGrey,
+            ),
           ),
         ),
         Text(
@@ -541,8 +588,13 @@ class RecordPaymentSaveButton extends StatelessWidget {
             style: FilledButton.styleFrom(
               backgroundColor: RecordPaymentColors.saveGreen,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              textStyle: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              textStyle: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             child: const Text('Save Payment'),
           ),
@@ -564,7 +616,7 @@ class RecordPaymentScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: child,
+      child: PremiumResponsiveBody(maxWidth: 920, child: child),
     );
   }
 }
