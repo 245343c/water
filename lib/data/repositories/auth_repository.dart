@@ -41,9 +41,8 @@ class AuthRepository extends IAuthRepository {
         _accounts.add(_StoredAccount(user: seed.user, password: seed.password));
       }
     }
-    // Restore session from saved token if backend is enabled
     if (useBackend) {
-      _restoreSession();
+      _sessionRestoreFuture = _restoreSession();
     }
   }
 
@@ -54,6 +53,14 @@ class AuthRepository extends IAuthRepository {
   AppUser? _currentUser;
   AppUser? get currentUser => _currentUser;
   bool get isAuthenticated => _currentUser != null;
+
+  Future<void>? _sessionRestoreFuture;
+
+  Future<void> ensureSessionRestored() {
+    if (!useBackend) return Future.value();
+    _sessionRestoreFuture ??= _restoreSession();
+    return _sessionRestoreFuture!;
+  }
 
   Future<void> _restoreSession() async {
     try {
@@ -174,7 +181,72 @@ class AuthRepository extends IAuthRepository {
     return null;
   }
 
+  /// Request password reset OTP (backend or mock).
+  Future<String?> requestPasswordResetAsync(String email) async {
+    if (!useBackend) {
+      return requestPasswordReset(email);
+    }
+    try {
+      return await _api.forgotPassword(email.trim());
+    } catch (e) {
+      if (e is ApiException) return null;
+      return null;
+    }
+  }
+
+  /// Reset password with OTP (backend or mock).
+  Future<String?> resetPasswordWithOtpAsync({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    if (!useBackend) {
+      return resetPasswordWithOtp(
+        email: email,
+        otp: otp,
+        newPassword: newPassword,
+      );
+    }
+    try {
+      return await _api.resetPassword(
+        email: email,
+        otp: otp,
+        newPassword: newPassword,
+      );
+    } catch (e) {
+      if (e is ApiException) return e.message;
+      return e.toString();
+    }
+  }
+
   /// Admin creates driver login linked to [driverId] from [WaterPlantRepository].
+  Future<String?> createDriverAccountAsync({
+    required String driverId,
+    required String name,
+    required String phone,
+    required String email,
+    required String password,
+    String? shopId,
+  }) async {
+    if (!useBackend) {
+      return createDriverAccount(
+        driverId: driverId,
+        name: name,
+        phone: phone,
+        email: email,
+        password: password,
+      );
+    }
+    return _api.createDriverAccount(
+      driverId: driverId,
+      name: name,
+      phone: phone,
+      email: email,
+      password: password,
+      shopId: shopId,
+    );
+  }
+
   String? createDriverAccount({
     required String driverId,
     required String name,

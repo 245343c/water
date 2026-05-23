@@ -76,7 +76,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final cool = double.tryParse(_coolPriceController.text) ?? 30;
 
     final repo = context.read<WaterPlantRepository>();
-    repo.updateSettings(
+    await repo.updateSettings(
       repo.settings.copyWith(
         businessName: _businessController.text.trim(),
         address: _addressController.text.trim(),
@@ -87,6 +87,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         homeDeliveryAvailable: _homeDelivery,
       ),
     );
+    try {
+      await repo.loadFromBackend(role: auth.currentUser?.role);
+    } catch (_) {}
 
     if (!mounted) return;
     if (!_homeDelivery) {

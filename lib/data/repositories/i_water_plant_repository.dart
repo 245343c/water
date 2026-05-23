@@ -29,7 +29,7 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
   BusinessSettings get settings;
   String? get adminImagePath;
   void updateAdminImage(String? path);
-  void updateSettings(BusinessSettings newSettings);
+  Future<void> updateSettings(BusinessSettings newSettings);
 
   // Customers
   List<Customer> get customers;
@@ -39,7 +39,7 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
   List<Customer> customersForDriver(String? driverId);
   bool canDriverAccessCustomer(String? driverId, String customerId);
   List<Customer> searchCustomersForDriver(String? driverId, String query);
-  Customer addCustomer({
+  Future<Customer> addCustomer({
     required String name,
     required String phone,
     required String address,
@@ -48,8 +48,8 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
     CustomerBillingMode billingMode = CustomerBillingMode.monthlyContract,
     List<CustomerProductPrice>? productPrices,
   });
-  void updateCustomer(Customer customer);
-  void deleteCustomer(String id);
+  Future<void> updateCustomer(Customer customer);
+  Future<void> deleteCustomer(String id);
   List<CustomerProductPrice> defaultCustomerPricing();
   double customerUnitPrice(
     Customer customer, {
@@ -80,8 +80,8 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
   // Drivers
   List<Driver> get drivers;
   Driver? driverById(String? id);
-  Driver addDriver({required String name, required String phone, required String email});
-  void setDriverActive(String driverId, bool active);
+  Future<Driver> addDriver({required String name, required String phone, required String email});
+  Future<void> setDriverActive(String driverId, bool active);
   List<Customer> todaysRouteCustomersForDriver(String? driverId);
   String? routeNoteForCustomer(String customerId);
 
@@ -92,7 +92,7 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
   List<Delivery> deliveriesOnDateForDriver(DateTime day, String? driverId);
   List<Delivery> recentDeliveries({int limit = 8});
   bool hasDeliveryToday(String customerId);
-  Delivery addDelivery({
+  Future<Delivery> addDelivery({
     required String customerId,
     required DateTime date,
     int normalQty = 0,
@@ -105,7 +105,7 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
   List<Payment> get payments;
   List<Payment> paymentsForCustomer(String customerId, {DateTime? month});
   Payment? lastPayment(String customerId);
-  Payment addPayment({
+  Future<Payment> addPayment({
     required String customerId,
     required double amount,
     required PaymentMethod method,
@@ -123,7 +123,7 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
   List<CustomerOrder> ordersNewestFirst();
   List<CustomerOrder> ordersForAppUser(String appUserId);
   int get pendingOrderCount;
-  CustomerOrder placeAppOrder({
+  Future<CustomerOrder> placeAppOrder({
     required String shopId,
     required String appUserId,
     required int normalQty,
@@ -131,7 +131,7 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
     String? customerNote,
     String? productSummary,
   });
-  void respondToOrder(String orderId, OrderStatus status, {String? adminResponse});
+  Future<void> respondToOrder(String orderId, OrderStatus status, {String? adminResponse});
   List<CustomerOrder> driverAcceptedOrders({String? driverId});
 
   // Products
@@ -148,7 +148,7 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
     bool isCool = false,
     String? imageSourcePath,
   });
-  void deleteProduct(String id);
+  Future<void> deleteProduct(String id);
   List<Product> bottleCatalogForCustomer(Customer customer);
 
   // Promotions

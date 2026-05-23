@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
+import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/auth/widgets/login_screen_widgets.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
@@ -67,7 +68,26 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       return;
     }
-    context.go(homeRouteForRole(auth.currentUser!));
+
+    final user = auth.currentUser!;
+    try {
+      await repo.loadFromBackend(role: user.role);
+      if (context.mounted) {
+        await context.read<NotificationRepository>().loadFromBackend();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Logged in but could not load data: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+
+    if (!context.mounted) return;
+    context.go(homeRouteForRole(user));
   }
 
   @override

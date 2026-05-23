@@ -76,7 +76,7 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
     super.dispose();
   }
 
-  void _save(WaterPlantRepository repo) {
+  Future<void> _save(WaterPlantRepository repo) async {
     if (!_formKey.currentState!.validate()) return;
 
     final data = (
@@ -87,29 +87,41 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
       address: _addressController.text.trim(),
     );
 
-    if (widget.isEditing) {
-      final existing = repo.customerById(widget.customerId!);
-      if (existing != null) {
-        repo.updateCustomer(
-          existing.copyWith(
-            name: data.name,
-            phone: data.phone,
-            email: data.email,
-            place: data.place,
-            address: data.address,
-            productPrices: _productPrices,
+    try {
+      if (widget.isEditing) {
+        final existing = repo.customerById(widget.customerId!);
+        if (existing != null) {
+          await repo.updateCustomer(
+            existing.copyWith(
+              name: data.name,
+              phone: data.phone,
+              email: data.email,
+              place: data.place,
+              address: data.address,
+              productPrices: _productPrices,
+            ),
+          );
+        }
+      } else {
+        await repo.addCustomer(
+          name: data.name,
+          phone: data.phone,
+          email: data.email,
+          place: data.place,
+          address: data.address,
+          productPrices: _productPrices,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not save: $e', style: GoogleFonts.poppins()),
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
-    } else {
-      repo.addCustomer(
-        name: data.name,
-        phone: data.phone,
-        email: data.email,
-        place: data.place,
-        address: data.address,
-        productPrices: _productPrices,
-      );
+      return;
     }
 
     if (mounted) {
@@ -132,7 +144,7 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
       customerName: customerName,
     );
     if (!confirmed || !mounted) return;
-    repo.deleteCustomer(widget.customerId!);
+    await repo.deleteCustomer(widget.customerId!);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

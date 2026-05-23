@@ -33,6 +33,7 @@ import 'package:sri_sai_ro_water/data/mock/mock_deliveries.dart';
 import 'package:sri_sai_ro_water/data/mock/mock_payments.dart';
 import 'package:sri_sai_ro_water/data/mock/mock_promotions.dart';
 import 'package:flutter/foundation.dart';
+import 'package:sri_sai_ro_water/core/auth/app_role.dart';
 import 'package:sri_sai_ro_water/core/services/api/api_config.dart';
 import 'package:sri_sai_ro_water/core/services/api/api_data_service.dart';
 import 'package:sri_sai_ro_water/core/services/api/api_client.dart';
@@ -945,7 +946,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
     variantId: CustomerPricingKeys.coolVariantId,
   );
 
-  Customer addCustomer({
+  Future<Customer> addCustomer({
     required String name,
     required String phone,
     required String address,
@@ -953,7 +954,34 @@ class WaterPlantRepository extends IWaterPlantRepository {
     String place = '',
     CustomerBillingMode billingMode = CustomerBillingMode.monthlyContract,
     List<CustomerProductPrice>? productPrices,
-  }) {
+  }) async {
+    if (useBackend) {
+      final data = await _apiService.createCustomer({
+        'name': name,
+        'phone': phone,
+        'address': address,
+        'email': email,
+        'place': place,
+        'billingMode': 'monthly_contract',
+        if (productPrices != null)
+          'productPrices': productPrices
+              .map((p) => {
+                    'productId': p.productId,
+                    'variantId': p.variantId,
+                    'unitPrice': p.unitPrice,
+                    'enabled': p.enabled,
+                  })
+              .toList(),
+      });
+      final map = data['customer'] as Map<String, dynamic>;
+      final customer = _customerFromJson(map);
+      _customers.insert(0, customer);
+      _customerShopIds[customer.id] =
+          map['shopId'] as String? ?? defaultShopId;
+      notifyListeners();
+      return customer;
+    }
+
     final customer = Customer(
       id: _uuid.v4(),
       name: name,
@@ -967,41 +995,41 @@ class WaterPlantRepository extends IWaterPlantRepository {
     _customers.insert(0, customer);
     _linkCustomerToShop(customer.id, defaultShopId);
     notifyListeners();
-
-    if (useBackend) {
-      _apiService.createCustomer({
-        'name': name, 'phone': phone, 'address': address,
-        'email': email, 'place': place,
-        'billingMode': billingMode == CustomerBillingMode.monthlyContract ? 'monthly_contract' : 'on_demand',
-      }).then((_) {}).catchError((Object e) { debugPrint('createCustomer API error: $e'); });
-    }
-
     return customer;
   }
 
-  void updateCustomer(Customer customer) {
+  Future<void> updateCustomer(Customer customer) async {
     final index = _customers.indexWhere((c) => c.id == customer.id);
-    if (index >= 0) {
-      _customers[index] = customer;
-      notifyListeners();
-
-      if (useBackend) {
-        _apiService.updateCustomer(customer.id, {
-          'name': customer.name, 'phone': customer.phone,
-          'address': customer.address, 'email': customer.email, 'place': customer.place,
-        }).then((_) {}).catchError((Object e) { debugPrint('updateCustomer API error: $e'); });
-      }
-    }
-  }
-
-  void deleteCustomer(String id) {
-    _customers.removeWhere((c) => c.id == id);
-    _customerShopIds.remove(id);
+    if (index < 0) return;
 
     if (useBackend) {
-      _apiService.deleteCustomer(id)
-          .then((_) {}).catchError((Object e) { debugPrint('deleteCustomer API error: $e'); });
+      await _apiService.updateCustomer(customer.id, {
+        'name': customer.name,
+        'phone': customer.phone,
+        'address': customer.address,
+        'email': customer.email,
+        'place': customer.place,
+        'productPrices': customer.productPrices
+            .map((p) => {
+                  'productId': p.productId,
+                  'variantId': p.variantId,
+                  'unitPrice': p.unitPrice,
+                  'enabled': p.enabled,
+                })
+            .toList(),
+      });
     }
+
+    _customers[index] = customer;
+    notifyListeners();
+  }
+
+  Future<void> deleteCustomer(String id) async {
+    if (useBackend) {
+      await _apiService.deleteCustomer(id);
+    }
+    _customers.removeWhere((c) => c.id == id);
+    _customerShopIds.remove(id);
     _deliveries.removeWhere((d) => d.customerId == id);
     _payments.removeWhere((p) => p.customerId == id);
     _orders.removeWhere((o) => o.customerId == id);
@@ -1050,14 +1078,14 @@ class WaterPlantRepository extends IWaterPlantRepository {
       _products.where((p) => p.isActive).toList();
 
   /// Ensures CRM row exists for app user, then creates a pending order.
-  CustomerOrder placeAppOrder({
+  Future<CustomerOrder> placeAppOrder({
     required String shopId,
     required String appUserId,
     required int normalQty,
     required int coolQty,
     String? customerNote,
     String? productSummary,
-  }) {
+  }) async {
     final hasCans = normalQty + coolQty > 0;
     final hasProducts =
         productSummary != null && productSummary.trim().isNotEmpty;
@@ -1082,6 +1110,22 @@ class WaterPlantRepository extends IWaterPlantRepository {
       shopId: shopId,
     );
     _customerShopIds.putIfAbsent(crmId, () => shopId);
+    final note = _mergeOrderNotes(customerNote, productSummary);
+
+    if (useBackend) {
+      final data = await _apiService.placeOrder({
+        'shopId': shopId,
+        'customerId': crmId,
+        'normalQty': normalQty,
+        'coolQty': coolQty,
+        if (note != null) 'customerNote': note,
+      });
+      final order = _orderFromJson(data['order'] as Map<String, dynamic>);
+      _orders.add(order);
+      notifyListeners();
+      return order;
+    }
+
     final order = CustomerOrder(
       id: _uuid.v4(),
       customerId: crmId,
@@ -1090,21 +1134,10 @@ class WaterPlantRepository extends IWaterPlantRepository {
       normalQty: normalQty,
       coolQty: coolQty,
       status: OrderStatus.pending,
-      customerNote: _mergeOrderNotes(customerNote, productSummary),
+      customerNote: note,
     );
     _orders.add(order);
     notifyListeners();
-
-    if (useBackend) {
-      _apiService.placeOrder({
-        'shopId': shopId,
-        'customerId': crmId,
-        'normalQty': normalQty,
-        'coolQty': coolQty,
-        if (order.customerNote != null) 'customerNote': order.customerNote,
-      }).then((_) {}).catchError((Object e) { debugPrint('placeOrder API error: $e'); });
-    }
-
     return order;
   }
 
@@ -1127,29 +1160,28 @@ class WaterPlantRepository extends IWaterPlantRepository {
     throw StateError('Ask your water plant admin to add your phone number');
   }
 
-  void respondToOrder(
+  Future<void> respondToOrder(
     String orderId,
     OrderStatus status, {
     String? adminResponse,
-  }) {
+  }) async {
     final index = _orders.indexWhere((o) => o.id == orderId);
     if (index < 0) return;
     final order = _orders[index];
     if (order.status != OrderStatus.pending) return;
+
+    if (useBackend) {
+      if (status == OrderStatus.accepted) {
+        await _apiService.acceptOrder(orderId, adminNote: adminResponse);
+      } else if (status == OrderStatus.rejected) {
+        await _apiService.rejectOrder(orderId, adminNote: adminResponse);
+      }
+    }
+
     order.status = status;
     order.adminResponse = adminResponse;
     order.respondedAt = DateTime.now();
     notifyListeners();
-
-    if (useBackend) {
-      if (status == OrderStatus.accepted) {
-        _apiService.acceptOrder(orderId, adminNote: adminResponse)
-            .then((_) {}).catchError((Object e) { debugPrint('acceptOrder API error: $e'); });
-      } else if (status == OrderStatus.rejected) {
-        _apiService.rejectOrder(orderId, adminNote: adminResponse)
-            .then((_) {}).catchError((Object e) { debugPrint('rejectOrder API error: $e'); });
-      }
-    }
   }
 
   Driver? driverById(String? id) {
@@ -1161,11 +1193,25 @@ class WaterPlantRepository extends IWaterPlantRepository {
     }
   }
 
-  Driver addDriver({
+  Future<Driver> addDriver({
     required String name,
     required String phone,
     required String email,
-  }) {
+  }) async {
+    if (useBackend) {
+      final data = await _apiService.createDriver({
+        'name': name.trim(),
+        'phone': phone.trim(),
+        'email': email.trim().toLowerCase(),
+      });
+      final map = data['driver'] as Map<String, dynamic>;
+      final driver = _driverFromJson(map);
+      _drivers.add(driver);
+      _driverShopIds[driver.id] = map['shopId'] as String? ?? defaultShopId;
+      notifyListeners();
+      return driver;
+    }
+
     final driver = Driver(
       id: _uuid.v4(),
       name: name.trim(),
@@ -1176,28 +1222,18 @@ class WaterPlantRepository extends IWaterPlantRepository {
     _drivers.add(driver);
     _linkDriverToShop(driver.id, defaultShopId);
     notifyListeners();
-
-    if (useBackend) {
-      _apiService.createDriver({
-        'name': driver.name,
-        'phone': driver.phone,
-        'email': driver.email,
-      }).then((_) {}).catchError((Object e) { debugPrint('createDriver API error: $e'); });
-    }
-
     return driver;
   }
 
-  void setDriverActive(String driverId, bool active) {
+  Future<void> setDriverActive(String driverId, bool active) async {
     final i = _drivers.indexWhere((d) => d.id == driverId);
     if (i < 0) return;
-    _drivers[i] = _drivers[i].copyWith(active: active);
-    notifyListeners();
 
     if (useBackend) {
-      _apiService.setDriverActive(driverId, active)
-          .then((_) {}).catchError((Object e) { debugPrint('setDriverActive API error: $e'); });
+      await _apiService.setDriverActive(driverId, active);
     }
+    _drivers[i] = _drivers[i].copyWith(active: active);
+    notifyListeners();
   }
 
   List<Delivery> deliveriesOnDate(DateTime day) {
@@ -1265,14 +1301,14 @@ class WaterPlantRepository extends IWaterPlantRepository {
 
   int get driverAcceptedOrderCount => driverAcceptedOrders().length;
 
-  Delivery addDelivery({
+  Future<Delivery> addDelivery({
     required String customerId,
     required DateTime date,
     int normalQty = 0,
     int coolQty = 0,
     List<BottleDeliveryInput> bottles = const [],
     String? driverId,
-  }) {
+  }) async {
     final customer = customerById(customerId);
     final lines = <DeliveryLineItem>[];
     if (normalQty > 0) {
@@ -1325,6 +1361,36 @@ class WaterPlantRepository extends IWaterPlantRepository {
       throw ArgumentError('At least one item is required for a delivery');
     }
 
+    if (useBackend) {
+      final data = await _apiService.createDelivery({
+        'customerId': customerId,
+        'deliveryDate': date.toIso8601String(),
+        'normalQty': normalQty,
+        'coolQty': coolQty,
+        if (driverId != null) 'driverId': driverId,
+        'lines': lines
+            .map((l) => {
+                  'kind': l.kind.name,
+                  'label': l.label,
+                  'quantity': l.quantity,
+                  'unitPrice': l.unitPrice,
+                  if (l.productId != null) 'productId': l.productId,
+                })
+            .toList(),
+        'totalAmount': lines.fold<double>(
+          0,
+          (sum, l) => sum + l.quantity * l.unitPrice,
+        ),
+        'deliveryType': 'manual_delivery',
+      });
+      final delivery = _deliveryFromJson(
+        data['delivery'] as Map<String, dynamic>,
+      );
+      _deliveries.insert(0, delivery);
+      notifyListeners();
+      return delivery;
+    }
+
     final delivery = Delivery(
       id: _uuid.v4(),
       customerId: customerId,
@@ -1334,39 +1400,36 @@ class WaterPlantRepository extends IWaterPlantRepository {
     );
     _deliveries.insert(0, delivery);
     notifyListeners();
-
-    if (useBackend) {
-      _apiService.createDelivery({
-        'customerId': customerId,
-        'deliveryDate': date.toIso8601String(),
-        'normalQty': normalQty,
-        'coolQty': coolQty,
-        if (driverId != null) 'driverId': driverId,
-        'lines': lines.map((l) => {
-          'kind': l.kind.name,
-          'label': l.label,
-          'quantity': l.quantity,
-          'unitPrice': l.unitPrice,
-          if (l.productId != null) 'productId': l.productId,
-        }).toList(),
-        'totalAmount': delivery.totalAmount,
-        'deliveryType': 'manual_delivery',
-      }).then((_) {}).catchError((Object e) { debugPrint('createDelivery API error: $e'); });
-    }
-
     return delivery;
   }
 
   List<Product> get bottleCatalog =>
       _products.where((p) => p.category == ProductCategory.bottle).toList();
 
-  Payment addPayment({
+  Future<Payment> addPayment({
     required String customerId,
     required double amount,
     required PaymentMethod method,
     required DateTime date,
     String? notes,
-  }) {
+  }) async {
+    if (useBackend) {
+      final data = await _apiService.recordCashCollection({
+        'customerId': customerId,
+        'amount': amount,
+        'collectionType': 'delivery_cash',
+        'collectionDate': date.toIso8601String(),
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+      });
+      final payment = _paymentFromCashJson(
+        data['collection'] as Map<String, dynamic>,
+        method: method,
+      );
+      _payments.insert(0, payment);
+      notifyListeners();
+      return payment;
+    }
+
     final payment = Payment(
       id: _uuid.v4(),
       customerId: customerId,
@@ -1377,17 +1440,6 @@ class WaterPlantRepository extends IWaterPlantRepository {
     );
     _payments.insert(0, payment);
     notifyListeners();
-
-    if (useBackend) {
-      _apiService.recordCashCollection({
-        'customerId': customerId,
-        'amount': amount,
-        'collectionType': 'delivery_cash',
-        'collectionDate': date.toIso8601String(),
-        if (notes != null && notes.isNotEmpty) 'notes': notes,
-      }).then((_) {}).catchError((Object e) { debugPrint('recordCashCollection API error: $e'); });
-    }
-
     return payment;
   }
 
@@ -1403,7 +1455,21 @@ class WaterPlantRepository extends IWaterPlantRepository {
 
   List<Promotion> get promotions => List.unmodifiable(_promotions);
 
-  void updateSettings(BusinessSettings newSettings) {
+  Future<void> updateSettings(BusinessSettings newSettings) async {
+    if (useBackend) {
+      await _apiService.updateShop({
+        'shopName': newSettings.businessName,
+        'address': newSettings.address,
+        'phone': newSettings.phone,
+        'email': newSettings.email,
+        'normalCanPrice': newSettings.normalPrice,
+        'coolCanPrice': newSettings.coolPrice,
+        'homeDeliveryAvailable': newSettings.homeDeliveryAvailable,
+        if (newSettings.shopLatitude != null) 'latitude': newSettings.shopLatitude,
+        if (newSettings.shopLongitude != null) 'longitude': newSettings.shopLongitude,
+      });
+    }
+
     settings = newSettings;
     _syncShopFromSettings();
     final canProduct = productById('p2');
@@ -1426,20 +1492,6 @@ class WaterPlantRepository extends IWaterPlantRepository {
       );
     }
     notifyListeners();
-
-    if (useBackend) {
-      _apiService.updateShop({
-        'shopName': newSettings.businessName,
-        'address': newSettings.address,
-        'phone': newSettings.phone,
-        'email': newSettings.email,
-        'normalCanPrice': newSettings.normalPrice,
-        'coolCanPrice': newSettings.coolPrice,
-        'homeDeliveryAvailable': newSettings.homeDeliveryAvailable,
-        if (newSettings.shopLatitude != null) 'latitude': newSettings.shopLatitude,
-        if (newSettings.shopLongitude != null) 'longitude': newSettings.shopLongitude,
-      }).then((_) {}).catchError((Object e) { debugPrint('updateShop API error: $e'); });
-    }
   }
 
   void _seedProducts() {
@@ -1487,21 +1539,25 @@ class WaterPlantRepository extends IWaterPlantRepository {
       ],
       localImagePath: savedImagePath,
     );
-    _products.insert(0, product);
-    notifyListeners();
-
     if (useBackend) {
-      final firstVariant = product.variants.isNotEmpty ? product.variants.first : null;
-      _apiService.createProduct({
+      final firstVariant =
+          product.variants.isNotEmpty ? product.variants.first : null;
+      final data = await _apiService.createProduct({
         'name': product.name,
         'description': product.description,
         'category': product.category.name,
         'variantLabel': firstVariant?.label ?? product.name,
         'price': firstVariant?.price ?? 0,
         'isCool': firstVariant?.isCool ?? false,
-      }).then((_) {}).catchError((Object e) { debugPrint('createProduct API error: $e'); });
+      });
+      final saved = _productFromJson(data['product'] as Map<String, dynamic>);
+      _products.insert(0, saved);
+      notifyListeners();
+      return saved;
     }
 
+    _products.insert(0, product);
+    notifyListeners();
     return product;
   }
 
@@ -1517,14 +1573,12 @@ class WaterPlantRepository extends IWaterPlantRepository {
     };
   }
 
-  void deleteProduct(String id) {
+  Future<void> deleteProduct(String id) async {
+    if (useBackend) {
+      await _apiService.deleteProduct(id);
+    }
     _products.removeWhere((p) => p.id == id);
     notifyListeners();
-
-    if (useBackend) {
-      _apiService.deleteProduct(id)
-          .then((_) {}).catchError((Object e) { debugPrint('deleteProduct API error: $e'); });
-    }
   }
 
   List<Product> searchProducts(String query) {
@@ -1542,7 +1596,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
   }
 
   /// Re-fetch all data from the backend (used for pull-to-refresh).
-  Future<void> refreshFromBackend() => loadFromBackend();
+  Future<void> refreshFromBackend({AppRole? role}) => loadFromBackend(role: role);
 
   void resetMockData() {
     _customers.clear();
@@ -1563,82 +1617,170 @@ class WaterPlantRepository extends IWaterPlantRepository {
   }
 
   /// Load all data from the backend API (called when useBackend = true).
-  Future<void> loadFromBackend() async {
+  Future<void> loadFromBackend({AppRole? role}) async {
     if (!useBackend) return;
+    final isAdmin = role == null || role == AppRole.admin;
+    final isDriver = role == AppRole.driver;
+    final isCustomer = role == AppRole.customer;
+
     try {
-      // Load shop settings
-      final shopData = await _apiService.getShop();
-      final shopJson = shopData['shop'] as Map<String, dynamic>;
-      settings = settings.copyWith(
-        businessName: shopJson['shopName'] as String? ?? settings.businessName,
-        address: shopJson['address'] as String? ?? settings.address,
-        phone: shopJson['phone'] as String? ?? settings.phone,
-        email: shopJson['email'] as String? ?? settings.email,
-        normalPrice: (shopJson['normalCanPrice'] as num?)?.toDouble() ?? settings.normalPrice,
-        coolPrice: (shopJson['coolCanPrice'] as num?)?.toDouble() ?? settings.coolPrice,
-        homeDeliveryAvailable: shopJson['homeDeliveryAvailable'] as bool? ?? settings.homeDeliveryAvailable,
-        shopLatitude: (shopJson['latitude'] as num?)?.toDouble(),
-        shopLongitude: (shopJson['longitude'] as num?)?.toDouble(),
-      );
-
-      // Load customers
-      final customersData = await _apiService.listCustomers();
-      _customers.clear();
-      for (final c in (customersData['customers'] as List<dynamic>? ?? [])) {
-        final map = c as Map<String, dynamic>;
-        final customer = _customerFromJson(map);
-        _customers.add(customer);
-        _customerShopIds[customer.id] = map['shopId'] as String? ?? defaultShopId;
+      if (isAdmin) {
+        final shopData = await _apiService.getShop();
+        final shopJson = shopData['shop'] as Map<String, dynamic>;
+        settings = settings.copyWith(
+          businessName: shopJson['shopName'] as String? ?? settings.businessName,
+          address: shopJson['address'] as String? ?? settings.address,
+          phone: shopJson['phone'] as String? ?? settings.phone,
+          email: shopJson['email'] as String? ?? settings.email,
+          normalPrice:
+              (shopJson['normalCanPrice'] as num?)?.toDouble() ?? settings.normalPrice,
+          coolPrice:
+              (shopJson['coolCanPrice'] as num?)?.toDouble() ?? settings.coolPrice,
+          homeDeliveryAvailable: shopJson['homeDeliveryAvailable'] as bool? ??
+              settings.homeDeliveryAvailable,
+          shopLatitude: (shopJson['latitude'] as num?)?.toDouble(),
+          shopLongitude: (shopJson['longitude'] as num?)?.toDouble(),
+        );
+        _shops
+          ..clear()
+          ..add(_shopFromJson(shopJson));
       }
 
-      // Load drivers
-      final driversData = await _apiService.listDrivers();
-      _drivers.clear();
-      for (final d in (driversData['drivers'] as List<dynamic>? ?? [])) {
-        final map = d as Map<String, dynamic>;
-        final driver = _driverFromJson(map);
-        _drivers.add(driver);
-        _driverShopIds[driver.id] = map['shopId'] as String? ?? defaultShopId;
+      if (isCustomer) {
+        final listed = await _apiService.getListedShops();
+        _shops
+          ..clear()
+          ..addAll(
+            (listed['shops'] as List<dynamic>? ?? [])
+                .map((s) => _shopFromJson(s as Map<String, dynamic>)),
+          );
       }
 
-      // Load products
-      final productsData = await _apiService.listProducts();
-      _products.clear();
-      for (final p in (productsData['products'] as List<dynamic>? ?? [])) {
-        final map = p as Map<String, dynamic>;
-        _products.add(_productFromJson(map));
+      if (isAdmin || isDriver) {
+        final customersData = await _apiService.listCustomers();
+        _customers.clear();
+        for (final c in (customersData['customers'] as List<dynamic>? ?? [])) {
+          final map = c as Map<String, dynamic>;
+          final customer = _customerFromJson(map);
+          _customers.add(customer);
+          _customerShopIds[customer.id] =
+              map['shopId'] as String? ?? defaultShopId;
+        }
       }
 
-      // Load recent deliveries (last 30 days)
-      final endDate = DateTime.now().toIso8601String().split('T')[0];
-      final startDate = DateTime.now().subtract(const Duration(days: 60)).toIso8601String().split('T')[0];
-      final deliveriesData = await _apiService.listDeliveries(startDate: startDate, endDate: endDate, limit: 200);
-      _deliveries.clear();
-      for (final d in (deliveriesData['deliveries'] as List<dynamic>? ?? [])) {
-        _deliveries.add(_deliveryFromJson(d as Map<String, dynamic>));
+      if (isAdmin) {
+        final driversData = await _apiService.listDrivers();
+        _drivers.clear();
+        for (final d in (driversData['drivers'] as List<dynamic>? ?? [])) {
+          final map = d as Map<String, dynamic>;
+          final driver = _driverFromJson(map);
+          _drivers.add(driver);
+          _driverShopIds[driver.id] = map['shopId'] as String? ?? defaultShopId;
+        }
       }
 
-      // Load recent orders
-      final ordersData = await _apiService.listOrders(limit: 100);
-      _orders.clear();
-      for (final o in (ordersData['orders'] as List<dynamic>? ?? [])) {
-        _orders.add(_orderFromJson(o as Map<String, dynamic>));
+      if (isAdmin || isDriver || isCustomer) {
+        final productsData = await _apiService.listProducts();
+        _products.clear();
+        for (final p in (productsData['products'] as List<dynamic>? ?? [])) {
+          _products.add(_productFromJson(p as Map<String, dynamic>));
+        }
       }
 
-      // Load promotions
-      final promosData = await _apiService.listPromotions();
-      _promotions.clear();
-      for (final p in (promosData['promotions'] as List<dynamic>? ?? [])) {
-        _promotions.add(_promotionFromJson(p as Map<String, dynamic>));
+      if (isAdmin || isDriver) {
+        final endDate = DateTime.now().toIso8601String().split('T')[0];
+        final startDate = DateTime.now()
+            .subtract(const Duration(days: 60))
+            .toIso8601String()
+            .split('T')[0];
+        final deliveriesData = await _apiService.listDeliveries(
+          startDate: startDate,
+          endDate: endDate,
+          limit: 200,
+        );
+        _deliveries.clear();
+        for (final d in (deliveriesData['deliveries'] as List<dynamic>? ?? [])) {
+          _deliveries.add(_deliveryFromJson(d as Map<String, dynamic>));
+        }
+
+        final ordersData = await _apiService.listOrders(limit: 100);
+        _orders.clear();
+        for (final o in (ordersData['orders'] as List<dynamic>? ?? [])) {
+          _orders.add(_orderFromJson(o as Map<String, dynamic>));
+        }
+
+        final cashData = await _apiService.listCashCollections(limit: 200);
+        _payments.clear();
+        for (final c in (cashData['collections'] as List<dynamic>? ?? [])) {
+          _payments.add(_paymentFromCashJson(c as Map<String, dynamic>));
+        }
+      }
+
+      if (isCustomer) {
+        final ordersData = await _apiService.getMyOrders();
+        _orders.clear();
+        for (final o in (ordersData['orders'] as List<dynamic>? ?? [])) {
+          _orders.add(_orderFromJson(o as Map<String, dynamic>));
+        }
+      }
+
+      if (isAdmin || isCustomer) {
+        final promosData = await _apiService.listPromotions();
+        _promotions.clear();
+        for (final p in (promosData['promotions'] as List<dynamic>? ?? [])) {
+          _promotions.add(_promotionFromJson(p as Map<String, dynamic>));
+        }
+      }
+
+      if (isAdmin) {
+        _syncShopFromSettings();
       }
 
       notifyListeners();
     } catch (e) {
       debugPrint('loadFromBackend error: $e');
+      rethrow;
     }
   }
 
   // ─── JSON → Model converters ───────────────────────────────────────────────
+
+  Shop _shopFromJson(Map<String, dynamic> map) {
+    return Shop(
+      id: map['shopId'] as String? ?? defaultShopId,
+      name: map['shopName'] as String? ?? '',
+      address: map['address'] as String? ?? '',
+      phone: map['phone'] as String? ?? '',
+      email: map['email'] as String? ?? '',
+      place: map['place'] as String? ?? '',
+      latitude: (map['latitude'] as num?)?.toDouble(),
+      longitude: (map['longitude'] as num?)?.toDouble(),
+      isListed: map['isListed'] as bool? ?? true,
+      homeDeliveryAvailable: map['homeDeliveryAvailable'] as bool? ?? false,
+      normalPrice: (map['normalCanPrice'] as num?)?.toDouble() ?? 20,
+      coolPrice: (map['coolCanPrice'] as num?)?.toDouble() ?? 30,
+      tagline: map['tagline'] as String? ?? '',
+      rating: (map['rating'] as num?)?.toDouble() ?? 4.5,
+      reviewCount: (map['reviewCount'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  Payment _paymentFromCashJson(
+    Map<String, dynamic> map, {
+    PaymentMethod method = PaymentMethod.cash,
+  }) {
+    return Payment(
+      id: map['cashCollectionId'] as String? ?? map['_id'] as String,
+      customerId: map['customerId'] as String,
+      date: DateTime.parse(map['collectionDate'] as String),
+      amount: (map['amount'] as num).toDouble(),
+      method: method,
+      notes: map['notes'] as String?,
+      createdAt: map['createdAt'] != null
+          ? DateTime.parse(map['createdAt'] as String)
+          : null,
+    );
+  }
 
   Customer _customerFromJson(Map<String, dynamic> map) {
     return Customer(

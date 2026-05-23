@@ -45,8 +45,16 @@ class ProductDetailScreen extends StatelessWidget {
     );
 
     if (confirmed == true && context.mounted) {
-      repo.deleteProduct(productId);
-      context.pop();
+      try {
+        await repo.deleteProduct(productId);
+        if (context.mounted) context.pop();
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not delete: $e')),
+          );
+        }
+      }
     }
   }
 

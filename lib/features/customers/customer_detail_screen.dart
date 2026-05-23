@@ -57,7 +57,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   ) async {
     final confirmed = await confirmDeleteCustomer(context, customerName: name);
     if (!confirmed || !context.mounted) return;
-    repo.deleteCustomer(widget.customerId);
+    await repo.deleteCustomer(widget.customerId);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

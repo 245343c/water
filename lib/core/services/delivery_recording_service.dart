@@ -28,13 +28,13 @@ class DeliveryRecordingService {
 
   static const int maxCansPerDelivery = 50;
 
-  Delivery recordCansDelivery({
+  Future<Delivery> recordCansDelivery({
     required String customerId,
     required int normalQty,
     required int coolQty,
     String? driverNote,
     bool driverMode = false,
-  }) {
+  }) async {
     final user = _auth.currentUser;
     if (user == null) {
       throw DeliveryValidationException('You must be signed in');
@@ -77,7 +77,7 @@ class DeliveryRecordingService {
         ? DateTime(today.year, today.month, today.day, today.hour, today.minute)
         : today;
 
-    final delivery = _plant.addDelivery(
+    final delivery = await _plant.addDelivery(
       customerId: customerId,
       date: deliveryDate,
       normalQty: normalQty,

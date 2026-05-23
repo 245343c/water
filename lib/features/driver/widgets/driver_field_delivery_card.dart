@@ -130,7 +130,7 @@ class _DriverFieldDeliveryCardState extends State<DriverFieldDeliveryCard> {
     setState(() => _saving = true);
     try {
       final recording = context.read<DeliveryRecordingService>();
-      final delivery = recording.recordCansDelivery(
+      final delivery = await recording.recordCansDelivery(
         customerId: widget.customer.id,
         normalQty: _normal,
         coolQty: _cool,

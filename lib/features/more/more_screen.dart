@@ -69,10 +69,18 @@ class MoreScreen extends StatelessWidget {
                       ),
                       MoreHomeDeliveryCard(
                         value: repo.settings.homeDeliveryAvailable,
-                        onChanged: (v) {
-                          repo.updateSettings(
-                            repo.settings.copyWith(homeDeliveryAvailable: v),
-                          );
+                        onChanged: (v) async {
+                          try {
+                            await repo.updateSettings(
+                              repo.settings.copyWith(homeDeliveryAvailable: v),
+                            );
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Could not update: $e')),
+                              );
+                            }
+                          }
                         },
                       ),
                       Padding(

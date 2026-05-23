@@ -181,7 +181,7 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
     try {
       final normalTotal = _normal + _catalogNormalQty(products);
       final coolTotal = _cool + _catalogCoolQty(products);
-      final order = repo.placeAppOrder(
+      final order = await repo.placeAppOrder(
         shopId: widget.shopId,
         appUserId: user.id,
         normalQty: normalTotal,

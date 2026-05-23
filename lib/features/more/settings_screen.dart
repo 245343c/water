@@ -66,23 +66,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _initialized = true;
   }
 
-  void _save(WaterPlantRepository repo) {
+  Future<void> _save(WaterPlantRepository repo) async {
     if (!_formKey.currentState!.validate()) return;
 
-    repo.updateSettings(
-      repo.settings.copyWith(
-        businessName: _nameController.text.trim(),
-        address: _addressController.text.trim(),
-        phone: _phoneController.text.trim(),
-        email: _emailController.text.trim(),
-        normalPrice: double.parse(_normalPriceController.text),
-        coolPrice: double.parse(_coolPriceController.text),
-        shopLatitude: _shopLat,
-        shopLongitude: _shopLng,
-        homeDeliveryAvailable: _homeDelivery,
-        clearMapPin: _shopLat == null || _shopLng == null,
-      ),
-    );
+    try {
+      await repo.updateSettings(
+        repo.settings.copyWith(
+          businessName: _nameController.text.trim(),
+          address: _addressController.text.trim(),
+          phone: _phoneController.text.trim(),
+          email: _emailController.text.trim(),
+          normalPrice: double.parse(_normalPriceController.text),
+          coolPrice: double.parse(_coolPriceController.text),
+          shopLatitude: _shopLat,
+          shopLongitude: _shopLng,
+          homeDeliveryAvailable: _homeDelivery,
+          clearMapPin: _shopLat == null || _shopLng == null,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not save: $e', style: GoogleFonts.poppins())),
+      );
+      return;
+    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

@@ -215,19 +215,19 @@ void main() {
     final month = DateTime(DateTime.now().year, DateTime.now().month);
     final beforeStats = repo.monthlyStatsForCustomer(linkedCustomerId, month);
 
-    final order = repo.placeAppOrder(
+    final order = await repo.placeAppOrder(
       shopId: 'shop-1',
       appUserId: user.id,
       normalQty: 2,
       coolQty: 0,
       customerNote: 'Deliver after 6 PM',
     );
-    repo.respondToOrder(
+    await repo.respondToOrder(
       order.id,
       OrderStatus.accepted,
       adminResponse: 'Confirmed for evening delivery',
     );
-    repo.addDelivery(
+    await repo.addDelivery(
       customerId: order.customerId,
       date: DateTime.now(),
       normalQty: 2,
@@ -265,7 +265,7 @@ void main() {
     );
   });
 
-  test('Multi-plant customer request stays with selected plant account', () {
+  test('Multi-plant customer request stays with selected plant account', () async {
     final auth = AuthRepository();
     final repo = WaterPlantRepository();
     auth.requestCustomerOtp('9632580741');
@@ -276,7 +276,7 @@ void main() {
     repo.linkContractCustomerOnLogin(userId: user.id, phone: user.phone);
     auth.markCustomerOnboardingComplete(user.id, name: 'Abi');
 
-    final order = repo.placeAppOrder(
+    final order = await repo.placeAppOrder(
       shopId: 'shop-2',
       appUserId: user.id,
       normalQty: 1,

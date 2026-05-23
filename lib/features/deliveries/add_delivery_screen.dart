@@ -209,23 +209,31 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
                     customer: customer,
                     repo: repo,
                   ),
-                  onPressed: () {
+                  onPressed: () async {
                     final auth = context.read<AuthRepository>();
                     final staffId = auth.currentUser?.role == AppRole.driver
                         ? auth.currentUser?.driverId
                         : auth.currentUser?.id;
-                    final delivery = repo.addDelivery(
-                      customerId: widget.customerId,
-                      date: _date,
-                      normalQty: _normal,
-                      coolQty: _cool,
-                      bottles: _bottleInputs(customer, repo, bottleCatalog),
-                      driverId: staffId,
-                    );
-                    context.pushReplacement(
-                      '/customers/${widget.customerId}/delivery/success',
-                      extra: delivery,
-                    );
+                    try {
+                      final delivery = await repo.addDelivery(
+                        customerId: widget.customerId,
+                        date: _date,
+                        normalQty: _normal,
+                        coolQty: _cool,
+                        bottles: _bottleInputs(customer, repo, bottleCatalog),
+                        driverId: staffId,
+                      );
+                      if (!context.mounted) return;
+                      context.pushReplacement(
+                        '/customers/${widget.customerId}/delivery/success',
+                        extra: delivery,
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Could not save delivery: $e')),
+                      );
+                    }
                   },
                 ),
               ],

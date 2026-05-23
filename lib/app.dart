@@ -50,10 +50,15 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
     _push.initialize();
 
     if (useBackend) {
-      Future.wait([
-        _repository.loadFromBackend(),
-        _notifications.loadFromBackend(),
-      ]).then((_) {
+      _auth.ensureSessionRestored().then((_) async {
+        if (_auth.isAuthenticated) {
+          await Future.wait([
+            _repository.loadFromBackend(role: _auth.currentUser?.role),
+            _notifications.loadFromBackend(),
+          ]);
+        }
+        if (mounted) setState(() => _backendReady = true);
+      }).catchError((_) {
         if (mounted) setState(() => _backendReady = true);
       });
     }

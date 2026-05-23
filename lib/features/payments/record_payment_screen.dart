@@ -199,19 +199,28 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
                     ),
                   ),
                   RecordPaymentSaveButton(
-                    onPressed: () {
+                    onPressed: () async {
                       if (!_formKey.currentState!.validate()) return;
                       final amount = double.parse(_amountController.text);
                       final split = repo.previewPayment(widget.customerId, amount);
-                      repo.addPayment(
-                        customerId: widget.customerId,
-                        amount: amount,
-                        method: _method,
-                        date: _date,
-                        notes: _notesController.text.trim().isEmpty
-                            ? null
-                            : _notesController.text.trim(),
-                      );
+                      try {
+                        await repo.addPayment(
+                          customerId: widget.customerId,
+                          amount: amount,
+                          method: _method,
+                          date: _date,
+                          notes: _notesController.text.trim().isEmpty
+                              ? null
+                              : _notesController.text.trim(),
+                        );
+                      } catch (e) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Could not record payment: $e')),
+                        );
+                        return;
+                      }
+                      if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(

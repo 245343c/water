@@ -37,7 +37,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     setState(() => _loading = true);
 
     final auth = context.read<AuthRepository>();
-    final error = auth.resetPasswordWithOtp(
+    final error = await auth.resetPasswordWithOtpAsync(
       email: widget.email,
       otp: _otpController.text,
       newPassword: _passwordController.text,

@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/services/api/api_config.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
+import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customer/widgets/customer_theme.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
@@ -134,11 +135,18 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
 
     final user = auth.currentUser!;
     final repo = context.read<WaterPlantRepository>();
+    try {
+      await repo.loadFromBackend(role: user.role);
+      if (context.mounted) {
+        await context.read<NotificationRepository>().loadFromBackend();
+      }
+    } catch (_) {}
     repo.linkContractCustomerOnLogin(userId: user.id, phone: user.phone);
     final profile = repo.customerProfileByUserId(user.id);
     final needsOnboarding = !user.customerProfileComplete ||
         profile == null ||
         !profile.onboardingComplete;
+    if (!context.mounted) return;
     context.go(
       needsOnboarding ? AppRoutes.customerOnboarding : AppRoutes.customerHome,
     );

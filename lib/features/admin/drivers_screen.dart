@@ -23,13 +23,13 @@ class DriversScreen extends StatelessWidget {
     final repo = context.read<WaterPlantRepository>();
     final auth = context.read<AuthRepository>();
 
-    final driver = repo.addDriver(
+    final driver = await repo.addDriver(
       name: result.name,
       phone: result.phone,
       email: result.email,
     );
 
-    final err = auth.createDriverAccount(
+    final err = await auth.createDriverAccountAsync(
       driverId: driver.id,
       name: result.name,
       phone: result.phone,
