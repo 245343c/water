@@ -68,6 +68,34 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     context.go(AppRoutes.customers);
   }
 
+  Future<void> _toggleBlock(
+    BuildContext context,
+    WaterPlantRepository repo,
+    bool blocked,
+  ) async {
+    try {
+      await repo.setCustomerBlocked(widget.customerId, blocked);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            blocked ? 'Customer blocked' : 'Customer unblocked',
+            style: GoogleFonts.poppins(),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not update: $e', style: GoogleFonts.poppins()),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<WaterPlantRepository>(
@@ -147,6 +175,19 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                           '/customers/${widget.customerId}/bill',
                         ),
                         onCall: () => _onCall(customer.phone),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                        child: OutlinedButton.icon(
+                          onPressed: () => _toggleBlock(context, repo, !customer.isBlocked),
+                          icon: Icon(
+                            customer.isBlocked ? Icons.lock_open_outlined : Icons.block_outlined,
+                          ),
+                          label: Text(
+                            customer.isBlocked ? 'Unblock customer' : 'Block customer',
+                            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                          ),
+                        ),
                       ),
                       DeleteCustomerSection(
                         onDelete: () =>

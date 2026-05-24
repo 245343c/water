@@ -84,6 +84,23 @@ router.patch('/:id/read', protect, async (req, res) => {
   }
 });
 
+// PATCH /api/notifications/read-all — mark all notifications read for current user
+router.patch('/read-all', protect, async (req, res) => {
+  try {
+    const { filter } = buildNotificationFilter(req.user, req.query);
+    const result = await Notification.updateMany(
+      { ...filter, read: false },
+      { $set: { read: true, readAt: new Date() } },
+    );
+    res.status(200).json({
+      success: true,
+      updated: result.modifiedCount ?? result.nModified ?? 0,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // POST /api/notifications — admin sends notification
 router.post('/', protect, adminOnly, async (req, res) => {
   try {

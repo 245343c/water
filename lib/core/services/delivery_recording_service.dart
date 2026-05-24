@@ -33,6 +33,7 @@ class DeliveryRecordingService {
     required int normalQty,
     required int coolQty,
     String? driverNote,
+    String? orderId,
     bool driverMode = false,
   }) async {
     final user = _auth.currentUser;
@@ -83,6 +84,10 @@ class DeliveryRecordingService {
       normalQty: normalQty,
       coolQty: coolQty,
       driverId: staffId,
+      orderId: orderId,
+      deliveryType: orderId != null && orderId.isNotEmpty
+          ? 'app_order_delivery'
+          : 'manual_delivery',
     );
 
     await _notifications.loadFromBackend();

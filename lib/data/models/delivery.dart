@@ -4,6 +4,7 @@ class Delivery {
   Delivery({
     required this.id,
     required this.customerId,
+    this.orderId,
     required this.date,
     required this.lines,
     this.driverId,
@@ -12,6 +13,7 @@ class Delivery {
 
   final String id;
   final String customerId;
+  final String? orderId;
   DateTime date;
   final List<DeliveryLineItem> lines;
 
@@ -90,12 +92,14 @@ class Delivery {
   }
 
   Delivery copyWith({
+    String? orderId,
     DateTime? date,
     List<DeliveryLineItem>? lines,
   }) {
     return Delivery(
       id: id,
       customerId: customerId,
+      orderId: orderId ?? this.orderId,
       date: date ?? this.date,
       lines: lines ?? this.lines,
       driverId: driverId,

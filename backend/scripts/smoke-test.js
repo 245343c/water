@@ -116,6 +116,7 @@ async function main() {
 
   let adminToken;
   let customerToken;
+  let placedOrderId;
 
   await assert('GET /health', async () => {
     const res = await request('GET', '/health');
@@ -169,6 +170,31 @@ async function main() {
 
   await assert('GET /api/orders/customer/mine', async () => {
     const res = await request('GET', '/api/orders/customer/mine', { token: customerToken });
+    if (res.status !== 200) throw new Error(JSON.stringify(res.json));
+  });
+
+  await assert('POST /api/orders (customer place order)', async () => {
+    const res = await request('POST', '/api/orders', {
+      token: customerToken,
+      body: {
+        shopId: 'shop-1',
+        normalQty: 2,
+        coolQty: 1,
+        customerNote: 'Smoke test order',
+      },
+    });
+    if (res.status !== 201 || !res.json.order?.orderId) throw new Error(JSON.stringify(res.json));
+    if (!res.json.order.totalAmount || res.json.order.totalAmount <= 0) {
+      throw new Error(`Expected totalAmount > 0: ${JSON.stringify(res.json.order)}`);
+    }
+    placedOrderId = res.json.order.orderId;
+  });
+
+  await assert('PATCH /api/orders/:id/accept (admin)', async () => {
+    const res = await request('PATCH', `/api/orders/${placedOrderId}/accept`, {
+      token: adminToken,
+      body: { adminNote: 'Accepted (smoke)' },
+    });
     if (res.status !== 200) throw new Error(JSON.stringify(res.json));
   });
 

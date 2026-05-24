@@ -143,6 +143,25 @@ class DriverProfileScreen extends StatelessWidget {
                     decoration: DriverColors.cardDecoration,
                     child: Column(
                       children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.toggle_on_outlined, color: DriverColors.accent),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Available for deliveries',
+                                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                            Switch(
+                              value: driver?.active ?? true,
+                              onChanged: (v) async {
+                                await repo.setMyDriverAvailability(v);
+                              },
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 20),
                         _InfoRow(icon: Icons.phone_outlined, text: driver?.phone ?? user?.phone ?? ''),
                         const Divider(height: 20),
                         _InfoRow(

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/data/models/payment.dart';
 import 'package:sri_sai_ro_water/data/models/payment_method.dart';
+import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/bills/widgets/monthly_summary_widgets.dart';
 
 void showMonthlyDeliveriesSheet(
@@ -29,7 +31,7 @@ void showMonthlyDeliveriesSheet(
     emptyTitle: 'No deliveries',
     emptySubtitle: 'No deliveries recorded for ${month.monthYear}.',
     itemCount: deliveries.length,
-    itemBuilder: (i) => _DeliverySheetTile(delivery: deliveries[i]),
+    itemBuilder: (i) => _DeliverySheetTile(delivery: deliveries[i], customer: customer),
   );
 }
 
@@ -54,7 +56,7 @@ void showMonthlyPaymentsSheet(
     emptyTitle: 'No payments',
     emptySubtitle: 'No payments recorded for ${month.monthYear}.',
     itemCount: payments.length,
-    itemBuilder: (i) => _PaymentSheetTile(payment: payments[i]),
+    itemBuilder: (i) => _PaymentSheetTile(payment: payments[i], customer: customer),
   );
 }
 
@@ -308,12 +310,14 @@ class _EmptySheetState extends StatelessWidget {
 }
 
 class _DeliverySheetTile extends StatelessWidget {
-  const _DeliverySheetTile({required this.delivery});
+  const _DeliverySheetTile({required this.delivery, required this.customer});
 
   final Delivery delivery;
+  final Customer customer;
 
   @override
   Widget build(BuildContext context) {
+    final repo = context.read<WaterPlantRepository>();
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -379,6 +383,34 @@ class _DeliverySheetTile extends StatelessWidget {
               color: const Color(0xFF2563EB),
             ),
           ),
+          PopupMenuButton<String>(
+            onSelected: (v) async {
+              if (v == 'delete') {
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    title: Text('Delete delivery?', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                    content: Text('${customer.name} · ${delivery.date.fullDate}', style: GoogleFonts.poppins()),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                      FilledButton(
+                        style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Delete'),
+                      ),
+                    ],
+                  ),
+                );
+                if (ok == true) {
+                  await repo.deleteDelivery(delivery.id);
+                }
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'delete', child: Text('Delete')),
+            ],
+          ),
         ],
       ),
     );
@@ -386,9 +418,10 @@ class _DeliverySheetTile extends StatelessWidget {
 }
 
 class _PaymentSheetTile extends StatelessWidget {
-  const _PaymentSheetTile({required this.payment});
+  const _PaymentSheetTile({required this.payment, required this.customer});
 
   final Payment payment;
+  final Customer customer;
 
   IconData _methodIcon(PaymentMethod method) {
     return switch (method) {
@@ -400,6 +433,7 @@ class _PaymentSheetTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final repo = context.read<WaterPlantRepository>();
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -472,6 +506,73 @@ class _PaymentSheetTile extends StatelessWidget {
                 color: const Color(0xFF059669),
               ),
             ),
+          ),
+          PopupMenuButton<String>(
+            onSelected: (v) async {
+              if (v == 'delete') {
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    title: Text('Delete payment?', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                    content: Text('${customer.name} · ${CurrencyUtils.format(payment.amount)}', style: GoogleFonts.poppins()),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                      FilledButton(
+                        style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Delete'),
+                      ),
+                    ],
+                  ),
+                );
+                if (ok == true) {
+                  await repo.deletePayment(payment.id);
+                }
+              } else if (v == 'edit') {
+                final amountCtrl = TextEditingController(text: payment.amount.toStringAsFixed(0));
+                final notesCtrl = TextEditingController(text: payment.notes ?? '');
+                final saved = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    title: Text('Edit payment', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextField(
+                          controller: amountCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: const InputDecoration(labelText: 'Amount'),
+                        ),
+                        TextField(
+                          controller: notesCtrl,
+                          decoration: const InputDecoration(labelText: 'Notes (optional)'),
+                        ),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                      FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+                    ],
+                  ),
+                );
+                if (saved == true) {
+                  final amount = double.tryParse(amountCtrl.text.trim()) ?? payment.amount;
+                  await repo.updatePayment(
+                    paymentId: payment.id,
+                    customerId: payment.customerId,
+                    amount: amount,
+                    date: payment.date,
+                    notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
+                  );
+                }
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'edit', child: Text('Edit')),
+              PopupMenuItem(value: 'delete', child: Text('Delete')),
+            ],
           ),
         ],
       ),

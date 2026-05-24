@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
@@ -10,6 +11,7 @@ import 'package:sri_sai_ro_water/core/widgets/monthly_metrics_list.dart';
 import 'package:sri_sai_ro_water/data/models/monthly_stats.dart';
 import 'package:sri_sai_ro_water/data/models/payment.dart';
 import 'package:sri_sai_ro_water/core/widgets/customer_info_bar.dart';
+import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class MonthlySummaryColors {
@@ -626,6 +628,90 @@ class MonthlySummaryInfoBanner extends StatelessWidget {
                   color: MonthlySummaryColors.labelGrey,
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class MonthlySummarySyncCard extends StatefulWidget {
+  const MonthlySummarySyncCard({
+    super.key,
+    required this.customerId,
+    required this.month,
+  });
+
+  final String customerId;
+  final DateTime month;
+
+  @override
+  State<MonthlySummarySyncCard> createState() => _MonthlySummarySyncCardState();
+}
+
+class _MonthlySummarySyncCardState extends State<MonthlySummarySyncCard> {
+  bool _loading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: Container(
+        decoration: MonthlySummaryColors.premiumPanel,
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            const Icon(Icons.cloud_sync_outlined, color: MonthlySummaryColors.statBlue),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Sync monthly bill from server',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+                  ),
+                  Text(
+                    'Generates the official bill totals in MongoDB for this month.',
+                    style: GoogleFonts.poppins(fontSize: 12, color: MonthlySummaryColors.labelGrey),
+                  ),
+                ],
+              ),
+            ),
+            FilledButton(
+              onPressed: _loading
+                  ? null
+                  : () async {
+                      setState(() => _loading = true);
+                      try {
+                        // ignore: use_build_context_synchronously
+                        final repo = context.read<WaterPlantRepository>();
+                        await repo.generateMonthlyBill(
+                          customerId: widget.customerId,
+                          month: widget.month,
+                        );
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Bill synced', style: GoogleFonts.poppins()),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      } catch (e) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Could not sync: $e', style: GoogleFonts.poppins()),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      } finally {
+                        if (mounted) setState(() => _loading = false);
+                      }
+                    },
+              style: FilledButton.styleFrom(backgroundColor: MonthlySummaryColors.primaryBtn),
+              child: Text(_loading ? 'Syncing…' : 'Sync', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
             ),
           ],
         ),

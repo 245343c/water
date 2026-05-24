@@ -14,6 +14,7 @@ abstract final class AppPermissions {
             'reports',
             'settings',
             'products',
+            'promotions.manage',
             'drivers.manage',
             'customers.read',
             'customers.write',

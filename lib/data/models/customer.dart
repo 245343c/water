@@ -12,6 +12,7 @@ class Customer {
     this.paymentFrequency = 'Monthly',
     this.productPrices = const [],
     this.billingMode = CustomerBillingMode.monthlyContract,
+    this.status = 'active',
     this.appUserId,
     this.latitude,
     this.longitude,
@@ -27,6 +28,7 @@ class Customer {
   String paymentFrequency;
   final List<CustomerProductPrice> productPrices;
   final CustomerBillingMode billingMode;
+  String status;
   final String? appUserId;
   final double? latitude;
   final double? longitude;
@@ -34,6 +36,9 @@ class Customer {
 
   bool get isMonthlyContract =>
       billingMode == CustomerBillingMode.monthlyContract;
+
+  bool get isBlocked => status == 'blocked';
+  bool get isDeleted => status == 'deleted';
 
   String get initials {
     final parts = name.trim().split(RegExp(r'\s+'));
@@ -53,6 +58,7 @@ class Customer {
     String? paymentFrequency,
     List<CustomerProductPrice>? productPrices,
     CustomerBillingMode? billingMode,
+    String? status,
     String? appUserId,
     double? latitude,
     double? longitude,
@@ -67,6 +73,7 @@ class Customer {
       paymentFrequency: paymentFrequency ?? this.paymentFrequency,
       productPrices: productPrices ?? this.productPrices,
       billingMode: billingMode ?? this.billingMode,
+      status: status ?? this.status,
       appUserId: appUserId ?? this.appUserId,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,

@@ -62,6 +62,33 @@ router.post('/', protect, customerOnly, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Shop is not accepting orders right now' });
     }
 
+    const n = Math.max(0, parseInt(normalQty, 10) || 0);
+    const c = Math.max(0, parseInt(coolQty, 10) || 0);
+    const items = [];
+    if (n > 0) {
+      items.push({
+        productId: null,
+        variantId: null,
+        label: 'Normal Can',
+        quantity: n,
+        unitPrice: shop.normalCanPrice || 0,
+        lineTotal: n * (shop.normalCanPrice || 0),
+      });
+    }
+    if (c > 0) {
+      items.push({
+        productId: null,
+        variantId: null,
+        label: 'Cool Can',
+        quantity: c,
+        unitPrice: shop.coolCanPrice || 0,
+        lineTotal: c * (shop.coolCanPrice || 0),
+      });
+    }
+    const subtotal = items.reduce((sum, i) => sum + (i.lineTotal || 0), 0);
+    const deliveryCharge = shop.deliveryCharge || 0;
+    const totalAmount = subtotal + deliveryCharge;
+
     const orderId = uuidv4();
     const order = await Order.create({
       orderId,
@@ -73,8 +100,12 @@ router.post('/', protect, customerOnly, async (req, res) => {
       deliveryAddress: deliveryAddress || '',
       deliveryLatitude: deliveryLatitude || null,
       deliveryLongitude: deliveryLongitude || null,
-      normalQty: normalQty || 0,
-      coolQty: coolQty || 0,
+      items,
+      normalQty: n,
+      coolQty: c,
+      subtotal,
+      deliveryCharge,
+      totalAmount,
       customerNote: customerNote || null,
       orderStatus: 'pending',
     });

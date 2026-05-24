@@ -12,6 +12,7 @@ class Promotion {
     this.thumbUrl,
     this.badge,
     this.ctaLabel = 'Order now',
+    this.isActive = true,
     required this.createdAt,
   });
 
@@ -25,5 +26,6 @@ class Promotion {
   final String? thumbUrl;
   final String? badge;
   final String ctaLabel;
+  final bool isActive;
   final DateTime createdAt;
 }

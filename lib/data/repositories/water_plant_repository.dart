@@ -687,24 +687,58 @@ class WaterPlantRepository extends IWaterPlantRepository {
         month: month.month,
         year: month.year,
       );
-      for (final b in (data['bills'] as List<dynamic>? ?? [])) {
-        final map = b as Map<String, dynamic>;
-        final customerId = map['customerId'] as String? ?? '';
-        if (customerId.isEmpty) continue;
-        final m = (map['month'] as num?)?.toInt() ?? month.month;
-        final y = (map['year'] as num?)?.toInt() ?? month.year;
-        final key = '$customerId-$y-$m';
-        _billTotalsCache[key] = (
-          total: (map['currentMonthAmount'] as num?)?.toDouble() ?? 0,
-          paid: (map['cashCollectedAmount'] as num?)?.toDouble() ?? 0,
-          balance: (map['finalPendingAmount'] as num?)?.toDouble() ?? 0,
-          normal: (map['totalNormalCans'] as num?)?.toInt() ?? 0,
-          cool: (map['totalCoolCans'] as num?)?.toInt() ?? 0,
-        );
-      }
+      _cacheBillTotals(data['bills'] as List<dynamic>? ?? [], fallbackMonth: month);
       notifyListeners();
     } catch (e) {
       debugPrint('refreshMonthlyBills error: $e');
+    }
+  }
+
+  Future<void> refreshMyBills(String shopId) async {
+    try {
+      final data = await _apiService.getMyBills(shopId);
+      _cacheBillTotals(
+        data['bills'] as List<dynamic>? ?? [],
+        fallbackMonth: DateTime(DateTime.now().year, DateTime.now().month),
+      );
+      notifyListeners();
+    } catch (e) {
+      debugPrint('refreshMyBills error: $e');
+    }
+  }
+
+  Future<void> generateMonthlyBill({
+    required String customerId,
+    required DateTime month,
+  }) async {
+    try {
+      final data = await _apiService.generateBill(customerId, month.month, month.year);
+      final bill = data['bill'];
+      if (bill is Map<String, dynamic>) {
+        _cacheBillTotals([bill], fallbackMonth: month);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('generateMonthlyBill error: $e');
+      rethrow;
+    }
+  }
+
+  void _cacheBillTotals(List<dynamic> bills, {required DateTime fallbackMonth}) {
+    for (final b in bills) {
+      final map = b as Map<String, dynamic>;
+      final customerId = map['customerId'] as String? ?? '';
+      if (customerId.isEmpty) continue;
+      final m = (map['month'] as num?)?.toInt() ?? fallbackMonth.month;
+      final y = (map['year'] as num?)?.toInt() ?? fallbackMonth.year;
+      final key = '$customerId-$y-$m';
+      _billTotalsCache[key] = (
+        total: (map['currentMonthAmount'] as num?)?.toDouble() ?? 0,
+        paid: (map['cashCollectedAmount'] as num?)?.toDouble() ?? 0,
+        balance: (map['finalPendingAmount'] as num?)?.toDouble() ?? 0,
+        normal: (map['totalNormalCans'] as num?)?.toInt() ?? 0,
+        cool: (map['totalCoolCans'] as num?)?.toInt() ?? 0,
+      );
     }
   }
 
@@ -1184,6 +1218,26 @@ class WaterPlantRepository extends IWaterPlantRepository {
     notifyListeners();
   }
 
+  Future<Customer> setCustomerBlocked(String customerId, bool blocked) async {
+    final index = _customers.indexWhere((c) => c.id == customerId);
+    if (index < 0) {
+      throw StateError('Customer not found');
+    }
+
+    if (useBackend) {
+      final data = await _apiService.blockCustomer(customerId, blocked);
+      final saved = _customerFromJson(data['customer'] as Map<String, dynamic>);
+      _customers[index] = saved;
+      notifyListeners();
+      return saved;
+    }
+
+    final updated = _customers[index].copyWith(status: blocked ? 'blocked' : 'active');
+    _customers[index] = updated;
+    notifyListeners();
+    return updated;
+  }
+
   int get pendingOrderCount =>
       _orders.where((o) => o.status == OrderStatus.pending).length;
 
@@ -1511,6 +1565,19 @@ class WaterPlantRepository extends IWaterPlantRepository {
     notifyListeners();
   }
 
+  Future<void> setMyDriverAvailability(bool active) async {
+    if (!useBackend) return;
+    final data = await _apiService.setMyDriverAvailability(active);
+    final saved = _driverFromJson(data['driver'] as Map<String, dynamic>);
+    final index = _drivers.indexWhere((d) => d.id == saved.id);
+    if (index >= 0) {
+      _drivers[index] = saved;
+    } else {
+      _drivers.add(saved);
+    }
+    notifyListeners();
+  }
+
   List<Delivery> deliveriesOnDate(DateTime day) {
     final start = DateTime(day.year, day.month, day.day);
     final end = start.add(const Duration(days: 1));
@@ -1581,6 +1648,8 @@ class WaterPlantRepository extends IWaterPlantRepository {
     int coolQty = 0,
     List<BottleDeliveryInput> bottles = const [],
     String? driverId,
+    String? orderId,
+    String deliveryType = 'manual_delivery',
   }) async {
     final customer = customerById(customerId);
     final lines = <DeliveryLineItem>[];
@@ -1641,6 +1710,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
         'normalQty': normalQty,
         'coolQty': coolQty,
         if (driverId != null) 'driverId': driverId,
+        if (orderId != null && orderId.isNotEmpty) 'orderId': orderId,
         'lines': lines
             .map((l) => {
                   'kind': l.kind.name,
@@ -1654,12 +1724,22 @@ class WaterPlantRepository extends IWaterPlantRepository {
           0,
           (sum, l) => sum + l.quantity * l.unitPrice,
         ),
-        'deliveryType': 'manual_delivery',
+        'deliveryType': deliveryType,
       });
       final delivery = _deliveryFromJson(
         data['delivery'] as Map<String, dynamic>,
       );
       _deliveries.insert(0, delivery);
+      if (orderId != null && orderId.isNotEmpty) {
+        try {
+          final res = await _apiService.updateOrderStatus(orderId, 'delivered');
+          final updated = _orderFromJson(res['order'] as Map<String, dynamic>);
+          final oi = _orders.indexWhere((o) => o.id == updated.id);
+          if (oi >= 0) _orders[oi] = updated;
+        } catch (e) {
+          debugPrint('mark delivered error: $e');
+        }
+      }
       notifyListeners();
       return delivery;
     }
@@ -1667,6 +1747,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
     final delivery = Delivery(
       id: _uuid.v4(),
       customerId: customerId,
+      orderId: orderId,
       date: date,
       lines: lines,
       driverId: driverId,
@@ -1716,6 +1797,47 @@ class WaterPlantRepository extends IWaterPlantRepository {
     return payment;
   }
 
+  Future<void> deletePayment(String paymentId) async {
+    if (useBackend) {
+      await _apiService.deleteCashCollection(paymentId);
+    }
+    _payments.removeWhere((p) => p.id == paymentId);
+    notifyListeners();
+  }
+
+  Future<Payment> updatePayment({
+    required String paymentId,
+    required String customerId,
+    required double amount,
+    required DateTime date,
+    String? notes,
+  }) async {
+    if (!useBackend) {
+      throw StateError('Backend is required');
+    }
+    final data = await _apiService.updateCashCollection(paymentId, {
+      'customerId': customerId,
+      'amount': amount,
+      'collectionDate': date.toIso8601String(),
+      if (notes != null) 'notes': notes,
+    });
+    final saved = _paymentFromCashJson(
+      data['collection'] as Map<String, dynamic>,
+    );
+    final index = _payments.indexWhere((p) => p.id == paymentId);
+    if (index >= 0) _payments[index] = saved;
+    notifyListeners();
+    return saved;
+  }
+
+  Future<void> deleteDelivery(String deliveryId) async {
+    if (useBackend) {
+      await _apiService.deleteDelivery(deliveryId);
+    }
+    _deliveries.removeWhere((d) => d.id == deliveryId);
+    notifyListeners();
+  }
+
   void _syncShopFromSettings() {
     final shop = Shop.fromBusinessSettings(settings, id: defaultShopId);
     final idx = _shops.indexWhere((s) => s.id == defaultShopId);
@@ -1727,6 +1849,87 @@ class WaterPlantRepository extends IWaterPlantRepository {
   }
 
   List<Promotion> get promotions => List.unmodifiable(_promotions);
+
+  Future<Promotion> createPromotion({
+    required String headline,
+    String body = '',
+    String? mediaUrl,
+    PromotionMediaType mediaType = PromotionMediaType.image,
+    String? badge,
+    String? ctaLabel,
+    bool isActive = true,
+  }) async {
+    final data = await _apiService.createPromotion({
+      'headline': headline.trim(),
+      'body': body.trim(),
+      'mediaUrl': mediaUrl,
+      'mediaType': mediaType.name,
+      'badge': badge,
+      'ctaLabel': ctaLabel,
+      'isActive': isActive,
+    });
+    final saved = _promotionFromJson(data['promotion'] as Map<String, dynamic>);
+    _promotions.insert(0, saved);
+    notifyListeners();
+    return saved;
+  }
+
+  Future<Promotion> updatePromotion({
+    required String id,
+    required String headline,
+    String body = '',
+    String? mediaUrl,
+    PromotionMediaType mediaType = PromotionMediaType.image,
+    String? badge,
+    String? ctaLabel,
+  }) async {
+    final data = await _apiService.updatePromotion(id, {
+      'headline': headline.trim(),
+      'body': body.trim(),
+      'mediaUrl': mediaUrl,
+      'mediaType': mediaType.name,
+      'badge': badge,
+      'ctaLabel': ctaLabel,
+    });
+    final saved = _promotionFromJson(data['promotion'] as Map<String, dynamic>);
+    final index = _promotions.indexWhere((p) => p.id == id);
+    if (index >= 0) {
+      _promotions[index] = saved;
+    } else {
+      _promotions.insert(0, saved);
+    }
+    notifyListeners();
+    return saved;
+  }
+
+  Future<void> setPromotionActive({required String id, required bool active}) async {
+    await _apiService.setPromotionActive(id, active);
+    final index = _promotions.indexWhere((p) => p.id == id);
+    if (index >= 0) {
+      final p = _promotions[index];
+      _promotions[index] = Promotion(
+        id: p.id,
+        shopId: p.shopId,
+        shopName: p.shopName,
+        headline: p.headline,
+        body: p.body,
+        mediaType: p.mediaType,
+        mediaUrl: p.mediaUrl,
+        thumbUrl: p.thumbUrl,
+        badge: p.badge,
+        ctaLabel: p.ctaLabel,
+        isActive: active,
+        createdAt: p.createdAt,
+      );
+      notifyListeners();
+    }
+  }
+
+  Future<void> deletePromotion(String id) async {
+    await _apiService.deletePromotion(id);
+    _promotions.removeWhere((p) => p.id == id);
+    notifyListeners();
+  }
 
   Future<void> updateSettings(BusinessSettings newSettings) async {
     if (useBackend) {
@@ -1879,6 +2082,17 @@ class WaterPlantRepository extends IWaterPlantRepository {
     }
     notifyListeners();
     return saved;
+  }
+
+  Future<void> setProductActive({required String productId, required bool active}) async {
+    if (!useBackend) return;
+    final data = await _apiService.setProductActive(productId, active);
+    final saved = _productFromJson(data['product'] as Map<String, dynamic>);
+    final index = _products.indexWhere((p) => p.id == productId);
+    if (index >= 0) {
+      _products[index] = saved;
+      notifyListeners();
+    }
   }
 
   String _defaultProductDescription(
@@ -2118,6 +2332,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
       email: map['email'] as String? ?? '',
       address: map['address'] as String? ?? '',
       place: map['place'] as String? ?? '',
+      status: map['status'] as String? ?? 'active',
       appUserId: map['appUserId'] as String?,
       latitude: (map['latitude'] as num?)?.toDouble(),
       longitude: (map['longitude'] as num?)?.toDouble(),
@@ -2192,6 +2407,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
     return Delivery(
       id: map['deliveryId'] as String? ?? map['_id'] as String,
       customerId: map['customerId'] as String,
+      orderId: map['orderId'] as String?,
       date: DateTime.parse(map['deliveryDate'] as String),
       lines: lines,
       driverId: map['driverId'] as String?,
@@ -2246,8 +2462,10 @@ class WaterPlantRepository extends IWaterPlantRepository {
       headline: map['headline'] as String? ?? '',
       body: map['body'] as String? ?? '',
       mediaType: mediaType,
+      mediaUrl: map['mediaUrl'] as String?,
       badge: map['badge'] as String?,
       ctaLabel: map['ctaLabel'] as String? ?? 'Order now',
+      isActive: map['isActive'] as bool? ?? true,
       createdAt: map['createdAt'] != null ? DateTime.parse(map['createdAt'] as String) : DateTime.now(),
     );
   }

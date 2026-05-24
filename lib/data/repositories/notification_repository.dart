@@ -92,6 +92,12 @@ class NotificationRepository extends ChangeNotifier {
       if (n.audience == AppRole.driver) n.read = true;
     }
     notifyListeners();
+
+    if (useBackend) {
+      _apiService.markAllNotificationsRead().then((_) {}).catchError((Object e) {
+        debugPrint('markAllNotificationsRead API error: $e');
+      });
+    }
   }
 
   void markRead(String id) {
@@ -112,6 +118,12 @@ class NotificationRepository extends ChangeNotifier {
       if (n.audience == AppRole.admin) n.read = true;
     }
     notifyListeners();
+
+    if (useBackend) {
+      _apiService.markAllNotificationsRead().then((_) {}).catchError((Object e) {
+        debugPrint('markAllNotificationsRead API error: $e');
+      });
+    }
   }
 
   void markAllReadForCustomer(String customerId) {
@@ -121,6 +133,12 @@ class NotificationRepository extends ChangeNotifier {
       }
     }
     notifyListeners();
+
+    if (useBackend) {
+      _apiService.markAllNotificationsRead().then((_) {}).catchError((Object e) {
+        debugPrint('markAllNotificationsRead API error: $e');
+      });
+    }
   }
 
   void clear() {

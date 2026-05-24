@@ -134,6 +134,7 @@ class _DriverFieldDeliveryCardState extends State<DriverFieldDeliveryCard> {
         customerId: widget.customer.id,
         normalQty: _normal,
         coolQty: _cool,
+        orderId: widget.suggestedOrder?.id,
         driverMode: true,
       );
       if (!mounted) return;

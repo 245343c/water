@@ -88,6 +88,7 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
   Driver? driverById(String? id);
   Future<Driver> addDriver({required String name, required String phone, required String email});
   Future<void> setDriverActive(String driverId, bool active);
+  Future<void> setMyDriverAvailability(bool active);
   List<Customer> todaysRouteCustomersForDriver(String? driverId);
   String? routeNoteForCustomer(String customerId);
 
@@ -105,7 +106,10 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
     int coolQty = 0,
     List<BottleDeliveryInput> bottles = const [],
     String? driverId,
+    String? orderId,
+    String deliveryType = 'manual_delivery',
   });
+  Future<void> deleteDelivery(String deliveryId);
 
   // Payments / Cash
   List<Payment> get payments;
@@ -115,6 +119,14 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
     required String customerId,
     required double amount,
     required PaymentMethod method,
+    required DateTime date,
+    String? notes,
+  });
+  Future<void> deletePayment(String paymentId);
+  Future<Payment> updatePayment({
+    required String paymentId,
+    required String customerId,
+    required double amount,
     required DateTime date,
     String? notes,
   });
@@ -165,6 +177,7 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
     bool isCool = false,
     String? imageSourcePath,
   });
+  Future<void> setProductActive({required String productId, required bool active});
   List<Product> bottleCatalogForCustomer(Customer customer);
 
   // Orders — admin
@@ -176,12 +189,37 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
 
   // Promotions
   List<Promotion> get promotions;
+  Future<Promotion> createPromotion({
+    required String headline,
+    String body = '',
+    String? mediaUrl,
+    PromotionMediaType mediaType = PromotionMediaType.image,
+    String? badge,
+    String? ctaLabel,
+    bool isActive = true,
+  });
+  Future<Promotion> updatePromotion({
+    required String id,
+    required String headline,
+    String body = '',
+    String? mediaUrl,
+    PromotionMediaType mediaType = PromotionMediaType.image,
+    String? badge,
+    String? ctaLabel,
+  });
+  Future<void> setPromotionActive({required String id, required bool active});
+  Future<void> deletePromotion(String id);
 
   // Stats / Dashboard
   DashboardStats dashboardStats(DateTime month);
   Future<DashboardStats> fetchDashboardStats(DateTime month);
   Future<ReportsSummary> fetchReportsSummary(DateTime start, DateTime end);
   Future<void> refreshMonthlyBills(DateTime month);
+  Future<void> refreshMyBills(String shopId);
+  Future<void> generateMonthlyBill({
+    required String customerId,
+    required DateTime month,
+  });
   List<DashboardActionItem> dashboardActionItems({int limit = 5});
   MonthlyStats monthlyStatsForCustomer(String customerId, DateTime month);
   double previousBalanceForMonth(String customerId, DateTime month);

@@ -253,6 +253,9 @@ class ApiDataService {
   Future<Map<String, dynamic>> markNotificationRead(String id) =>
       _client.patch('/notifications/$id/read', {});
 
+  Future<Map<String, dynamic>> markAllNotificationsRead() =>
+      _client.patch('/notifications/read-all', {});
+
   Future<Map<String, dynamic>> sendNotification(Map<String, dynamic> data) =>
       _client.post('/notifications', data);
 

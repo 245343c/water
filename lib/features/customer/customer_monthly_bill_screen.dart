@@ -28,6 +28,7 @@ class CustomerMonthlyBillScreen extends StatefulWidget {
 
 class _CustomerMonthlyBillScreenState extends State<CustomerMonthlyBillScreen> {
   late DateTime _month;
+  bool _loaded = false;
 
   @override
   void initState() {
@@ -49,6 +50,12 @@ class _CustomerMonthlyBillScreenState extends State<CustomerMonthlyBillScreen> {
   Widget build(BuildContext context) {
     return Consumer<WaterPlantRepository>(
       builder: (context, repo, _) {
+        if (!_loaded) {
+          _loaded = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            repo.refreshMyBills(widget.shopId);
+          });
+        }
         final customer = repo.customerById(widget.customerId);
         final shop = repo.shopById(widget.shopId);
         if (customer == null || shop == null) {

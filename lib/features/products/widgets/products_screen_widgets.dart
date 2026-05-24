@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/widgets/app_image.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/data/models/product_variant.dart';
+import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class ProductsColors {
@@ -760,6 +762,7 @@ class ProductDetailCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final repo = context.read<WaterPlantRepository>();
     final isBottle = product.category == ProductCategory.bottle;
     final accent = isBottle ? ProductsColors.statBlue : ProductsColors.statGreen;
 
@@ -777,6 +780,37 @@ class ProductDetailCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: ProductsColors.cardBorder),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    product.isActive ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                    color: product.isActive ? accent : ProductsColors.labelGrey,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      product.isActive ? 'Visible to customers' : 'Hidden (inactive)',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                  ),
+                  Switch(
+                    value: product.isActive,
+                    onChanged: (v) async {
+                      await repo.setProductActive(productId: product.id, active: v);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

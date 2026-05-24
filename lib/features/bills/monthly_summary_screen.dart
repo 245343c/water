@@ -72,6 +72,10 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                     children: [
                       MonthlySummaryStatsCard(stats: stats),
                       MonthlySummaryAccountCard(stats: stats, balance: balance),
+                      MonthlySummarySyncCard(
+                        customerId: widget.customerId,
+                        month: _month,
+                      ),
                       MonthlyDeliveriesSection(
                         deliveries: deliveries,
                         onViewAll: () => showMonthlyDeliveriesSheet(
