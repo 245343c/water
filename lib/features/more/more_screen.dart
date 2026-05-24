@@ -77,8 +77,8 @@ class MoreScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const MoreHeader(
-                  title: 'Menu',
-                  subtitle: 'Shop settings · team · reports',
+                  title: 'More',
+                  subtitle: 'Business profile, team and account',
                 ),
                 Expanded(
                   child: ListView(

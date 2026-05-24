@@ -169,7 +169,7 @@ class MoreBusinessProfileCard extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Business profile · prices & map pin',
+                                  'Business profile, prices and map pin',
                                   style: GoogleFonts.poppins(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w500,

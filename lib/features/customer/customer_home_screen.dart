@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -19,6 +21,7 @@ class CustomerHomeScreen extends StatelessWidget {
     final crm = userId != null
         ? repo.linkedCrmCustomerForAppUser(userId)
         : null;
+    final profile = userId != null ? repo.customerProfileByUserId(userId) : null;
     final firstName = (crm?.name ?? user?.ownerName ?? 'Guest')
         .trim()
         .split(RegExp(r'\s+'))
@@ -34,14 +37,7 @@ class CustomerHomeScreen extends StatelessWidget {
         _CustomerHomeHeader(
           name: firstName,
           greeting: greeting,
-          linkedShopCount: shops.length,
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          child: _LinkedAccountCard(
-            shopCount: shops.length,
-            customerName: crm?.name ?? user?.ownerName ?? 'Customer',
-          ),
+          photoBytes: profile?.photoBytes,
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
@@ -88,12 +84,12 @@ class _CustomerHomeHeader extends StatelessWidget {
   const _CustomerHomeHeader({
     required this.name,
     required this.greeting,
-    required this.linkedShopCount,
+    required this.photoBytes,
   });
 
   final String name;
   final String greeting;
-  final int linkedShopCount;
+  final Uint8List? photoBytes;
 
   @override
   Widget build(BuildContext context) {
@@ -143,109 +139,31 @@ class _CustomerHomeHeader extends StatelessWidget {
                 height: 48,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(16),
+                  shape: BoxShape.circle,
                   border: Border.all(
                     color: Colors.white.withValues(alpha: 0.18),
+                    width: 2,
                   ),
                 ),
-                child: const Icon(
-                  Icons.water_drop_rounded,
-                  color: Colors.white,
-                  size: 28,
-                ),
+                clipBehavior: Clip.antiAlias,
+                alignment: Alignment.center,
+                child: photoBytes == null
+                    ? Text(
+                        name.isNotEmpty ? name[0].toUpperCase() : 'C',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      )
+                    : Image.memory(
+                        photoBytes!,
+                        fit: BoxFit.cover,
+                        width: 48,
+                        height: 48,
+                      ),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.lock_rounded, color: Colors.white, size: 18),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    linkedShopCount == 0
-                        ? 'Only admin-added customers can order'
-                        : linkedShopCount == 1
-                        ? 'You can order from your linked plant'
-                        : 'You can order from your linked plants',
-                    style: GoogleFonts.poppins(
-                      color: Colors.white.withValues(alpha: 0.92),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LinkedAccountCard extends StatelessWidget {
-  const _LinkedAccountCard({
-    required this.shopCount,
-    required this.customerName,
-  });
-
-  final int shopCount;
-  final String customerName;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: CustomerColors.cardDecoration,
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: CustomerColors.accent.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.verified_user_rounded,
-              color: CustomerColors.accent,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  customerName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: CustomerColors.titleNavy,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  shopCount == 0
-                      ? 'No linked water plant'
-                      : '$shopCount linked water plant${shopCount == 1 ? '' : 's'}',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: CustomerColors.labelGrey,
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),

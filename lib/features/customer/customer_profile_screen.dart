@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/data/models/customer_app_profile.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
@@ -21,10 +24,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
   final _emailController = TextEditingController();
+  final _picker = ImagePicker();
   String? _loadedUserId;
   double? _lat;
   double? _lng;
   String _place = '';
+  Uint8List? _photoBytes;
   bool _saving = false;
   bool _editing = false;
 
@@ -46,6 +51,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     _lat = profile?.latitude;
     _lng = profile?.longitude;
     _place = profile?.place ?? '';
+    _photoBytes = profile?.photoBytes;
   }
 
   @override
@@ -83,6 +89,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       longitude: _lng!,
       email: _emailController.text.trim(),
       place: _place,
+      photoBytes: _photoBytes,
       linkedCrmCustomerId: existing?.linkedCrmCustomerId,
       onboardingComplete: true,
     );
@@ -105,6 +112,35 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     );
   }
 
+  Future<void> _pickPhoto(ImageSource source) async {
+    try {
+      final file = await _picker.pickImage(
+        source: source,
+        maxWidth: 900,
+        maxHeight: 900,
+        imageQuality: 82,
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _photoBytes = bytes;
+        _editing = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not open ${source == ImageSource.camera ? 'camera' : 'gallery'}.',
+            style: GoogleFonts.poppins(),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   static String _capitalizeWords(String s) {
     if (s.isEmpty) return s;
     return s
@@ -125,8 +161,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     final user = auth.currentUser;
     final profile = user != null ? repo.customerProfileByUserId(user.id) : null;
     final crm = user != null ? repo.linkedCrmCustomerForAppUser(user.id) : null;
-    final isContract = user != null &&
-        repo.isMonthlyContractAppUser(user.id, phone: user.phone);
     final displayName = _nameController.text.trim().isNotEmpty
         ? _nameController.text.trim()
         : crm?.name ?? profile?.name ?? user?.ownerName ?? 'Customer';
@@ -136,12 +170,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       child: Column(
         children: [
           _ProfileHeader(
-            name: displayName,
-            phone: user?.phone ?? '',
-            initial: initial,
-            isContract: isContract,
-            editing: _editing,
-            onEdit: () => setState(() => _editing = !_editing),
+            title: 'Profile',
+            onEdit: _editing ? null : () => setState(() => _editing = true),
           ),
           Expanded(
             child: Form(
@@ -154,6 +184,19 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   customerBottomInset(context, extra: 18),
                 ),
                 children: [
+                  _PhotoSection(
+                    photoBytes: _photoBytes,
+                    initial: initial,
+                    onCamera: () => _pickPhoto(ImageSource.camera),
+                    onGallery: () => _pickPhoto(ImageSource.gallery),
+                    onRemove: _photoBytes == null
+                        ? null
+                        : () => setState(() {
+                              _photoBytes = null;
+                              _editing = true;
+                            }),
+                  ),
+                  const SizedBox(height: 14),
                   _ProfileDetailsPanel(
                     editing: _editing,
                     nameController: _nameController,
@@ -178,7 +221,25 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                           child: OutlinedButton(
                             onPressed: _saving
                                 ? null
-                                : () => setState(() => _editing = false),
+                                : () {
+                                    final latest = user == null
+                                        ? null
+                                        : repo.customerProfileByUserId(user.id);
+                                    setState(() {
+                                      _editing = false;
+                                      _nameController.text =
+                                          latest?.name ?? displayName;
+                                      _addressController.text =
+                                          latest?.address ??
+                                          _addressController.text;
+                                      _emailController.text =
+                                          latest?.email ?? _emailController.text;
+                                      _lat = latest?.latitude ?? _lat;
+                                      _lng = latest?.longitude ?? _lng;
+                                      _place = latest?.place ?? _place;
+                                      _photoBytes = latest?.photoBytes;
+                                    });
+                                  },
                             style: OutlinedButton.styleFrom(
                               minimumSize: const Size.fromHeight(48),
                               foregroundColor: CustomerColors.labelGrey,
@@ -231,6 +292,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     var tempLat = _lat;
     var tempLng = _lng;
     var tempPlace = _place;
+    var hasDraft = tempLat != null && tempLng != null;
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -273,7 +335,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Move the map and confirm the customer delivery pin.',
+                    'Move the map, then use the selected delivery pin.',
                     style: GoogleFonts.poppins(
                       fontSize: 12,
                       color: CustomerColors.labelGrey,
@@ -294,6 +356,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                           setSheetState(() {
                             tempLat = lat;
                             tempLng = lng;
+                            hasDraft = true;
                             if (place != null && place.isNotEmpty) {
                               tempPlace = place;
                             }
@@ -306,13 +369,14 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   CustomerPrimaryButton(
                     label: 'Use this location',
                     icon: Icons.location_on_rounded,
-                    onPressed: tempLat == null || tempLng == null
+                    onPressed: !hasDraft || tempLat == null || tempLng == null
                         ? null
                         : () {
                             setState(() {
                               _lat = tempLat;
                               _lng = tempLng;
                               _place = tempPlace;
+                              _editing = true;
                             });
                             Navigator.of(ctx).pop();
                           },
@@ -371,20 +435,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
 class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({
-    required this.name,
-    required this.phone,
-    required this.initial,
-    required this.isContract,
-    required this.editing,
-    required this.onEdit,
+    required this.title,
+    this.onEdit,
   });
 
-  final String name;
-  final String phone;
-  final String initial;
-  final bool isContract;
-  final bool editing;
-  final VoidCallback onEdit;
+  final String title;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -399,119 +455,203 @@ class _ProfileHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 68,
-            height: 68,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.16),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            alignment: Alignment.center,
+          Expanded(
             child: Text(
-              initial,
+              title,
               style: GoogleFonts.poppins(
-                fontSize: 28,
+                color: Colors.white,
+                fontSize: 22,
                 fontWeight: FontWeight.w800,
-                color: CustomerColors.accent,
               ),
             ),
           ),
+          if (onEdit != null) ...[
+            const SizedBox(width: 10),
+            Material(
+              color: Colors.white.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(14),
+              child: InkWell(
+                onTap: onEdit,
+                borderRadius: BorderRadius.circular(14),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.edit_rounded,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Edit',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PhotoSection extends StatelessWidget {
+  const _PhotoSection({
+    required this.photoBytes,
+    required this.initial,
+    required this.onCamera,
+    required this.onGallery,
+    required this.onRemove,
+  });
+
+  final Uint8List? photoBytes;
+  final String initial;
+  final VoidCallback onCamera;
+  final VoidCallback onGallery;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: CustomerColors.cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _CustomerAvatar(photoBytes: photoBytes, initial: initial, size: 72),
           const SizedBox(width: 14),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                  ),
+                _PhotoAction(
+                  icon: Icons.photo_camera_outlined,
+                  label: 'Camera',
+                  onTap: onCamera,
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  phone,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    color: Colors.white.withValues(alpha: 0.86),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
+                _PhotoAction(
+                  icon: Icons.photo_library_outlined,
+                  label: 'Gallery',
+                  onTap: onGallery,
                 ),
-                if (isContract) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.22),
-                      ),
-                    ),
-                    child: Text(
-                      'Monthly customer',
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
+                _PhotoAction(
+                  icon: Icons.delete_outline_rounded,
+                  label: 'Remove',
+                  danger: true,
+                  onTap: onRemove,
+                ),
               ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Material(
-            color: Colors.white.withValues(alpha: 0.16),
-            borderRadius: BorderRadius.circular(14),
-            child: InkWell(
-              onTap: onEdit,
-              borderRadius: BorderRadius.circular(14),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      editing ? Icons.close_rounded : Icons.edit_rounded,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      editing ? 'Close' : 'Edit',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PhotoAction extends StatelessWidget {
+  const _PhotoAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.danger = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = danger ? const Color(0xFFDC2626) : CustomerColors.accent;
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 17),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: onTap == null ? CustomerColors.labelGrey : color,
+        side: BorderSide(
+          color: danger ? const Color(0xFFFECACA) : CustomerColors.cardBorder,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        textStyle: GoogleFonts.poppins(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _CustomerAvatar extends StatelessWidget {
+  const _CustomerAvatar({
+    required this.photoBytes,
+    required this.initial,
+    required this.size,
+  });
+
+  final Uint8List? photoBytes;
+  final String initial;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: CustomerColors.accent.withValues(alpha: 0.12),
+        border: Border.all(color: Colors.white, width: 3),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      alignment: Alignment.center,
+      child: photoBytes == null
+          ? Text(
+              initial,
+              style: GoogleFonts.poppins(
+                fontSize: size * 0.38,
+                fontWeight: FontWeight.w800,
+                color: CustomerColors.accent,
+              ),
+            )
+          : Image.memory(
+              photoBytes!,
+              fit: BoxFit.cover,
+              width: size,
+              height: size,
+            ),
     );
   }
 }
@@ -771,11 +911,14 @@ class _LocationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasPin = latitude != null && longitude != null;
-    final subtitle = place.trim().isNotEmpty
+    final selectedLabel = place.trim().isNotEmpty
         ? place.trim()
         : hasPin
-            ? 'Pin selected for delivery'
+            ? 'Selected pin: ${latitude!.toStringAsFixed(5)}, ${longitude!.toStringAsFixed(5)}'
             : 'Tap to set delivery pin';
+    final coordinateLabel = hasPin
+        ? '${latitude!.toStringAsFixed(5)}, ${longitude!.toStringAsFixed(5)}'
+        : 'No pin selected';
 
     return Material(
       color: Colors.white,
@@ -827,7 +970,7 @@ class _LocationBar extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      address.trim().isEmpty ? subtitle : address.trim(),
+                      selectedLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
@@ -838,7 +981,9 @@ class _LocationBar extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      subtitle,
+                      address.trim().isEmpty
+                          ? coordinateLabel
+                          : '${address.trim()} - $coordinateLabel',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(

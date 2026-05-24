@@ -70,26 +70,35 @@ class CustomerShell extends StatelessWidget {
         ? repo.ordersForAppUser(userId).where((o) => o.isPending).length
         : 0;
 
-    return Scaffold(
-      backgroundColor: CustomerColors.screenBg,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final maxWidth = _customerShellMaxWidth(context);
-          return Align(
-            alignment: Alignment.topCenter,
-            child: SizedBox(
-              width: math.min(constraints.maxWidth, maxWidth),
-              height: constraints.maxHeight,
-              child: _tabForLocation(isContract: isContract),
-            ),
-          );
-        },
-      ),
-      bottomNavigationBar: _CustomerBottomNavigation(
-        isContract: isContract,
-        selectedIndex: _navIndexForLocation(isContract),
-        pendingOrders: pendingOrders,
-        onDestinationSelected: (i) => context.go(_routeForNav(isContract, i)),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (!_path.startsWith(_CustomerRoutes.home)) {
+          context.go(_CustomerRoutes.home);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: CustomerColors.screenBg,
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final maxWidth = _customerShellMaxWidth(context);
+            return Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: math.min(constraints.maxWidth, maxWidth),
+                height: constraints.maxHeight,
+                child: _tabForLocation(isContract: isContract),
+              ),
+            );
+          },
+        ),
+        bottomNavigationBar: _CustomerBottomNavigation(
+          isContract: isContract,
+          selectedIndex: _navIndexForLocation(isContract),
+          pendingOrders: pendingOrders,
+          onDestinationSelected: (i) => context.go(_routeForNav(isContract, i)),
+        ),
       ),
     );
   }

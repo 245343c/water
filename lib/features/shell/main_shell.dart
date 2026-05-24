@@ -70,9 +70,9 @@ class MainShell extends StatelessWidget {
                   label: 'Products',
                 ),
                 const NavigationDestination(
-                  icon: Icon(Icons.menu_outlined),
-                  selectedIcon: Icon(Icons.menu),
-                  label: 'Menu',
+                  icon: Icon(Icons.more_horiz_rounded),
+                  selectedIcon: Icon(Icons.more_horiz_rounded),
+                  label: 'More',
                 ),
               ],
             ),
