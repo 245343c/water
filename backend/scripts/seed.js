@@ -127,25 +127,6 @@ async function seed() {
   }
   console.log('Delivery routes seeded:', routes.map((r) => r.name).join(', '));
 
-  await Customer.findOneAndUpdate(
-    { customerId: 'cust-demo-2', shopId: SHOP_ID },
-    {
-      customerId: 'cust-demo-2',
-      shopId: SHOP_ID,
-      name: 'Ramesh Kumar',
-      phone: '+91 98850 12345',
-      address: 'Door No: 12-5-8, Gandhi Nagar',
-      place: 'Gandhi Nagar, Rajahmundry',
-      routeId: 'route-1',
-      routeNote: 'Weekly route — usually 3 normal + 1 cool',
-      customerType: 'manual_customer',
-      billingMode: 'monthly_contract',
-      status: 'active',
-    },
-    { upsert: true, new: true },
-  );
-  console.log('Sample routed customer seeded: Ramesh Kumar (Route 1)');
-
   // Backfill phoneLast10 for existing customers (production index)
   const { phoneDigits } = require('../src/utils/phone');
   const allCustomers = await Customer.find({});

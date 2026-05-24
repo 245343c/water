@@ -72,6 +72,15 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
     );
     if (!driver) return res.status(404).json({ success: false, message: 'Driver not found' });
 
+    await User.updateMany(
+      { driverId: req.params.id, shopId: req.user.shopId },
+      {
+        ...(updates.name !== undefined ? { name: updates.name } : {}),
+        ...(updates.phone !== undefined ? { phone: updates.phone } : {}),
+        ...(updates.email !== undefined ? { email: updates.email } : {}),
+      },
+    );
+
     await writeAuditLog({
       shopId: req.user.shopId, actorUid: req.user.uid, actorRole: req.user.role,
       action: 'UPDATE_DRIVER', entityType: 'driver', entityId: req.params.id, newData: updates,
@@ -110,6 +119,8 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
   try {
     const driver = await Driver.findOneAndDelete({ driverId: req.params.id, shopId: req.user.shopId });
     if (!driver) return res.status(404).json({ success: false, message: 'Driver not found' });
+
+    await User.deleteMany({ driverId: req.params.id, shopId: req.user.shopId });
 
     await writeAuditLog({
       shopId: req.user.shopId, actorUid: req.user.uid, actorRole: req.user.role,

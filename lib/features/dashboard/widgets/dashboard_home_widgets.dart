@@ -56,7 +56,6 @@ class DashboardHeader extends StatelessWidget {
   const DashboardHeader({
     super.key,
     required this.title,
-    required this.ownerName,
     this.adminImagePath,
     this.onAdminTap,
     this.onNotificationsTap,
@@ -64,7 +63,6 @@ class DashboardHeader extends StatelessWidget {
   });
 
   final String title;
-  final String ownerName;
   final String? adminImagePath;
   final VoidCallback? onAdminTap;
   final VoidCallback? onNotificationsTap;
@@ -84,7 +82,7 @@ class DashboardHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$greeting, $ownerName',
+                  greeting,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(

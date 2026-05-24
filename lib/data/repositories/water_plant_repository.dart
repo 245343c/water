@@ -194,7 +194,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
         'name': profile.name,
         if (profile.email.isNotEmpty) 'email': profile.email,
         'address': profile.address,
-        if (profile.place != null && profile.place!.isNotEmpty) 'place': profile.place,
+        if (profile.place.isNotEmpty) 'place': profile.place,
         'latitude': profile.latitude,
         'longitude': profile.longitude,
       });
@@ -207,7 +207,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
             name: profile.name,
             address: profile.address,
             email: profile.email,
-            place: profile.place ?? '',
+            place: profile.place,
           );
         }
       }
@@ -1613,6 +1613,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
     notifyListeners();
   }
 
+
   Future<void> setMyDriverAvailability(bool active) async {
     if (!useBackend) return;
     final data = await _apiService.setMyDriverAvailability(active);
@@ -1623,6 +1624,42 @@ class WaterPlantRepository extends IWaterPlantRepository {
     } else {
       _drivers.add(saved);
     }
+    notifyListeners();
+  }
+
+  Future<void> updateDriver({
+    required String driverId,
+    required String name,
+    required String phone,
+    required String email,
+  }) async {
+    final i = _drivers.indexWhere((d) => d.id == driverId);
+    if (i < 0) return;
+
+    if (useBackend) {
+      final data = await _apiService.updateDriver(driverId, {
+        'name': name.trim(),
+        'phone': phone.trim(),
+        'email': email.trim().toLowerCase(),
+      });
+      final saved = _driverFromJson(data['driver'] as Map<String, dynamic>);
+      _drivers[i] = saved;
+    } else {
+      _drivers[i] = _drivers[i].copyWith(
+        name: name.trim(),
+        phone: phone.trim(),
+        email: email.trim().toLowerCase(),
+      );
+    }
+    notifyListeners();
+  }
+
+  Future<void> deleteDriver(String driverId) async {
+    if (useBackend) {
+      await _apiService.deleteDriver(driverId);
+    }
+    _drivers.removeWhere((d) => d.id == driverId);
+    _driverShopIds.remove(driverId);
     notifyListeners();
   }
 

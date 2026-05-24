@@ -90,6 +90,13 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
   Driver? driverById(String? id);
   Future<Driver> addDriver({required String name, required String phone, required String email});
   Future<void> setDriverActive(String driverId, bool active);
+  Future<void> updateDriver({
+    required String driverId,
+    required String name,
+    required String phone,
+    required String email,
+  });
+  Future<void> deleteDriver(String driverId);
   Future<void> setMyDriverAvailability(bool active);
   List<DeliveryRoute> get deliveryRoutes;
   Future<DeliveryRoute> addDeliveryRoute(String name);

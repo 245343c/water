@@ -1,4 +1,3 @@
-import 'package:sri_sai_ro_water/core/auth/app_role.dart';
 import 'package:sri_sai_ro_water/core/services/api/api_auth_service.dart';
 import 'package:sri_sai_ro_water/core/services/api/api_client.dart';
 import 'package:sri_sai_ro_water/core/services/api/api_config.dart';
@@ -152,6 +151,19 @@ class AuthRepository extends IAuthRepository {
   @override
   void updateDriverAccountEmail(String driverId, String newEmail) {
     throw UnsupportedError('Driver email is managed on the server');
+  }
+
+  void updateDriverAccount({
+    required String driverId,
+    required String name,
+    required String phone,
+    required String email,
+  }) {
+    throw UnsupportedError('Driver account updates are handled via drivers API');
+  }
+
+  void deleteDriverAccount(String driverId) {
+    throw UnsupportedError('Driver account deletion is handled via drivers API');
   }
 
   @override
