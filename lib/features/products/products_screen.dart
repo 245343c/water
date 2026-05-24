@@ -47,7 +47,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         final products = _filtered(repo);
 
         return Scaffold(
-          backgroundColor: CustomersColors.headerBottom,
+          backgroundColor: CustomersColors.screenBg,
           body: ProductsScaffold(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -73,19 +73,23 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             ProductCategoryChip(
                               label: 'All',
                               selected: _filter == _ProductFilter.all,
-                              onTap: () => setState(() => _filter = _ProductFilter.all),
+                              onTap: () =>
+                                  setState(() => _filter = _ProductFilter.all),
                             ),
                             const SizedBox(width: 8),
                             ProductCategoryChip(
                               label: 'Bottles',
                               selected: _filter == _ProductFilter.bottles,
-                              onTap: () => setState(() => _filter = _ProductFilter.bottles),
+                              onTap: () => setState(
+                                () => _filter = _ProductFilter.bottles,
+                              ),
                             ),
                             const SizedBox(width: 8),
                             ProductCategoryChip(
                               label: 'Cans',
                               selected: _filter == _ProductFilter.cans,
-                              onTap: () => setState(() => _filter = _ProductFilter.cans),
+                              onTap: () =>
+                                  setState(() => _filter = _ProductFilter.cans),
                             ),
                           ],
                         ),
@@ -93,23 +97,46 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       Expanded(
                         child: products.isEmpty
                             ? _EmptyProducts(
-                                isSearch: _query.isNotEmpty || _filter != _ProductFilter.all,
+                                isSearch:
+                                    _query.isNotEmpty ||
+                                    _filter != _ProductFilter.all,
                                 onAdd: () => context.push('/products/add'),
                               )
-                            : GridView.builder(
-                                padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
-                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  crossAxisSpacing: 14,
-                                  mainAxisSpacing: 14,
-                                  childAspectRatio: 0.72,
-                                ),
-                                itemCount: products.length,
-                                itemBuilder: (context, i) {
-                                  final p = products[i];
-                                  return ProductCatalogCard(
-                                    product: p,
-                                    onTap: () => context.push('/products/${p.id}'),
+                            : LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final width = constraints.maxWidth;
+                                  final crossAxisCount = width >= 900
+                                      ? 4
+                                      : width >= 640
+                                      ? 3
+                                      : 2;
+                                  final aspectRatio = width >= 640
+                                      ? 0.86
+                                      : 0.72;
+
+                                  return GridView.builder(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      4,
+                                      16,
+                                      28,
+                                    ),
+                                    gridDelegate:
+                                        SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: crossAxisCount,
+                                          crossAxisSpacing: 14,
+                                          mainAxisSpacing: 14,
+                                          childAspectRatio: aspectRatio,
+                                        ),
+                                    itemCount: products.length,
+                                    itemBuilder: (context, i) {
+                                      final p = products[i];
+                                      return ProductCatalogCard(
+                                        product: p,
+                                        onTap: () =>
+                                            context.push('/products/${p.id}'),
+                                      );
+                                    },
                                   );
                                 },
                               ),
@@ -184,8 +211,13 @@ class _EmptyProducts extends StatelessWidget {
               label: const Text('Add product'),
               style: FilledButton.styleFrom(
                 backgroundColor: CustomersColors.addButton,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 14,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ],

@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
-import 'package:sri_sai_ro_water/data/models/app_notification.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
-import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_theme.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
@@ -25,9 +22,6 @@ class DriverProfileScreen extends StatelessWidget {
     final deliveries = repo.deliveriesOnDateForDriver(today, driverId);
     final cans = repo.cansDeliveredOnDateForDriver(today, driverId);
 
-    final notifications = context.watch<NotificationRepository>();
-    final alerts = notifications.forDriver().take(8).toList();
-
     return Scaffold(
       backgroundColor: DriverColors.screenBg,
       body: DriverScaffold(
@@ -35,9 +29,7 @@ class DriverProfileScreen extends StatelessWidget {
           children: [
             DriverHeader(
               title: 'Profile',
-              subtitle: alerts.any((a) => !a.read)
-                  ? '${notifications.unreadCountForDriver()} unread alert(s)'
-                  : 'Driver account',
+              subtitle: 'Driver account',
             ),
             Expanded(
               child: ListView(
@@ -109,35 +101,6 @@ class DriverProfileScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  if (alerts.isNotEmpty) ...[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Alerts',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: notifications.markAllReadForDriver,
-                          child: Text(
-                            'Mark all read',
-                            style: GoogleFonts.poppins(fontSize: 12, color: DriverColors.accent),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ...alerts.map(
-                      (n) => _DriverAlertTile(
-                        notification: n,
-                        onTap: () => notifications.markRead(n.id),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                  ],
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: DriverColors.cardDecoration,
@@ -224,51 +187,6 @@ class _MiniStat extends StatelessWidget {
           ),
           Text(sub, style: GoogleFonts.poppins(fontSize: 11, color: DriverColors.labelGrey)),
         ],
-      ),
-    );
-  }
-}
-
-class _DriverAlertTile extends StatelessWidget {
-  const _DriverAlertTile({required this.notification, required this.onTap});
-
-  final AppNotification notification;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        child: ListTile(
-          onTap: onTap,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: notification.read ? DriverColors.cardBorder : const Color(0xFFEA580C),
-            ),
-          ),
-          leading: Icon(
-            notification.type == AppNotificationType.orderAccepted
-                ? Icons.assignment_turned_in_rounded
-                : Icons.local_shipping_rounded,
-            color: DriverColors.accent,
-          ),
-          title: Text(
-            notification.title,
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
-          ),
-          subtitle: Text(
-            '${notification.body}\n${notification.createdAt.timeLabel}',
-            style: GoogleFonts.poppins(fontSize: 11, color: DriverColors.labelGrey),
-          ),
-          isThreeLine: true,
-        ),
       ),
     );
   }

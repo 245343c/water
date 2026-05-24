@@ -81,8 +81,6 @@ class CustomerListCard extends StatelessWidget {
                           color: CustomersColors.labelGrey,
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      const _FixedCustomerBadge(),
                       const SizedBox(height: 8),
                       _MetaRow(
                         icon: Icons.water_drop_outlined,
@@ -115,42 +113,6 @@ class CustomerListCard extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FixedCustomerBadge extends StatelessWidget {
-  const _FixedCustomerBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    const color = Color(0xFF0D9488);
-    const bg = Color(0xFFF0FDFA);
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: color.withValues(alpha: 0.22)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.link_rounded, size: 13, color: color),
-            const SizedBox(width: 4),
-            Text(
-              'Fixed customer',
-              style: GoogleFonts.poppins(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: color,
-              ),
-            ),
-          ],
         ),
       ),
     );

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/data/models/customer.dart';
+import 'package:sri_sai_ro_water/data/models/delivery_route.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customer_list_card.dart';
@@ -17,6 +19,7 @@ class DriverCustomersScreen extends StatefulWidget {
 class _DriverCustomersScreenState extends State<DriverCustomersScreen> {
   final _search = TextEditingController();
   String _query = '';
+  String? _routeFilter;
 
   @override
   void dispose() {
@@ -30,9 +33,14 @@ class _DriverCustomersScreenState extends State<DriverCustomersScreen> {
       builder: (context, repo, auth, _) {
         final driverId = auth.currentUser?.driverId;
         final assignedShop = repo.shopForDriver(driverId);
-        final totalAssigned = repo.customersForDriver(driverId).length;
+        final assignedCustomers = repo.customersForDriver(driverId);
+        final totalAssigned = assignedCustomers.length;
+        final routes = _routesFor(assignedCustomers, repo);
+        final hasUnassigned = assignedCustomers.any(_isUnassignedRoute);
         final month = DateTime.now();
-        final customers = List.of(repo.searchCustomersForDriver(driverId, _query))
+        final customers = List<Customer>.of(
+          repo.searchCustomersForDriver(driverId, _query),
+        ).where(_matchesRoute).toList()
           ..sort((a, b) => a.name.compareTo(b.name));
 
         return Scaffold(
@@ -45,6 +53,13 @@ class _DriverCustomersScreenState extends State<DriverCustomersScreen> {
                   subtitle: assignedShop == null
                       ? 'Driver is not linked to a water plant'
                       : '${assignedShop.name} - $totalAssigned assigned customers',
+                ),
+                DriverRouteFilter(
+                  routes: routes,
+                  selected: _routeFilter,
+                  showUnassigned: hasUnassigned,
+                  onSelected: (routeId) =>
+                      setState(() => _routeFilter = routeId),
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -135,4 +150,29 @@ class _DriverCustomersScreenState extends State<DriverCustomersScreen> {
       },
     );
   }
+
+  List<DeliveryRoute> _routesFor(
+    List<Customer> customers,
+    WaterPlantRepository repo,
+  ) {
+    final routeIds = customers
+        .map((c) => c.routeId)
+        .whereType<String>()
+        .where((id) => id.trim().isNotEmpty)
+        .toSet();
+    return repo.deliveryRoutes
+        .where((route) => routeIds.contains(route.id))
+        .toList();
+  }
+
+  bool _matchesRoute(Customer customer) {
+    if (_routeFilter == null) return true;
+    if (_routeFilter == driverUnassignedRouteFilter) {
+      return _isUnassignedRoute(customer);
+    }
+    return customer.routeId == _routeFilter;
+  }
+
+  bool _isUnassignedRoute(Customer customer) =>
+      customer.routeId == null || customer.routeId!.trim().isEmpty;
 }

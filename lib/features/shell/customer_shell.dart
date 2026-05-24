@@ -79,6 +79,7 @@ class CustomerShell extends StatelessWidget {
             alignment: Alignment.topCenter,
             child: SizedBox(
               width: math.min(constraints.maxWidth, maxWidth),
+              height: constraints.maxHeight,
               child: _tabForLocation(isContract: isContract),
             ),
           );
@@ -269,7 +270,7 @@ class _CustomerBottomNavigation extends StatelessWidget {
 
 double _customerShellMaxWidth(BuildContext context) {
   final width = MediaQuery.sizeOf(context).width;
-  if (width >= 1100) return 960;
-  if (width >= 700) return 860;
+  if (width >= 1100) return 1180;
+  if (width >= 700) return 1180;
   return width;
 }

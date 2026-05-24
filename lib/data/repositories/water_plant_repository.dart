@@ -14,6 +14,7 @@ import 'package:sri_sai_ro_water/data/models/dashboard_stats.dart';
 import 'package:sri_sai_ro_water/data/models/driver.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/data/models/delivery_line_item.dart';
+import 'package:sri_sai_ro_water/data/models/delivery_route.dart';
 import 'package:sri_sai_ro_water/data/models/monthly_stats.dart';
 import 'package:sri_sai_ro_water/data/models/payment_allocation_preview.dart';
 import 'package:sri_sai_ro_water/data/models/payment.dart';
@@ -40,6 +41,7 @@ class WaterPlantRepository extends ChangeNotifier {
   final List<CustomerOrder> _orders = [];
   final List<Product> _products = [];
   final List<Driver> _drivers = [];
+  final List<DeliveryRoute> _deliveryRoutes = [];
   final List<Shop> _shops = [];
   final List<Promotion> _promotions = [];
 
@@ -70,7 +72,40 @@ class WaterPlantRepository extends ChangeNotifier {
   List<CustomerOrder> get orders => List.unmodifiable(_orders);
   List<Product> get products => List.unmodifiable(_products);
   List<Driver> get drivers => List.unmodifiable(_drivers);
+  List<DeliveryRoute> get deliveryRoutes => List.unmodifiable(_deliveryRoutes);
   List<Shop> get shops => List.unmodifiable(_shops);
+
+  List<DeliveryRoute> get activeDeliveryRoutes =>
+      _deliveryRoutes.where((route) => route.active).toList();
+
+  DeliveryRoute? deliveryRouteById(String? id) {
+    if (id == null || id.trim().isEmpty) return null;
+    try {
+      return _deliveryRoutes.firstWhere((route) => route.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String deliveryRouteName(String? id) =>
+      deliveryRouteById(id)?.name ?? 'Unassigned';
+
+  DeliveryRoute addDeliveryRoute(String name) {
+    final cleaned = name.trim();
+    if (cleaned.isEmpty) {
+      throw ArgumentError('Route name is required');
+    }
+    final existing = _deliveryRoutes.any(
+      (route) => route.name.toLowerCase() == cleaned.toLowerCase(),
+    );
+    if (existing) {
+      throw ArgumentError('Route already exists');
+    }
+    final route = DeliveryRoute(id: _uuid.v4(), name: cleaned);
+    _deliveryRoutes.add(route);
+    notifyListeners();
+    return route;
+  }
 
   List<Shop> listedShops() =>
       _shops.where((s) => s.isVisibleToCustomers).toList();
@@ -347,6 +382,11 @@ class WaterPlantRepository extends ChangeNotifier {
     _seedMarketplaceShops();
     _seedProducts();
     _seedPromotions();
+    _deliveryRoutes.addAll(const [
+      DeliveryRoute(id: 'route-1', name: 'Route 1'),
+      DeliveryRoute(id: 'route-2', name: 'Route 2'),
+      DeliveryRoute(id: 'route-3', name: 'Route 3'),
+    ]);
 
     _drivers.addAll([
       const Driver(
@@ -365,6 +405,7 @@ class WaterPlantRepository extends ChangeNotifier {
       billingMode: CustomerBillingMode.monthlyContract,
       email: 'abi@email.com',
       place: 'Hyderabad, Telangana',
+      routeId: 'route-1',
       address: 'Hyderabad, Telangana',
       productPrices: [
         const CustomerProductPrice(
@@ -386,6 +427,7 @@ class WaterPlantRepository extends ChangeNotifier {
       billingMode: CustomerBillingMode.monthlyContract,
       email: 'ramesh.kumar@email.com',
       place: 'Gandhi Nagar, Rajahmundry',
+      routeId: 'route-1',
       address: 'Door No: 12-5-8, Gandhi Nagar',
     );
     final lakshmi = Customer(
@@ -394,6 +436,7 @@ class WaterPlantRepository extends ChangeNotifier {
       phone: '98765 43210',
       billingMode: CustomerBillingMode.monthlyContract,
       place: 'RTC Colony, Rajahmundry',
+      routeId: 'route-2',
       address: 'Plot 45, RTC Colony',
     );
     final suresh = Customer(
@@ -402,6 +445,7 @@ class WaterPlantRepository extends ChangeNotifier {
       phone: '91234 56789',
       billingMode: CustomerBillingMode.monthlyContract,
       place: 'Danavaipeta, Rajahmundry',
+      routeId: 'route-3',
       address: 'Flat 302, Sai Residency',
     );
 
@@ -546,6 +590,7 @@ class WaterPlantRepository extends ChangeNotifier {
           billingMode: CustomerBillingMode.monthlyContract,
           email: abiTemplate.email,
           place: abiTemplate.place,
+          routeId: abiTemplate.routeId,
           address: abiTemplate.address,
           productPrices: abiTemplate.productPrices,
         ),
@@ -590,6 +635,7 @@ class WaterPlantRepository extends ChangeNotifier {
         phone: '99887 76655',
         email: 'priya@email.com',
         place: 'Korukonda Road',
+        routeId: 'route-1',
         address: 'H.No 8-2-120, Korukonda Road',
       ),
       Customer(
@@ -597,6 +643,7 @@ class WaterPlantRepository extends ChangeNotifier {
         name: 'Venkatesh Reddy',
         phone: '98480 11223',
         place: 'Morampudi',
+        routeId: 'route-2',
         address: 'Near Temple, Morampudi',
       ),
       Customer(
@@ -605,6 +652,7 @@ class WaterPlantRepository extends ChangeNotifier {
         phone: '95501 33445',
         email: 'anitha.stores@email.com',
         place: 'Main Road',
+        routeId: 'route-3',
         address: 'Shop 12, Main Road Complex',
       ),
     ]);
@@ -1195,6 +1243,7 @@ class WaterPlantRepository extends ChangeNotifier {
     required String address,
     String email = '',
     String place = '',
+    String? routeId,
     CustomerBillingMode billingMode = CustomerBillingMode.monthlyContract,
     List<CustomerProductPrice>? productPrices,
   }) {
@@ -1205,6 +1254,7 @@ class WaterPlantRepository extends ChangeNotifier {
       address: address,
       email: email,
       place: place,
+      routeId: routeId,
       billingMode: billingMode,
       productPrices: productPrices ?? defaultCustomerPricing(),
     );
@@ -1879,6 +1929,7 @@ class WaterPlantRepository extends ChangeNotifier {
     _orders.clear();
     _products.clear();
     _drivers.clear();
+    _deliveryRoutes.clear();
     _customerShopIds.clear();
     _driverShopIds.clear();
     _routeNotes.clear();
@@ -1907,7 +1958,10 @@ class WaterPlantRepository extends ChangeNotifier {
         .where(
           (c) =>
               c.name.toLowerCase().contains(q) ||
-              c.phone.replaceAll(' ', '').contains(q.replaceAll(' ', '')),
+              c.phone.replaceAll(' ', '').contains(q.replaceAll(' ', '')) ||
+              c.place.toLowerCase().contains(q) ||
+              c.address.toLowerCase().contains(q) ||
+              deliveryRouteName(c.routeId).toLowerCase().contains(q),
         )
         .toList();
   }

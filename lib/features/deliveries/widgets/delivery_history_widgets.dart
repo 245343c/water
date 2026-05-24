@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
@@ -9,12 +10,12 @@ import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class DeliveryHistoryColors {
-  static const Color titleNavy = Color(0xFF1E3A8A);
+  static const Color titleNavy = AppColors.textPrimary;
   static const Color valueNavy = Color(0xFF111827);
   static const Color labelGrey = Color(0xFF6B7280);
-  static const Color divider = Color(0xFFE5E7EB);
-  static const Color cardBorder = Color(0xFFE5E7EB);
-  static const Color screenBg = Color(0xFFF3F4F6);
+  static const Color divider = AppColors.cardBorder;
+  static const Color cardBorder = AppColors.cardBorder;
+  static const Color screenBg = AppColors.surface;
   static const Color statBlue = Color(0xFF2563EB);
   static const Color statGreen = Color(0xFF16A34A);
   static const Color whatsapp = Color(0xFF25D366);
@@ -27,34 +28,10 @@ class DeliveryHistoryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(
-        4,
-        MediaQuery.paddingOf(context).top + 4,
-        4,
-        16,
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Delivery History',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(width: 48),
-        ],
-      ),
+    return AdminPageHeader(
+      title: 'Delivery History',
+      subtitle: 'Monthly cans and delivery records',
+      onBack: onBack,
     );
   }
 }
@@ -471,7 +448,7 @@ class DeliveryHistoryScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: PremiumResponsiveBody(maxWidth: 920, child: child),
+      child: PremiumResponsiveBody(maxWidth: 1180, child: child),
     );
   }
 }

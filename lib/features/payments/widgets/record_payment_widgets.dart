@@ -29,34 +29,10 @@ class RecordPaymentHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(
-        4,
-        MediaQuery.paddingOf(context).top + 4,
-        4,
-        16,
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Record Payment',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(width: 48),
-        ],
-      ),
+    return AdminPageHeader(
+      title: 'Record Payment',
+      subtitle: 'Update customer ledger',
+      onBack: onBack,
     );
   }
 }
@@ -616,7 +592,7 @@ class RecordPaymentScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: PremiumResponsiveBody(maxWidth: 920, child: child),
+      child: PremiumResponsiveBody(maxWidth: 1180, child: child),
     );
   }
 }

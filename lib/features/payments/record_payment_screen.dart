@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/data/models/payment_allocation_preview.dart';
 import 'package:sri_sai_ro_water/data/models/payment_method.dart';
@@ -92,7 +93,7 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
         final colorIndex = repo.customers.indexWhere((c) => c.id == widget.customerId);
 
         return Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.surface,
           body: RecordPaymentScaffold(
             child: Form(
               key: _formKey,

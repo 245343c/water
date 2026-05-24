@@ -31,6 +31,7 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
   late final TextEditingController _addressController;
   bool _loaded = false;
   bool _pricingReady = false;
+  String? _routeId;
   List<CustomerProductPrice> _productPrices = [];
 
   @override
@@ -51,6 +52,7 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
       _emailController.text = customer.email;
       _placeController.text = customer.place;
       _addressController.text = customer.address;
+      _routeId = customer.routeId;
       _productPrices = customer.productPrices.isEmpty
           ? repo.defaultCustomerPricing()
           : List<CustomerProductPrice>.from(customer.productPrices);
@@ -85,6 +87,7 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
       email: _emailController.text.trim(),
       place: _placeController.text.trim(),
       address: _addressController.text.trim(),
+      routeId: _routeId,
     );
 
     if (widget.isEditing) {
@@ -96,6 +99,8 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
             phone: data.phone,
             email: data.email,
             place: data.place,
+            routeId: data.routeId,
+            clearRoute: data.routeId == null,
             address: data.address,
             productPrices: _productPrices,
           ),
@@ -107,6 +112,7 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
         phone: data.phone,
         email: data.email,
         place: data.place,
+        routeId: data.routeId,
         address: data.address,
         productPrices: _productPrices,
       );
@@ -257,15 +263,68 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
                               validator: validateEmailOptional,
                             ),
                             AddEditCustomerField(
-                              label: 'Place',
+                              label: 'Place / Locality',
                               controller: _placeController,
-                              hint: 'Area, locality or city',
+                              hint: 'Example: Gandhi Nagar, Main Road',
                               icon: Icons.place_outlined,
                               textCapitalization: TextCapitalization.words,
                               required: true,
                               validator: (v) => v == null || v.trim().isEmpty
                                   ? 'Place is required'
                                   : null,
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                              child: DropdownButtonFormField<String?>(
+                                value: _routeId,
+                                isExpanded: true,
+                                decoration: InputDecoration(
+                                  labelText: 'Delivery Route',
+                                  labelStyle: GoogleFonts.poppins(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AddEditCustomerColors.titleNavy,
+                                  ),
+                                  prefixIcon: const Icon(
+                                    Icons.route_rounded,
+                                    size: 20,
+                                    color: AddEditCustomerColors.labelGrey,
+                                  ),
+                                  filled: true,
+                                  fillColor: AddEditCustomerColors.fieldFill,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(
+                                      color: AddEditCustomerColors.fieldBorder,
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(
+                                      color: AddEditCustomerColors.fieldBorder,
+                                    ),
+                                  ),
+                                ),
+                                items: [
+                                  DropdownMenuItem<String?>(
+                                    value: null,
+                                    child: Text(
+                                      'Unassigned',
+                                      style: GoogleFonts.poppins(),
+                                    ),
+                                  ),
+                                  for (final route in repo.deliveryRoutes)
+                                    DropdownMenuItem<String?>(
+                                      value: route.id,
+                                      child: Text(
+                                        route.name,
+                                        style: GoogleFonts.poppins(),
+                                      ),
+                                    ),
+                                ],
+                                onChanged: (value) =>
+                                    setState(() => _routeId = value),
+                              ),
                             ),
                             AddEditCustomerField(
                               label: 'Address',

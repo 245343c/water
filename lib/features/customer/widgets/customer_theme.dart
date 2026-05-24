@@ -51,7 +51,10 @@ class CustomerScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: PremiumResponsiveBody(maxWidth: 960, child: child),
+      child: ColoredBox(
+        color: CustomerColors.screenBg,
+        child: PremiumResponsiveBody(maxWidth: 1180, child: child),
+      ),
     );
   }
 }

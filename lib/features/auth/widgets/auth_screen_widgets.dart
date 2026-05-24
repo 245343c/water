@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class AuthColors {
@@ -35,16 +36,19 @@ class AuthScreenLayout extends StatelessWidget {
       ),
       child: Scaffold(
         backgroundColor: CustomersColors.screenBg,
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AuthCompactHeader(
-              title: title,
-              subtitle: subtitle,
-              onBack: onBack,
-            ),
-            Expanded(child: child),
-          ],
+        body: PremiumResponsiveBody(
+          maxWidth: 720,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AuthCompactHeader(
+                title: title,
+                subtitle: subtitle,
+                onBack: onBack,
+              ),
+              Expanded(child: child),
+            ],
+          ),
         ),
       ),
     );
@@ -75,10 +79,16 @@ class AuthCompactHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
+                  icon: const Icon(
+                    Icons.arrow_back,
+                    color: Colors.white,
+                    size: 24,
+                  ),
                   onPressed: onBack,
                 ),
-                Expanded(child: _TitleBlock(title: title, subtitle: subtitle)),
+                Expanded(
+                  child: _TitleBlock(title: title, subtitle: subtitle),
+                ),
                 const SizedBox(width: 48),
               ],
             )
@@ -227,7 +237,10 @@ class AuthTextField extends StatelessWidget {
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: GoogleFonts.poppins(fontSize: 14, color: AuthColors.labelGrey),
+              hintStyle: GoogleFonts.poppins(
+                fontSize: 14,
+                color: AuthColors.labelGrey,
+              ),
               filled: true,
               fillColor: AuthColors.fieldFill,
               prefixIcon: icon != null
@@ -244,7 +257,10 @@ class AuthTextField extends StatelessWidget {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AuthColors.primaryBtn, width: 1.5),
+                borderSide: const BorderSide(
+                  color: AuthColors.primaryBtn,
+                  width: 1.5,
+                ),
               ),
               errorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -281,18 +297,28 @@ class AuthPrimaryButton extends StatelessWidget {
           onPressed: loading ? null : onPressed,
           style: FilledButton.styleFrom(
             backgroundColor: AuthColors.primaryBtn,
-            disabledBackgroundColor: AuthColors.primaryBtn.withValues(alpha: 0.5),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            disabledBackgroundColor: AuthColors.primaryBtn.withValues(
+              alpha: 0.5,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
           child: loading
               ? const SizedBox(
                   width: 22,
                   height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 )
               : Text(
                   label,
-                  style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
         ),
       ),
@@ -321,7 +347,10 @@ class AuthFooterLink extends StatelessWidget {
         children: [
           Text(
             prompt,
-            style: GoogleFonts.poppins(fontSize: 13, color: AuthColors.labelGrey),
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: AuthColors.labelGrey,
+            ),
           ),
           GestureDetector(
             onTap: onTap,
@@ -350,11 +379,18 @@ class AuthTrustNote extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.lock_outline, size: 14, color: AuthColors.labelGrey.withValues(alpha: 0.9)),
+          Icon(
+            Icons.lock_outline,
+            size: 14,
+            color: AuthColors.labelGrey.withValues(alpha: 0.9),
+          ),
           const SizedBox(width: 6),
           Text(
             'Secured sign-in',
-            style: GoogleFonts.poppins(fontSize: 12, color: AuthColors.labelGrey),
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: AuthColors.labelGrey,
+            ),
           ),
         ],
       ),
@@ -382,7 +418,11 @@ class AuthDemoHint extends StatelessWidget {
           Expanded(
             child: Text(
               'Demo: admin@srisai.com · Password: admin123',
-              style: GoogleFonts.poppins(fontSize: 11, height: 1.35, color: Color(0xFF1D4ED8)),
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                height: 1.35,
+                color: Color(0xFF1D4ED8),
+              ),
             ),
           ),
         ],
@@ -405,20 +445,20 @@ class AuthInfoBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = switch (tint) {
       BannerTint.blue => (
-          bg: const Color(0xFFEFF6FF),
-          border: const Color(0xFFBFDBFE),
-          text: const Color(0xFF1D4ED8),
-        ),
+        bg: const Color(0xFFEFF6FF),
+        border: const Color(0xFFBFDBFE),
+        text: const Color(0xFF1D4ED8),
+      ),
       BannerTint.green => (
-          bg: const Color(0xFFECFDF5),
-          border: const Color(0xFF86EFAC),
-          text: const Color(0xFF166534),
-        ),
+        bg: const Color(0xFFECFDF5),
+        border: const Color(0xFF86EFAC),
+        text: const Color(0xFF166534),
+      ),
       BannerTint.orange => (
-          bg: const Color(0xFFFFF7ED),
-          border: const Color(0xFFFED7AA),
-          text: const Color(0xFF9A3412),
-        ),
+        bg: const Color(0xFFFFF7ED),
+        border: const Color(0xFFFED7AA),
+        text: const Color(0xFF9A3412),
+      ),
     };
 
     return Container(
@@ -431,7 +471,11 @@ class AuthInfoBanner extends StatelessWidget {
       ),
       child: Text(
         message,
-        style: GoogleFonts.poppins(fontSize: 12, height: 1.45, color: colors.text),
+        style: GoogleFonts.poppins(
+          fontSize: 12,
+          height: 1.45,
+          color: colors.text,
+        ),
       ),
     );
   }
@@ -478,7 +522,11 @@ class AuthOtpDisplayCard extends StatelessWidget {
           Text(
             'In production this is sent to email only',
             textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(fontSize: 10, height: 1.35, color: AuthColors.labelGrey),
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              height: 1.35,
+              color: AuthColors.labelGrey,
+            ),
           ),
         ],
       ),

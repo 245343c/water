@@ -17,7 +17,7 @@ class MainShell extends StatelessWidget {
         final pendingOrders = repo.pendingOrderCount;
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF3F4F6),
+          backgroundColor: AppColors.surface,
           body: _ResponsiveShellBody(child: navigationShell),
           bottomNavigationBar: _ResponsiveBottomNav(
             decoration: BoxDecoration(

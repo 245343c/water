@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
@@ -14,16 +15,16 @@ import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_wid
 abstract final class MonthlyBillColors {
   static const Color billBlue = Color(0xFF1E40AF);
   static const Color tableNavy = Color(0xFF1E3A8A);
-  static const Color titleNavy = Color(0xFF111827);
-  static const Color tableHeaderBg = Color(0xFFF3F4F6);
+  static const Color titleNavy = AppColors.textPrimary;
+  static const Color tableHeaderBg = AppColors.surface;
   static const Color tableTotalBg = Color(0xFFEFF6FF);
-  static const Color screenBg = Color(0xFFF3F4F6);
+  static const Color screenBg = AppColors.surface;
   static const Color labelGrey = Color(0xFF6B7280);
   static const Color balanceRed = Color(0xFFDC2626);
-  static const Color primaryBtn = Color(0xFF1A73E8);
+  static const Color primaryBtn = AppColors.primary;
   static const Color whatsappBtn = Color(0xFF25D366);
   static const Color tableBorder = Color(0xFFD1D5DB);
-  static const Color cardBorder = Color(0xFFE5E7EB);
+  static const Color cardBorder = AppColors.cardBorder;
   static const Color rowAlt = Color(0xFFF8FAFF);
   static const Color amountGreen = Color(0xFF16A34A);
   static const Color paidStampBg = Color(0xFFDCFCE7);
@@ -102,7 +103,7 @@ class MonthlyBillScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: PremiumResponsiveBody(maxWidth: 920, child: child),
+      child: PremiumResponsiveBody(maxWidth: 1180, child: child),
     );
   }
 }
@@ -114,36 +115,13 @@ class MonthlyBillHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(
-        4,
-        MediaQuery.paddingOf(context).top + 4,
-        4,
-        16,
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Monthly Bill (PDF)',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.ios_share, color: Colors.white, size: 22),
-            onPressed: onShare,
-          ),
-        ],
+    return AdminPageHeader(
+      title: 'Monthly Bill',
+      subtitle: 'PDF preview and sharing',
+      onBack: onBack,
+      trailing: IconButton(
+        icon: const Icon(Icons.ios_share_rounded, color: Colors.white, size: 22),
+        onPressed: onShare,
       ),
     );
   }

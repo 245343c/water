@@ -3,20 +3,21 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
 import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 
 abstract final class DashboardColors {
-  static const Color bgTop = Color(0xFF000B2E);
-  static const Color bgMid = Color(0xFF001247);
-  static const Color bgBottom = Color(0xFF002868);
-  static const Color cardTitle = Color(0xFF1E3A8A);
+  static const Color bgTop = AppColors.headerTop;
+  static const Color bgMid = AppColors.headerBottom;
+  static const Color bgBottom = AppColors.headerBottom;
+  static const Color cardTitle = AppColors.textPrimary;
   static const Color statGreen = Color(0xFF10B981);
   static const Color statBlue = Color(0xFF2563EB);
   static const Color statRed = Color(0xFFEF4444);
   static const Color statPurple = Color(0xFF7C3AED);
   static const Color statTeal = Color(0xFF0D9488);
-  static const Color linkBlue = Color(0xFF1A73E8);
+  static const Color linkBlue = AppColors.primary;
   static const Color labelGrey = Color(0xFF6B7280);
   static const Color chipBg = Color(0xFFF3F4F6);
   static const Color statCellBg = Color(0xFFFAFBFC);
@@ -26,7 +27,8 @@ abstract final class DashboardColors {
     gradient: LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [bgTop, bgMid, bgBottom],
+      stops: [0, 0.36, 1],
+      colors: [bgTop, bgMid, AppColors.surface],
     ),
   );
 
@@ -138,7 +140,7 @@ class DashboardHeader extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.70),
                       width: 2.5,
                     ),
-                    color: const Color(0xFF1A73E8).withValues(alpha: 0.75),
+                    color: AppColors.primary.withValues(alpha: 0.75),
                   ),
                   child: ClipOval(
                     child: adminImagePath != null
@@ -158,7 +160,7 @@ class DashboardHeader extends StatelessWidget {
                     width: 22,
                     height: 22,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1A73E8),
+                      color: AppColors.primary,
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 2),
                     ),
@@ -198,7 +200,7 @@ class DashboardQuickActions extends StatelessWidget {
             Expanded(
               child: _QuickActionTile(
                 icon: Icons.local_shipping_rounded,
-                iconBg: const Color(0xFF1A73E8),
+                iconBg: AppColors.primary,
                 label: 'Add Delivery',
                 onTap: onAddDelivery,
                 isFirst: true,
@@ -229,15 +231,13 @@ class DashboardOwnerSnapshot extends StatelessWidget {
   const DashboardOwnerSnapshot({
     super.key,
     required this.todayDeliveries,
-    required this.todayUnits,
-    required this.pendingRequests,
-    required this.onOrdersTap,
+    required this.todayNormalCans,
+    required this.todayCoolCans,
   });
 
   final int todayDeliveries;
-  final int todayUnits;
-  final int pendingRequests;
-  final VoidCallback onOrdersTap;
+  final int todayNormalCans;
+  final int todayCoolCans;
 
   @override
   Widget build(BuildContext context) {
@@ -287,19 +287,18 @@ class DashboardOwnerSnapshot extends StatelessWidget {
                   icon: Icons.local_shipping_rounded,
                 ),
                 _OwnerMetricTile(
-                  label: 'Cans delivered',
-                  value: '$todayUnits',
-                  helper: 'Normal, cool and bottles',
+                  label: 'Normal cans',
+                  value: '$todayNormalCans',
+                  helper: 'Delivered today',
                   color: DashboardColors.statBlue,
-                  icon: Icons.water_drop_rounded,
+                  icon: Icons.water_drop_outlined,
                 ),
                 _OwnerMetricTile(
-                  label: 'Pending requests',
-                  value: '$pendingRequests',
-                  helper: 'Need admin action',
-                  color: DashboardColors.statRed,
-                  icon: Icons.receipt_long_rounded,
-                  onTap: onOrdersTap,
+                  label: 'Cool cans',
+                  value: '$todayCoolCans',
+                  helper: 'Delivered today',
+                  color: DashboardColors.statTeal,
+                  icon: Icons.ac_unit_rounded,
                 ),
               ];
 
@@ -588,233 +587,6 @@ class _PendingRequestRow extends StatelessWidget {
         if (showDivider)
           const Divider(height: 1, color: DashboardColors.statCellBorder),
       ],
-    );
-  }
-}
-
-class DashboardDriverActivityCard extends StatelessWidget {
-  const DashboardDriverActivityCard({
-    super.key,
-    required this.activities,
-    required this.activeDrivers,
-    required this.totalDrivers,
-    required this.onManageDrivers,
-  });
-
-  final List<DashboardDriverActivity> activities;
-  final int activeDrivers;
-  final int totalDrivers;
-  final VoidCallback onManageDrivers;
-
-  @override
-  Widget build(BuildContext context) {
-    final preview = activities.take(3).toList();
-
-    return Container(
-      decoration: DashboardColors.whiteCard,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _DashboardCardHeader(
-            icon: Icons.badge_rounded,
-            iconColor: DashboardColors.statTeal,
-            title: 'Driver activity',
-            actionLabel: 'Manage',
-            onAction: onManageDrivers,
-          ),
-          const SizedBox(height: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: DashboardColors.statTeal.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              '$activeDrivers active / $totalDrivers total',
-              style: GoogleFonts.poppins(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: DashboardColors.statTeal,
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          if (preview.isEmpty)
-            const _DashboardClearLine(
-              icon: Icons.local_shipping_outlined,
-              title: 'No driver deliveries today',
-              subtitle: 'Accepted tasks and saved deliveries will show here.',
-            )
-          else
-            ...List.generate(preview.length, (i) {
-              final activity = preview[i];
-              return _DriverActivityRow(
-                activity: activity,
-                showDivider: i < preview.length - 1,
-              );
-            }),
-        ],
-      ),
-    );
-  }
-}
-
-class DashboardDriverActivity {
-  const DashboardDriverActivity({
-    required this.name,
-    required this.deliveries,
-    required this.units,
-    required this.active,
-  });
-
-  final String name;
-  final int deliveries;
-  final int units;
-  final bool active;
-}
-
-class _DriverActivityRow extends StatelessWidget {
-  const _DriverActivityRow({required this.activity, required this.showDivider});
-
-  final DashboardDriverActivity activity;
-  final bool showDivider;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = activity.active
-        ? DashboardColors.statTeal
-        : DashboardColors.labelGrey;
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 9),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    activity.name.isEmpty
-                        ? '?'
-                        : activity.name[0].toUpperCase(),
-                    style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w800,
-                      color: color,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      activity.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF111827),
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        Container(
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          activity.active ? 'Active' : 'Inactive',
-                          style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            color: DashboardColors.labelGrey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '${activity.deliveries} trips',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: color,
-                      ),
-                    ),
-                    Text(
-                      '${activity.units} cans',
-                      style: GoogleFonts.poppins(
-                        fontSize: 10,
-                        color: DashboardColors.labelGrey,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (showDivider)
-          const Divider(height: 1, color: DashboardColors.statCellBorder),
-      ],
-    );
-  }
-}
-
-class DashboardOperationsGrid extends StatelessWidget {
-  const DashboardOperationsGrid({
-    super.key,
-    required this.left,
-    required this.right,
-  });
-
-  final Widget left;
-  final Widget right;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth >= 760) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: left),
-              const SizedBox(width: 14),
-              Expanded(child: right),
-            ],
-          );
-        }
-        return Column(children: [left, const SizedBox(height: 14), right]);
-      },
     );
   }
 }

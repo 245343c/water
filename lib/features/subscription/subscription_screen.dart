@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/data/models/shop.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
@@ -16,86 +17,98 @@ class SubscriptionScreen extends StatelessWidget {
     return Consumer<WaterPlantRepository>(
       builder: (context, repo, _) {
         final shop = repo.shopById(WaterPlantRepository.defaultShopId);
-        final customers = repo.customersForShop(WaterPlantRepository.defaultShopId);
+        final customers = repo.customersForShop(
+          WaterPlantRepository.defaultShopId,
+        );
         final drivers = repo.drivers
             .where(
-              (d) => repo.shopIdForDriver(d.id) == WaterPlantRepository.defaultShopId,
+              (d) =>
+                  repo.shopIdForDriver(d.id) ==
+                  WaterPlantRepository.defaultShopId,
             )
             .length;
 
         return Scaffold(
           backgroundColor: MoreColors.screenBg,
-          body: Column(
-            children: [
-              _SubscriptionHeader(
-                shopName: shop?.name ?? repo.settings.businessName,
-                onBack: () => context.pop(),
-              ),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-                  children: [
-                    _CurrentPlanCard(
-                      status: shop?.subscriptionStatus ?? ShopSubscriptionStatus.trial,
-                      customerCount: customers.length,
-                      driverCount: drivers,
-                    ),
-                    const SizedBox(height: 14),
-                    const _SaasNoteCard(),
-                    const SizedBox(height: 18),
-                    const _SectionLabel('Recommended plans'),
-                    const SizedBox(height: 10),
-                    _PlanCard(
-                      name: 'Starter',
-                      price: 299,
-                      subtitle: 'For small RO plants',
-                      limits: const [
-                        'Up to 100 customers',
-                        '1 driver account',
-                        'Orders, deliveries, reports',
-                      ],
-                      onSelect: () => _mockAction(context, 'Starter plan selected'),
-                    ),
-                    const SizedBox(height: 10),
-                    _PlanCard(
-                      name: 'Growth',
-                      price: 499,
-                      subtitle: 'Best for your current use case',
-                      highlighted: true,
-                      limits: const [
-                        'Up to 500 customers',
-                        '5 driver accounts',
-                        'Customer app access',
-                        'Monthly bills and notifications',
-                      ],
-                      onSelect: () => _mockAction(context, 'Growth plan selected'),
-                    ),
-                    const SizedBox(height: 10),
-                    _PlanCard(
-                      name: 'Pro',
-                      price: 999,
-                      subtitle: 'For larger delivery teams',
-                      limits: const [
-                        'Up to 2000 customers',
-                        '20 driver accounts',
-                        'Priority support',
-                        'Future multi-plant controls',
-                      ],
-                      onSelect: () => _mockAction(context, 'Pro plan selected'),
-                    ),
-                    const SizedBox(height: 18),
-                    const _SectionLabel('Payment setup'),
-                    const SizedBox(height: 10),
-                    _PaymentSetupCard(
-                      onActivate: () => _mockAction(
-                        context,
-                        'Payment gateway will connect later',
-                      ),
-                    ),
-                  ],
+          body: PremiumResponsiveBody(
+            maxWidth: 1180,
+            child: Column(
+              children: [
+                _SubscriptionHeader(
+                  shopName: shop?.name ?? repo.settings.businessName,
+                  onBack: () => context.pop(),
                 ),
-              ),
-            ],
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+                    children: [
+                      _CurrentPlanCard(
+                        status:
+                            shop?.subscriptionStatus ??
+                            ShopSubscriptionStatus.trial,
+                        customerCount: customers.length,
+                        driverCount: drivers,
+                      ),
+                      const SizedBox(height: 14),
+                      const _SaasNoteCard(),
+                      const SizedBox(height: 18),
+                      const _SectionLabel('Recommended plans'),
+                      const SizedBox(height: 10),
+                      _PlanCard(
+                        name: 'Starter',
+                        price: 299,
+                        subtitle: 'For small RO plants',
+                        limits: const [
+                          'Up to 100 customers',
+                          '1 driver account',
+                          'Orders, deliveries, reports',
+                        ],
+                        onSelect: () =>
+                            _mockAction(context, 'Starter plan selected'),
+                      ),
+                      const SizedBox(height: 10),
+                      _PlanCard(
+                        name: 'Growth',
+                        price: 499,
+                        subtitle: 'Best for your current use case',
+                        highlighted: true,
+                        limits: const [
+                          'Up to 500 customers',
+                          '5 driver accounts',
+                          'Customer app access',
+                          'Monthly bills and notifications',
+                        ],
+                        onSelect: () =>
+                            _mockAction(context, 'Growth plan selected'),
+                      ),
+                      const SizedBox(height: 10),
+                      _PlanCard(
+                        name: 'Pro',
+                        price: 999,
+                        subtitle: 'For larger delivery teams',
+                        limits: const [
+                          'Up to 2000 customers',
+                          '20 driver accounts',
+                          'Priority support',
+                          'Future multi-plant controls',
+                        ],
+                        onSelect: () =>
+                            _mockAction(context, 'Pro plan selected'),
+                      ),
+                      const SizedBox(height: 18),
+                      const _SectionLabel('Payment setup'),
+                      const SizedBox(height: 10),
+                      _PaymentSetupCard(
+                        onActivate: () => _mockAction(
+                          context,
+                          'Payment gateway will connect later',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -113,57 +126,17 @@ class SubscriptionScreen extends StatelessWidget {
 }
 
 class _SubscriptionHeader extends StatelessWidget {
-  const _SubscriptionHeader({
-    required this.shopName,
-    required this.onBack,
-  });
+  const _SubscriptionHeader({required this.shopName, required this.onBack});
 
   final String shopName;
   final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(
-        4,
-        MediaQuery.paddingOf(context).top + 6,
-        20,
-        18,
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-            onPressed: onBack,
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Subscription',
-                  style: GoogleFonts.poppins(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  shopName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: Colors.white.withValues(alpha: 0.88),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return AdminPageHeader(
+      title: 'Subscription',
+      subtitle: shopName,
+      onBack: onBack,
     );
   }
 }
@@ -180,18 +153,18 @@ class _CurrentPlanCard extends StatelessWidget {
   final int driverCount;
 
   String get _statusLabel => switch (status) {
-        ShopSubscriptionStatus.trial => 'Trial',
-        ShopSubscriptionStatus.active => 'Active',
-        ShopSubscriptionStatus.grace => 'Grace period',
-        ShopSubscriptionStatus.expired => 'Expired',
-      };
+    ShopSubscriptionStatus.trial => 'Trial',
+    ShopSubscriptionStatus.active => 'Active',
+    ShopSubscriptionStatus.grace => 'Grace period',
+    ShopSubscriptionStatus.expired => 'Expired',
+  };
 
   Color get _statusColor => switch (status) {
-        ShopSubscriptionStatus.trial => const Color(0xFFEA580C),
-        ShopSubscriptionStatus.active => const Color(0xFF16A34A),
-        ShopSubscriptionStatus.grace => const Color(0xFFD97706),
-        ShopSubscriptionStatus.expired => const Color(0xFFDC2626),
-      };
+    ShopSubscriptionStatus.trial => const Color(0xFFEA580C),
+    ShopSubscriptionStatus.active => const Color(0xFF16A34A),
+    ShopSubscriptionStatus.grace => const Color(0xFFD97706),
+    ShopSubscriptionStatus.expired => const Color(0xFFDC2626),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -253,11 +226,16 @@ class _CurrentPlanCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: _statusColor.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: _statusColor.withValues(alpha: 0.45)),
+                  border: Border.all(
+                    color: _statusColor.withValues(alpha: 0.45),
+                  ),
                 ),
                 child: Text(
                   _statusLabel,
@@ -471,11 +449,7 @@ class _PlanCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.check_circle_rounded,
-                    color: accent,
-                    size: 17,
-                  ),
+                  Icon(Icons.check_circle_rounded, color: accent, size: 17),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(

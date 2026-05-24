@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/services/product_image_service.dart';
 import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
@@ -10,16 +11,16 @@ import 'package:sri_sai_ro_water/data/models/product_variant.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class ProductsColors {
-  static const Color titleNavy = Color(0xFF1E3A8A);
+  static const Color titleNavy = AppColors.textPrimary;
   static const Color labelGrey = Color(0xFF6B7280);
   static const Color statBlue = Color(0xFF2563EB);
   static const Color statGreen = Color(0xFF16A34A);
   static const Color coolAccent = Color(0xFF0EA5E9);
-  static const Color cardBorder = Color(0xFFE5E7EB);
+  static const Color cardBorder = AppColors.cardBorder;
   static const Color bottleBg = Color(0xFFEFF6FF);
   static const Color canBg = Color(0xFFECFDF5);
   static const Color coolBg = Color(0xFFE0F2FE);
-  static const Color screenBg = Color(0xFFF3F4F6);
+  static const Color screenBg = AppColors.surface;
 }
 
 // ─── Scaffold ────────────────────────────────────────────────────────────────
@@ -35,7 +36,7 @@ class ProductsScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: PremiumResponsiveBody(maxWidth: 1040, child: child),
+      child: PremiumResponsiveBody(maxWidth: 1180, child: child),
     );
   }
 }
@@ -721,33 +722,13 @@ class ProductDetailHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(
-        4,
-        MediaQuery.paddingOf(context).top + 4,
-        8,
-        14,
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Product Details',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          if (onDelete != null)
-            IconButton(
+    return AdminPageHeader(
+      title: 'Product Details',
+      subtitle: 'Catalog item and pricing reference',
+      onBack: onBack,
+      trailing: onDelete == null
+          ? null
+          : IconButton(
               icon: const Icon(
                 Icons.delete_outline_rounded,
                 color: Colors.white,
@@ -755,11 +736,7 @@ class ProductDetailHeader extends StatelessWidget {
               ),
               tooltip: 'Delete product',
               onPressed: onDelete,
-            )
-          else
-            const SizedBox(width: 48),
-        ],
-      ),
+            ),
     );
   }
 }

@@ -9,6 +9,7 @@ class Customer {
     required this.address,
     this.email = '',
     this.place = '',
+    this.routeId,
     this.paymentFrequency = 'Monthly',
     this.productPrices = const [],
     this.billingMode = CustomerBillingMode.monthlyContract,
@@ -22,6 +23,7 @@ class Customer {
   String address;
   String email;
   String place;
+  String? routeId;
   String paymentFrequency;
   final List<CustomerProductPrice> productPrices;
   final CustomerBillingMode billingMode;
@@ -46,6 +48,8 @@ class Customer {
     String? address,
     String? email,
     String? place,
+    String? routeId,
+    bool clearRoute = false,
     String? paymentFrequency,
     List<CustomerProductPrice>? productPrices,
     CustomerBillingMode? billingMode,
@@ -58,6 +62,7 @@ class Customer {
       address: address ?? this.address,
       email: email ?? this.email,
       place: place ?? this.place,
+      routeId: clearRoute ? null : routeId ?? this.routeId,
       paymentFrequency: paymentFrequency ?? this.paymentFrequency,
       productPrices: productPrices ?? this.productPrices,
       billingMode: billingMode ?? this.billingMode,

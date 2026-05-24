@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/auth/widgets/login_screen_widgets.dart';
@@ -60,10 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error),
-          behavior: SnackBarBehavior.floating,
-        ),
+        SnackBar(content: Text(error), behavior: SnackBarBehavior.floating),
       );
       return;
     }
@@ -82,60 +80,65 @@ class _LoginScreenState extends State<LoginScreen> {
           const LoginPremiumBackground(variant: LoginBackgroundVariant.auth),
           SafeArea(
             bottom: false,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxHeight < 760;
-                final heroHeight = compact
-                    ? 0.0
-                    : (constraints.maxHeight * 0.24).clamp(120.0, 210.0);
+            child: PremiumResponsiveBody(
+              maxWidth: 720,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxHeight < 760;
+                  final heroHeight = compact
+                      ? 0.0
+                      : (constraints.maxHeight * 0.24).clamp(120.0, 210.0);
 
-                return SingleChildScrollView(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                    child: Column(
-                      children: [
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: IconButton(
-                            onPressed: () => context.canPop()
-                                ? context.pop()
-                                : context.go(AppRoutes.welcome),
-                            icon: const Icon(
-                              Icons.arrow_back_rounded,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        if (!compact)
-                          SizedBox(
-                            height: heroHeight,
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 28),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: _LoginHeroCopy(),
+                  return SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
+                      child: Column(
+                        children: [
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: IconButton(
+                              onPressed: () => context.canPop()
+                                  ? context.pop()
+                                  : context.go(AppRoutes.welcome),
+                              icon: const Icon(
+                                Icons.arrow_back_rounded,
+                                color: Colors.white,
                               ),
                             ),
                           ),
-                        _LoginFormPanel(
-                          bottomInset: bottom,
-                          formKey: _formKey,
-                          emailController: _emailController,
-                          passwordController: _passwordController,
-                          obscurePassword: _obscurePassword,
-                          loading: _loading,
-                          onTogglePassword: () => setState(
-                            () => _obscurePassword = !_obscurePassword,
+                          if (!compact)
+                            SizedBox(
+                              height: heroHeight,
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 28),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: _LoginHeroCopy(),
+                                ),
+                              ),
+                            ),
+                          _LoginFormPanel(
+                            bottomInset: bottom,
+                            formKey: _formKey,
+                            emailController: _emailController,
+                            passwordController: _passwordController,
+                            obscurePassword: _obscurePassword,
+                            loading: _loading,
+                            onTogglePassword: () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
+                            onSubmit: _submit,
                           ),
-                          onSubmit: _submit,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -217,9 +220,7 @@ class _LoginFormPanel extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(20, 24, 20, bottomInset + 20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(28),
-        ),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.18),
@@ -302,10 +303,7 @@ class _LoginFormPanel extends StatelessWidget {
               ),
             ),
             const LoginDemoBox(),
-            LoginSignInButton(
-              loading: loading,
-              onPressed: onSubmit,
-            ),
+            LoginSignInButton(loading: loading, onPressed: onSubmit),
             const SizedBox(height: 8),
             const LoginSecureNote(),
             LoginFooterLink(

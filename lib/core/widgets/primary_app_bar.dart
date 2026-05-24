@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
 
 class PrimaryAppBar extends StatelessWidget implements PreferredSizeWidget {
   const PrimaryAppBar({
@@ -21,6 +22,15 @@ class PrimaryAppBar extends StatelessWidget implements PreferredSizeWidget {
       leading: leading,
       title: Text(title),
       actions: actions,
+      flexibleSpace: const DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [AppColors.headerTop, AppColors.headerBottom],
+          ),
+        ),
+      ),
     );
   }
 }

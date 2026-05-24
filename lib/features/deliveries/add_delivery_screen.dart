@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/auth/app_role.dart';
 import 'package:sri_sai_ro_water/core/constants/customer_pricing_keys.dart';
+import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/delivery_line_item.dart';
@@ -155,7 +156,7 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
         final colorIndex = repo.customers.indexWhere((c) => c.id == widget.customerId);
 
         return Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.surface,
           body: AddDeliveryScaffold(
             child: Column(
               children: [

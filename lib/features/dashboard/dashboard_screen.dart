@@ -242,7 +242,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     return Consumer2<WaterPlantRepository, NotificationRepository>(
@@ -253,35 +252,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final business = repo.settings.businessName;
         final today = DateTime.now();
         final todayDeliveries = repo.deliveriesOnDate(today);
-        final todayUnits = todayDeliveries.fold<int>(
+        final todayNormalCans = todayDeliveries.fold<int>(
           0,
-          (sum, d) => sum + d.normalQty + d.coolQty + d.bottleQty,
+          (sum, d) => sum + d.normalQty,
+        );
+        final todayCoolCans = todayDeliveries.fold<int>(
+          0,
+          (sum, d) => sum + d.coolQty,
         );
         final pendingOrders = repo
             .ordersNewestFirst()
             .where((o) => o.status == OrderStatus.pending)
             .toList();
-        final driverActivities =
-            repo.drivers.map((driver) {
-              final deliveries = todayDeliveries
-                  .where((d) => d.driverId == driver.id)
-                  .toList();
-              final units = deliveries.fold<int>(
-                0,
-                (sum, d) => sum + d.normalQty + d.coolQty + d.bottleQty,
-              );
-              return DashboardDriverActivity(
-                name: driver.name,
-                deliveries: deliveries.length,
-                units: units,
-                active: driver.active,
-              );
-            }).toList()..sort((a, b) {
-              final byDeliveries = b.deliveries.compareTo(a.deliveries);
-              if (byDeliveries != 0) return byDeliveries;
-              if (a.active != b.active) return a.active ? -1 : 1;
-              return a.name.compareTo(b.name);
-            });
         final pendingRequestCards = pendingOrders
             .map(
               (o) => DashboardPendingRequest(
@@ -304,7 +286,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         void openAddDelivery() => _showCustomerPicker(context, repo);
 
         return Scaffold(
-          backgroundColor: DashboardColors.bgTop,
+          backgroundColor: CustomersColors.screenBg,
           body: DashboardScaffold(
             child: SafeArea(
               bottom: false,
@@ -335,28 +317,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(height: 14),
                         DashboardOwnerSnapshot(
                           todayDeliveries: todayDeliveries.length,
-                          todayUnits: todayUnits,
-                          pendingRequests: pendingOrders.length,
-                          onOrdersTap: () => context.go(AppRoutes.orders),
+                          todayNormalCans: todayNormalCans,
+                          todayCoolCans: todayCoolCans,
                         ),
                         const SizedBox(height: 14),
-                        DashboardOperationsGrid(
-                          left: DashboardPendingRequestsCard(
-                            requests: pendingRequestCards,
-                            onOpenOrders: () => context.go(AppRoutes.orders),
-                            customerNameFor: (customerId) =>
-                                repo.customerById(customerId)?.name ??
-                                'Customer',
-                          ),
-                          right: DashboardDriverActivityCard(
-                            activities: driverActivities,
-                            activeDrivers: repo.drivers
-                                .where((d) => d.active)
-                                .length,
-                            totalDrivers: repo.drivers.length,
-                            onManageDrivers: () =>
-                                context.push(AppRoutes.drivers),
-                          ),
+                        DashboardPendingRequestsCard(
+                          requests: pendingRequestCards,
+                          onOpenOrders: () => context.go(AppRoutes.orders),
+                          customerNameFor: (customerId) =>
+                              repo.customerById(customerId)?.name ??
+                              'Customer',
                         ),
                         const SizedBox(height: 14),
                         DashboardOverviewCard(

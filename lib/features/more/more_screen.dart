@@ -12,16 +12,31 @@ import 'package:sri_sai_ro_water/routing/app_router.dart';
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
 
-  Future<void> _confirmReset(BuildContext context, WaterPlantRepository repo) async {
+  Future<void> _confirmReset(
+    BuildContext context,
+    WaterPlantRepository repo,
+  ) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Reset mock data?', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-        content: Text('All test changes will be lost.', style: GoogleFonts.poppins(fontSize: 14)),
+        title: Text(
+          'Reset mock data?',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'All test changes will be lost.',
+          style: GoogleFonts.poppins(fontSize: 14),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Reset')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Reset'),
+          ),
         ],
       ),
     );
@@ -29,7 +44,10 @@ class MoreScreen extends StatelessWidget {
       repo.resetMockData();
       context.read<NotificationRepository>().clear();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mock data restored'), behavior: SnackBarBehavior.floating),
+        const SnackBar(
+          content: Text('Mock data restored'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
   }
@@ -42,8 +60,14 @@ class MoreScreen extends StatelessWidget {
         final monthStart = DateTime(now.year, now.month, 1);
         final monthEnd = DateTime(now.year, now.month + 1, 0);
         final monthDeliveries = repo.deliveriesInRange(monthStart, monthEnd);
-        final monthSales = monthDeliveries.fold<double>(0, (s, d) => s + d.totalAmount);
-        final monthCans = monthDeliveries.fold<int>(0, (s, d) => s + d.normalQty + d.coolQty);
+        final monthSales = monthDeliveries.fold<double>(
+          0,
+          (s, d) => s + d.totalAmount,
+        );
+        final monthCans = monthDeliveries.fold<int>(
+          0,
+          (s, d) => s + d.normalQty + d.coolQty,
+        );
         final monthCollected = repo.paymentsTotalInRange(monthStart, monthEnd);
 
         return Scaffold(
@@ -75,18 +99,7 @@ class MoreScreen extends StatelessWidget {
                           );
                         },
                       ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 18, 16, 8),
-                        child: Text(
-                          'INSIGHTS',
-                          style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.7,
-                            color: MoreColors.labelGrey,
-                          ),
-                        ),
-                      ),
+                      const MoreSectionTitle(title: 'Insights'),
                       MoreInsightsReportCard(
                         monthSales: monthSales,
                         monthCans: monthCans,
@@ -99,36 +112,14 @@ class MoreScreen extends StatelessWidget {
                         subtitle: 'Admin plan, trial, renewal',
                         onTap: () => context.push(AppRoutes.subscription),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 18, 16, 8),
-                        child: Text(
-                          'TEAM',
-                          style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.7,
-                            color: MoreColors.labelGrey,
-                          ),
-                        ),
-                      ),
+                      const MoreSectionTitle(title: 'Team'),
                       MoreMenuTile(
                         icon: Icons.local_shipping_rounded,
                         title: 'Drivers',
                         subtitle: 'Delivery staff logins',
                         onTap: () => context.push(AppRoutes.drivers),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 18, 16, 8),
-                        child: Text(
-                          'ACCOUNT',
-                          style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.7,
-                            color: MoreColors.labelGrey,
-                          ),
-                        ),
-                      ),
+                      const MoreSectionTitle(title: 'Account'),
                       MoreAccountCard(
                         onSignOut: () {
                           context.read<AuthRepository>().logout();

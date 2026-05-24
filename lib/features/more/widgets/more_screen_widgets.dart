@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
 import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/core/widgets/home_delivery_choice.dart';
 import 'package:sri_sai_ro_water/data/models/business_settings.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class MoreColors {
-  static const Color screenBg = Color(0xFFF3F4F6);
-  static const Color titleNavy = Color(0xFF111827);
+  static const Color screenBg = AppColors.surface;
+  static const Color titleNavy = AppColors.textPrimary;
   static const Color labelGrey = Color(0xFF6B7280);
-  static const Color cardBorder = Color(0xFFE5E7EB);
+  static const Color cardBorder = AppColors.cardBorder;
   static const Color iconTileBg = Color(0xFFEFF6FF);
   static const Color iconNavy = Color(0xFF1E3A8A);
   static const Color divider = Color(0xFFE5E7EB);
@@ -28,7 +29,7 @@ class MoreScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: PremiumResponsiveBody(maxWidth: 1040, child: child),
+      child: PremiumResponsiveBody(maxWidth: 1180, child: child),
     );
   }
 }
@@ -46,9 +47,9 @@ class MoreHeader extends StatelessWidget {
       decoration: CustomersColors.headerGradient,
       padding: EdgeInsets.fromLTRB(
         20,
-        MediaQuery.paddingOf(context).top + 12,
+        MediaQuery.paddingOf(context).top + 16,
         20,
-        18,
+        14,
       ),
       alignment: Alignment.centerLeft,
       child: Column(
@@ -59,7 +60,8 @@ class MoreHeader extends StatelessWidget {
             style: GoogleFonts.poppins(
               color: Colors.white,
               fontSize: 22,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
+              height: 1.12,
             ),
           ),
           if (subtitle != null) ...[
@@ -67,9 +69,9 @@ class MoreHeader extends StatelessWidget {
             Text(
               subtitle!,
               style: GoogleFonts.poppins(
-                color: Colors.white.withValues(alpha: 0.85),
+                color: Colors.white.withValues(alpha: 0.72),
                 fontSize: 12,
-                fontWeight: FontWeight.w400,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -287,7 +289,7 @@ class MoreInsightsReportCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -667,7 +669,7 @@ class MoreSectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 16, 4),
+      padding: const EdgeInsets.fromLTRB(20, 18, 16, 8),
       child: Text(
         title.toUpperCase(),
         style: GoogleFonts.poppins(
@@ -713,13 +715,13 @@ class MoreVersionLabel extends StatelessWidget {
 
 BoxDecoration get _cardDecoration => BoxDecoration(
   color: Colors.white,
-  borderRadius: BorderRadius.circular(14),
+  borderRadius: BorderRadius.circular(16),
   border: Border.all(color: MoreColors.cardBorder),
   boxShadow: [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.05),
-      blurRadius: 8,
-      offset: const Offset(0, 2),
+      color: const Color(0xFF0F172A).withValues(alpha: 0.06),
+      blurRadius: 16,
+      offset: const Offset(0, 6),
     ),
   ],
 );

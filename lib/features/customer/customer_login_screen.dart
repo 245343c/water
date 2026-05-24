@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customer/widgets/customer_theme.dart';
@@ -115,100 +116,112 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
             child: CustomPaint(painter: _CustomerLoginBgPainter()),
           ),
           SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight,
-                    ),
-                    child: IntrinsicHeight(
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: IconButton(
-                              icon: const Icon(
-                                Icons.arrow_back_rounded,
+            child: PremiumResponsiveBody(
+              maxWidth: 560,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
+                      child: IntrinsicHeight(
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: IconButton(
+                                icon: const Icon(
+                                  Icons.arrow_back_rounded,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () => context.canPop()
+                                    ? context.pop()
+                                    : context.go(AppRoutes.welcome),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(28, 8, 28, 24),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.15,
+                                      ),
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: const Icon(
+                                      Icons.water_drop_rounded,
+                                      color: Colors.white,
+                                      size: 32,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Order\npure water',
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.white,
+                                      fontSize: 32,
+                                      fontWeight: FontWeight.w800,
+                                      height: 1.08,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Home delivery - Fresh RO water - Fast and reliable',
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.75,
+                                      ),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Spacer(),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.fromLTRB(
+                                24,
+                                26,
+                                24,
+                                30,
+                              ),
+                              decoration: BoxDecoration(
                                 color: Colors.white,
+                                borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(32),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.2),
+                                    blurRadius: 24,
+                                    offset: const Offset(0, -8),
+                                  ),
+                                ],
                               ),
-                              onPressed: () => context.canPop()
-                                  ? context.pop()
-                                  : context.go(AppRoutes.welcome),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(28, 8, 28, 24),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: const Icon(
-                                    Icons.water_drop_rounded,
-                                    color: Colors.white,
-                                    size: 32,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Order\npure water',
-                                  style: GoogleFonts.poppins(
-                                    color: Colors.white,
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.w800,
-                                    height: 1.08,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Home delivery - Fresh RO water - Fast and reliable',
-                                  style: GoogleFonts.poppins(
-                                    color: Colors.white.withValues(alpha: 0.75),
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Spacer(),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.fromLTRB(24, 26, 24, 30),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(32),
+                              child: _LoginCard(
+                                otpSent: _otpSent,
+                                loading: _loading,
+                                demoOtp: _demoOtp,
+                                phoneController: _phoneController,
+                                otpController: _otpController,
+                                onSendOtp: _sendOtp,
+                                onVerify: _verify,
                               ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.2),
-                                  blurRadius: 24,
-                                  offset: const Offset(0, -8),
-                                ),
-                              ],
                             ),
-                            child: _LoginCard(
-                              otpSent: _otpSent,
-                              loading: _loading,
-                              demoOtp: _demoOtp,
-                              phoneController: _phoneController,
-                              otpController: _otpController,
-                              onSendOtp: _sendOtp,
-                              onVerify: _verify,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ],

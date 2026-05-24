@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/core/widgets/month_wheel_scroll.dart';
@@ -10,27 +11,27 @@ import 'package:sri_sai_ro_water/data/models/monthly_stats.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class CustomerDetailColors {
-  static const Color titleNavy = Color(0xFF1E3A8A);
+  static const Color titleNavy = AppColors.textPrimary;
   static const Color valueNavy = Color(0xFF1E40AF);
   static const Color labelGrey = Color(0xFF6B7280);
   static const Color statBlue = Color(0xFF2563EB);
   static const Color statGreen = Color(0xFF16A34A);
   static const Color statOrange = Color(0xFFEA580C);
   static const Color statRed = Color(0xFFDC2626);
-  static const Color cardBorder = Color(0xFFE5E7EB);
-  static const Color linkBlue = Color(0xFF1A73E8);
+  static const Color cardBorder = AppColors.cardBorder;
+  static const Color linkBlue = AppColors.primary;
   static const Color whatsapp = Color(0xFF25D366);
-  static const Color screenBg = Color(0xFFF3F4F6);
+  static const Color screenBg = AppColors.surface;
 
   static BoxDecoration get borderedCard => BoxDecoration(
     color: Colors.white,
-    borderRadius: BorderRadius.circular(10),
+    borderRadius: BorderRadius.circular(16),
     border: Border.all(color: cardBorder),
     boxShadow: [
       BoxShadow(
         color: Colors.black.withValues(alpha: 0.03),
-        blurRadius: 6,
-        offset: const Offset(0, 2),
+        blurRadius: 12,
+        offset: const Offset(0, 4),
       ),
     ],
   );
@@ -49,254 +50,19 @@ class CustomerDetailHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(
-        4,
-        MediaQuery.paddingOf(context).top + 4,
-        8,
-        16,
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Customer Details',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(
-              Icons.edit_outlined,
-              color: Colors.white,
-              size: 22,
-            ),
-            onPressed: onEdit,
-          ),
-        ],
+    return AdminPageHeader(
+      title: 'Customer Details',
+      subtitle: 'Deliveries, payments and monthly account',
+      onBack: onBack,
+      trailing: IconButton(
+        icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 22),
+        onPressed: onEdit,
       ),
     );
   }
 }
 
 // ─── Total Pending card ───────────────────────────────────────────────────────
-
-class CustomerAppAccessStatusCard extends StatelessWidget {
-  const CustomerAppAccessStatusCard({
-    super.key,
-    required this.phone,
-    required this.shopName,
-    required this.shopId,
-  });
-
-  final String phone;
-  final String shopName;
-  final String shopId;
-
-  @override
-  Widget build(BuildContext context) {
-    final digits = phone.replaceAll(RegExp(r'\D'), '');
-    final hasValidPhone = digits.length >= 10;
-    final color = hasValidPhone
-        ? CustomerDetailColors.statGreen
-        : CustomerDetailColors.statOrange;
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: CustomerDetailColors.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              hasValidPhone
-                  ? Icons.verified_user_outlined
-                  : Icons.warning_amber_rounded,
-              color: color,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Customer app access',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: CustomerDetailColors.titleNavy,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        hasValidPhone ? 'LINKED' : 'PHONE NEEDED',
-                        style: GoogleFonts.poppins(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          color: color,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  hasValidPhone
-                      ? 'Customer can sign in with $phone and see only $shopName.'
-                      : 'Add a valid phone number so this customer can access your shop app.',
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    height: 1.4,
-                    color: CustomerDetailColors.labelGrey,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Shop link: $shopId',
-                  style: GoogleFonts.poppins(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: CustomerDetailColors.linkBlue,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class CustomerFixedAccountCard extends StatelessWidget {
-  const CustomerFixedAccountCard({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    const color = Color(0xFF0D9488);
-    const bg = Color(0xFFF0FDFA);
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: CustomerDetailColors.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.link_rounded, color: color, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Customer type',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: CustomerDetailColors.titleNavy,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        'FIXED CUSTOMER',
-                        style: GoogleFonts.poppins(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          color: color,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  'This customer is created by admin and linked to this water plant only. Customer app access uses the saved phone number.',
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    height: 1.4,
-                    color: CustomerDetailColors.labelGrey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class CustomerPendingCard extends StatelessWidget {
   const CustomerPendingCard({
@@ -461,36 +227,40 @@ class CustomerPendingCard extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
-            child: Row(
+            child: Column(
               children: [
-                Expanded(
-                  child: _PendingBreakdownTile(
-                    label: 'Older months',
-                    value: CurrencyUtils.format(priorDue),
-                    icon: Icons.history_rounded,
-                    color: const Color(0xFF7C3AED),
-                    bg: const Color(0xFFF5F3FF),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: _PendingBreakdownTile(
-                    label: 'This month bill',
-                    value: CurrencyUtils.format(thisMonthBill),
-                    icon: Icons.receipt_long_outlined,
-                    color: CustomerDetailColors.statOrange,
-                    bg: const Color(0xFFFFF7ED),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: _PendingBreakdownTile(
-                    label: 'Paid (this mo.)',
-                    value: CurrencyUtils.format(paidThisMonth),
-                    icon: Icons.check_circle_outline_rounded,
-                    color: CustomerDetailColors.statGreen,
-                    bg: const Color(0xFFECFDF5),
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _PendingBreakdownTile(
+                        label: 'Older months',
+                        value: CurrencyUtils.format(priorDue),
+                        icon: Icons.history_rounded,
+                        color: const Color(0xFF7C3AED),
+                        bg: const Color(0xFFF5F3FF),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _PendingBreakdownTile(
+                        label: 'This month bill',
+                        value: CurrencyUtils.format(thisMonthBill),
+                        icon: Icons.receipt_long_outlined,
+                        color: CustomerDetailColors.statOrange,
+                        bg: const Color(0xFFFFF7ED),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _PendingBreakdownTile(
+                        label: 'Paid (this mo.)',
+                        value: CurrencyUtils.format(paidThisMonth),
+                        icon: Icons.check_circle_outline_rounded,
+                        color: CustomerDetailColors.statGreen,
+                        bg: const Color(0xFFECFDF5),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1399,7 +1169,7 @@ class CustomerDetailScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: PremiumResponsiveBody(maxWidth: 1040, child: child),
+      child: PremiumResponsiveBody(maxWidth: 1180, child: child),
     );
   }
 }
