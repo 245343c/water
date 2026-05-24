@@ -167,7 +167,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (!mounted) return;
       final repo = context.read<WaterPlantRepository>();
       await repo.fetchDashboardStats(picked);
-      await repo.refreshMonthlyBills(picked);
     }
   }
 

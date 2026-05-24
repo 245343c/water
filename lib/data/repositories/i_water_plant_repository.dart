@@ -19,7 +19,6 @@ import 'package:sri_sai_ro_water/data/models/payment_allocation_preview.dart';
 import 'package:sri_sai_ro_water/data/models/payment_method.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
-import 'package:sri_sai_ro_water/data/models/promotion.dart';
 import 'package:sri_sai_ro_water/data/models/reports_summary.dart';
 import 'package:sri_sai_ro_water/data/models/shop.dart';
 import 'package:sri_sai_ro_water/core/utils/payment_allocation.dart';
@@ -199,29 +198,6 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
     required String driverId,
     String? driverName,
   });
-
-  // Promotions
-  List<Promotion> get promotions;
-  Future<Promotion> createPromotion({
-    required String headline,
-    String body = '',
-    String? mediaUrl,
-    PromotionMediaType mediaType = PromotionMediaType.image,
-    String? badge,
-    String? ctaLabel,
-    bool isActive = true,
-  });
-  Future<Promotion> updatePromotion({
-    required String id,
-    required String headline,
-    String body = '',
-    String? mediaUrl,
-    PromotionMediaType mediaType = PromotionMediaType.image,
-    String? badge,
-    String? ctaLabel,
-  });
-  Future<void> setPromotionActive({required String id, required bool active});
-  Future<void> deletePromotion(String id);
 
   // Stats / Dashboard
   DashboardStats dashboardStats(DateTime month);

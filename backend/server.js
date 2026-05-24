@@ -57,7 +57,6 @@ app.use('/api/deliveries', require('./src/routes/deliveries'));
 app.use('/api/cash', require('./src/routes/cashCollections'));
 app.use('/api/bills', require('./src/routes/monthlyBills'));
 app.use('/api/notifications', require('./src/routes/notifications'));
-app.use('/api/promotions', require('./src/routes/promotions'));
 app.use('/api/reports', require('./src/routes/reports'));
 app.use('/api/uploads', require('./src/routes/uploads'));
 

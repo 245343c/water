@@ -3,14 +3,12 @@ import 'package:go_router/go_router.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/features/admin/drivers_screen.dart';
-import 'package:sri_sai_ro_water/features/admin/promotions_admin_screen.dart';
 import 'package:sri_sai_ro_water/features/auth/forgot_password_screen.dart';
 import 'package:sri_sai_ro_water/features/auth/login_screen.dart';
 import 'package:sri_sai_ro_water/features/auth/register_screen.dart';
 import 'package:sri_sai_ro_water/features/auth/reset_password_screen.dart';
 import 'package:sri_sai_ro_water/features/bills/monthly_bill_screen.dart';
 import 'package:sri_sai_ro_water/features/bills/monthly_summary_screen.dart';
-import 'package:sri_sai_ro_water/features/bills/bills_screen.dart';
 import 'package:sri_sai_ro_water/features/customers/add_edit_customer_screen.dart';
 import 'package:sri_sai_ro_water/features/customers/customer_detail_screen.dart';
 import 'package:sri_sai_ro_water/features/customers/customers_screen.dart';
@@ -70,8 +68,6 @@ class AppRoutes {
   static const products = '/products';
   static const more = '/more';
   static const reports = '/reports';
-  static const bills = '/bills';
-  static const promotionsAdmin = '/admin/promotions';
   static const drivers = '/drivers';
   static const subscription = '/subscription';
 
@@ -378,16 +374,6 @@ GoRouter createAppRouter(AuthRepository auth, WaterPlantRepository plant) {
         path: AppRoutes.reports,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const ReportsScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.bills,
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const BillsScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.promotionsAdmin,
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const PromotionsAdminScreen(),
       ),
       GoRoute(
         path: '/settings',

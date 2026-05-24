@@ -73,18 +73,6 @@ class MoreScreen extends StatelessWidget {
                         onTap: () => context.push(AppRoutes.reports),
                       ),
                       MoreMenuTile(
-                        icon: Icons.receipt_long_outlined,
-                        title: 'Bills',
-                        subtitle: 'Monthly bill totals by customer',
-                        onTap: () => context.push(AppRoutes.bills),
-                      ),
-                      MoreMenuTile(
-                        icon: Icons.campaign_outlined,
-                        title: 'Promotions',
-                        subtitle: 'Create and manage offers',
-                        onTap: () => context.push(AppRoutes.promotionsAdmin),
-                      ),
-                      MoreMenuTile(
                         icon: Icons.workspace_premium_rounded,
                         title: 'Subscription',
                         subtitle: 'Admin plan, trial, renewal',

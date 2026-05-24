@@ -276,26 +276,6 @@ class ApiDataService {
   Future<Map<String, dynamic>> deleteNotification(String id) =>
       _client.delete('/notifications/$id');
 
-  // ─── Promotions ──────────────────────────────────────────────────────────────
-
-  Future<Map<String, dynamic>> listPromotions({String? shopId, bool? activeOnly}) =>
-      _client.get('/promotions', queryParams: {
-        if (shopId != null) 'shopId': shopId,
-        if (activeOnly == false) 'active': 'false',
-      });
-
-  Future<Map<String, dynamic>> createPromotion(Map<String, dynamic> data) =>
-      _client.post('/promotions', data);
-
-  Future<Map<String, dynamic>> updatePromotion(String id, Map<String, dynamic> data) =>
-      _client.put('/promotions/$id', data);
-
-  Future<Map<String, dynamic>> setPromotionActive(String id, bool active) =>
-      _client.patch('/promotions/$id/active', {'active': active});
-
-  Future<Map<String, dynamic>> deletePromotion(String id) =>
-      _client.delete('/promotions/$id');
-
   // ─── Reports ─────────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> getDashboardStats({int? month, int? year}) =>

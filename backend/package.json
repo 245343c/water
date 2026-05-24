@@ -8,6 +8,7 @@
     "dev": "nodemon server.js",
     "seed": "node scripts/seed.js",
     "cleanup": "node scripts/cleanup-db.js",
+    "reset": "node scripts/reset-db.js",
     "test:smoke": "node scripts/smoke-test.js",
     "test:load": "node scripts/smoke-test.js --load"
   },

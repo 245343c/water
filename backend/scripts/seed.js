@@ -7,7 +7,6 @@ const mongoose = require('mongoose');
 const User = require('../src/models/User');
 const Shop = require('../src/models/Shop');
 const Driver = require('../src/models/Driver');
-const Customer = require('../src/models/Customer');
 const DeliveryRoute = require('../src/models/DeliveryRoute');
 
 const SHOP_ID = 'shop-1';
@@ -96,23 +95,6 @@ async function seed() {
     }
   }
 
-  await Customer.findOneAndUpdate(
-    { customerId: 'cust-demo-1', shopId: SHOP_ID },
-    {
-      customerId: 'cust-demo-1',
-      shopId: SHOP_ID,
-      name: 'Demo Customer',
-      phone: '+91 99999 99999',
-      address: 'Sample Street, Rajahmundry',
-      place: 'Rajahmundry',
-      customerType: 'manual_customer',
-      billingMode: 'on_demand',
-      status: 'active',
-    },
-    { upsert: true, new: true },
-  );
-  console.log('Customer seeded for OTP login: +91 99999 99999 (OTP: 123456)');
-
   const routes = [
     { routeId: 'route-1', name: 'Route 1', sortOrder: 1 },
     { routeId: 'route-2', name: 'Route 2', sortOrder: 2 },
@@ -127,22 +109,10 @@ async function seed() {
   }
   console.log('Delivery routes seeded:', routes.map((r) => r.name).join(', '));
 
-  // Backfill phoneLast10 for existing customers (production index)
-  const { phoneDigits } = require('../src/utils/phone');
-  const allCustomers = await Customer.find({});
-  for (const c of allCustomers) {
-    const last10 = phoneDigits(c.phone);
-    if (last10 && c.phoneLast10 !== last10) {
-      c.phoneLast10 = last10;
-      await c.save({ validateBeforeSave: false });
-    }
-  }
-  console.log(`Backfilled phoneLast10 for ${allCustomers.length} customer(s)`);
-
   console.log('\nSeed complete. Login credentials:');
   console.log('  Admin:  admin@srisai.com / admin123');
   console.log('  Driver: driver@srisai.com / driver123');
-  console.log('  Customer OTP: 9999999999 / 123456');
+  console.log('\nNo demo customers — add real customers from the admin app.');
 
   await mongoose.disconnect();
 }

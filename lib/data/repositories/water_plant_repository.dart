@@ -23,7 +23,6 @@ import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/data/models/product_variant.dart';
 import 'package:sri_sai_ro_water/data/models/reports_summary.dart';
-import 'package:sri_sai_ro_water/data/models/promotion.dart';
 import 'package:sri_sai_ro_water/data/models/customer_shop_billing.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/core/utils/payment_allocation.dart';
@@ -61,7 +60,6 @@ class WaterPlantRepository extends IWaterPlantRepository {
   final List<Driver> _drivers = [];
   final List<DeliveryRoute> _deliveryRoutes = [];
   final List<Shop> _shops = [];
-  final List<Promotion> _promotions = [];
 
   /// CRM customer id → marketplace shop id (multi-shop bulk billing).
   final Map<String, String> _customerShopIds = {};
@@ -1933,89 +1931,6 @@ class WaterPlantRepository extends IWaterPlantRepository {
     }
   }
 
-  List<Promotion> get promotions => List.unmodifiable(_promotions);
-
-  Future<Promotion> createPromotion({
-    required String headline,
-    String body = '',
-    String? mediaUrl,
-    PromotionMediaType mediaType = PromotionMediaType.image,
-    String? badge,
-    String? ctaLabel,
-    bool isActive = true,
-  }) async {
-    final data = await _apiService.createPromotion({
-      'headline': headline.trim(),
-      'body': body.trim(),
-      'mediaUrl': mediaUrl,
-      'mediaType': mediaType.name,
-      'badge': badge,
-      'ctaLabel': ctaLabel,
-      'isActive': isActive,
-    });
-    final saved = _promotionFromJson(data['promotion'] as Map<String, dynamic>);
-    _promotions.insert(0, saved);
-    notifyListeners();
-    return saved;
-  }
-
-  Future<Promotion> updatePromotion({
-    required String id,
-    required String headline,
-    String body = '',
-    String? mediaUrl,
-    PromotionMediaType mediaType = PromotionMediaType.image,
-    String? badge,
-    String? ctaLabel,
-  }) async {
-    final data = await _apiService.updatePromotion(id, {
-      'headline': headline.trim(),
-      'body': body.trim(),
-      'mediaUrl': mediaUrl,
-      'mediaType': mediaType.name,
-      'badge': badge,
-      'ctaLabel': ctaLabel,
-    });
-    final saved = _promotionFromJson(data['promotion'] as Map<String, dynamic>);
-    final index = _promotions.indexWhere((p) => p.id == id);
-    if (index >= 0) {
-      _promotions[index] = saved;
-    } else {
-      _promotions.insert(0, saved);
-    }
-    notifyListeners();
-    return saved;
-  }
-
-  Future<void> setPromotionActive({required String id, required bool active}) async {
-    await _apiService.setPromotionActive(id, active);
-    final index = _promotions.indexWhere((p) => p.id == id);
-    if (index >= 0) {
-      final p = _promotions[index];
-      _promotions[index] = Promotion(
-        id: p.id,
-        shopId: p.shopId,
-        shopName: p.shopName,
-        headline: p.headline,
-        body: p.body,
-        mediaType: p.mediaType,
-        mediaUrl: p.mediaUrl,
-        thumbUrl: p.thumbUrl,
-        badge: p.badge,
-        ctaLabel: p.ctaLabel,
-        isActive: active,
-        createdAt: p.createdAt,
-      );
-      notifyListeners();
-    }
-  }
-
-  Future<void> deletePromotion(String id) async {
-    await _apiService.deletePromotion(id);
-    _promotions.removeWhere((p) => p.id == id);
-    notifyListeners();
-  }
-
   Future<void> updateSettings(BusinessSettings newSettings) async {
     if (useBackend) {
       await _apiService.updateShop({
@@ -2345,22 +2260,13 @@ class WaterPlantRepository extends IWaterPlantRepository {
         }
       }
 
-      if (isAdmin || isCustomer) {
-        final promosData = await _apiService.listPromotions();
-        _promotions.clear();
-        for (final p in (promosData['promotions'] as List<dynamic>? ?? [])) {
-          _promotions.add(_promotionFromJson(p as Map<String, dynamic>));
-        }
-      }
-
       if (isAdmin) {
         _syncShopFromSettings();
         final now = DateTime.now();
         try {
           await fetchDashboardStats(now);
-          await refreshMonthlyBills(now);
         } catch (e) {
-          debugPrint('Admin stats/bills load error: $e');
+          debugPrint('Admin stats load error: $e');
         }
       }
 
@@ -2551,25 +2457,6 @@ class WaterPlantRepository extends IWaterPlantRepository {
       assignedDriverId: map['assignedDriverId'] as String?,
       assignedDriverName: map['assignedDriverName'] as String?,
     );
-  }
-
-  Promotion _promotionFromJson(Map<String, dynamic> map) {
-    final mediaTypeStr = map['mediaType'] as String? ?? 'image';
-    final mediaType = mediaTypeStr == 'video' ? PromotionMediaType.video : PromotionMediaType.image;
-    return Promotion(
-      id: map['promotionId'] as String? ?? map['_id'] as String,
-      shopId: map['shopId'] as String? ?? '',
-      shopName: '',
-      headline: map['headline'] as String? ?? '',
-      body: map['body'] as String? ?? '',
-      mediaType: mediaType,
-      mediaUrl: map['mediaUrl'] as String?,
-      badge: map['badge'] as String?,
-      ctaLabel: map['ctaLabel'] as String? ?? 'Order now',
-      isActive: map['isActive'] as bool? ?? true,
-      createdAt: map['createdAt'] != null ? DateTime.parse(map['createdAt'] as String) : DateTime.now(),
-    );
-
   }
 
   String customerActivityLabel(String customerId, DateTime month) {

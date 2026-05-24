@@ -42,7 +42,6 @@ bool isAdminOnlyRoute(String location) {
       location == AppRoutes.products ||
       location == AppRoutes.more ||
       location == AppRoutes.reports ||
-      location == AppRoutes.promotionsAdmin ||
       location.startsWith('/notifications') ||
       location.startsWith('/settings') ||
       location.startsWith('/drivers') ||
