@@ -2,7 +2,7 @@ import 'dart:io';
 import 'api_client.dart';
 
 /// Unified service for all backend data operations.
-/// Used by the ApiWaterPlantRepository when useBackend = true.
+/// Used by [WaterPlantRepository] when useBackend = true.
 class ApiDataService {
   const ApiDataService(this._client);
   final ApiClient _client;

@@ -1,37 +1,80 @@
 # Sri Sai RO Water Plant
 
-Flutter UI preview for RO water delivery management — customers, deliveries, billing, payments, and reports. Uses in-memory mock data (editable). Backend can be connected later.
+Flutter app + Node.js/MongoDB backend for RO water delivery — **admin**, **driver**, and **customer** roles in one app.
 
-## Run on Android phone (USB debug)
+## Prerequisites
 
-1. Enable **Developer options** and **USB debugging** on your phone.
-2. Connect the phone with a USB cable.
-3. Verify device: `flutter devices`
-4. Run the app:
+- [Flutter](https://flutter.dev) SDK
+- [Node.js](https://nodejs.org) 18+
+- [MongoDB](https://www.mongodb.com/) running locally (or Atlas URI in `backend/.env`)
+
+## Backend setup
 
 ```bash
-cd c:\Users\UNIFY\Downloads\water
+cd backend
+cp .env.example .env
+# Edit MONGO_URI and JWT_SECRET in .env
+npm install
+npm run seed
+npm run dev
+```
+
+Server runs at `http://localhost:3000`. Health check: `GET http://localhost:3000/health`.
+
+**Seed logins**
+
+| Role | Credentials |
+|------|-------------|
+| Admin | `admin@srisai.com` / `admin123` |
+| Driver | `driver@srisai.com` / `driver123` |
+| Customer OTP | Phone `9999999999` (must exist in CRM) · OTP `123456` in dev |
+
+## Flutter setup
+
+```bash
+flutter pub get
 flutter run
 ```
 
-Hot reload: press `r` in the terminal. Hot restart: `R`.
+### API URL (physical phone on USB/Wi‑Fi)
 
-## Screen roles (no duplicate money on customer list)
+Default targets emulator/desktop (`localhost` or `10.0.2.2`). On a **real device**, point to your PC’s LAN IP:
 
-- **Dashboard** — plant-wide monthly overview (sales, cans, outstanding) + latest 5 deliveries
-- **Customers** — directory only: name, phone, address, status chip (no ₹ on list)
-- **Customer detail** — full account: monthly usage, balance, payments, actions
-- **Bills** — monthly billing amounts and due per customer
-- **Deliveries** — full log grouped by day (Today / Yesterday / date)
-- **Add delivery** — normal/cool cans, pricing
-- **Delivery history** — per customer, by month
-- **Bills** — monthly summary and invoice preview
-- **Record payment** — cash/UPI/other
-- **Reports** — date range, KPIs, chart
-- **More** — settings (editable prices), reset mock data
+```bash
+flutter run --dart-define=API_BASE_URL=http://192.168.1.10:3000/api
+```
+
+See `lib/core/services/api/api_config.dart`.
+
+## Testing
+
+```bash
+# Flutter
+flutter analyze
+flutter test
+
+# Backend (server must be running + seeded)
+cd backend
+npm run test:smoke
+```
+
+## App roles
+
+| Entry | Role | Main areas |
+|-------|------|------------|
+| Order water | Customer | Shops, place order, track status, profile |
+| Staff login | Admin | Dashboard, customers, orders, products, deliveries, payments, reports |
+| Staff login | Driver | Route, customers, record deliveries only |
+
+## Docs
+
+- [docs/PENDING_WORK.md](docs/PENDING_WORK.md) — backlog by phase
+- [docs/MASTER_PLAN.md](docs/MASTER_PLAN.md) — product vision
+- [docs/PRODUCT_ARCHITECTURE.md](docs/PRODUCT_ARCHITECTURE.md) — roles & permissions
+- [docs/BACKEND_MIGRATION_STATUS.md](docs/BACKEND_MIGRATION_STATUS.md) — API wiring status
 
 ## Notes
 
-- Data is stored in memory only (resets when app restarts unless you use **Reset Mock Data** in More).
-- PDF download and notifications are placeholders for backend integration.
-- Tablet layout: navigation rail on wider screens.
+- All business data uses the **backend API** (`useBackend = true`). No in-app mock data store.
+- Subscription/Razorpay and FCM push are **not** production-ready yet (see pending work).
+- Customer OTP is returned in API responses in **development** only; use SMS in production.

@@ -317,10 +317,6 @@ class WaterPlantRepository extends IWaterPlantRepository {
     ).any((s) => s.id == shopId);
   }
 
-  void _linkCustomerToShop(String customerId, String shopId) {
-    _customerShopIds[customerId] = shopId;
-  }
-
   void _linkDriverToShop(String driverId, String shopId) {
     _driverShopIds[driverId] = shopId;
   }
@@ -1769,11 +1765,6 @@ class WaterPlantRepository extends IWaterPlantRepository {
       );
     }
     notifyListeners();
-  }
-
-  void _seedProducts() {
-    // Products start empty — admin adds their own catalog.
-    _products.clear();
   }
 
   Product? productById(String id) {

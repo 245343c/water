@@ -1,7 +1,7 @@
 # Sri Sai RO Water — Master Product & Technical Plan
 
 **Version:** 1.0 · **Status:** Living document  
-**App model:** One app on Play Store · Three roles · Firebase later (mock first)
+**App model:** One app on Play Store · Three roles · **MongoDB + Express API** (see [BACKEND_MIGRATION_STATUS.md](BACKEND_MIGRATION_STATUS.md))
 
 ---
 
@@ -218,7 +218,7 @@ customerShopLinks/{uid_shopId}
 
 **Default shop:** Sri Sai RO Water Plant (`shop-1`) from `BusinessSettings`.
 
-**Demo customer login:** phone `9876543210` · OTP `123456`
+**Demo customer login (after seed):** phone `9999999999` · OTP `123456` in dev
 
 ---
 

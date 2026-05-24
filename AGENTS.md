@@ -1,6 +1,6 @@
 # Agent guide — Sri Sai RO Water
 
-Before adding features, read **[docs/MASTER_PLAN.md](docs/MASTER_PLAN.md)** and **[docs/PRODUCT_ARCHITECTURE.md](docs/PRODUCT_ARCHITECTURE.md)**.
+Before adding features, read **[docs/MASTER_PLAN.md](docs/MASTER_PLAN.md)**, **[docs/PRODUCT_ARCHITECTURE.md](docs/PRODUCT_ARCHITECTURE.md)**, and **[docs/PENDING_WORK.md](docs/PENDING_WORK.md)**.
 
 **Quick rules**
 

@@ -170,11 +170,8 @@ class AuthRepository extends IAuthRepository {
   void logout() {
     _api.logout();
     _currentUser = null;
-    _pendingCustomerOtp = null;
     notifyListeners();
   }
-
-  _PendingCustomerOtp? _pendingCustomerOtp;
 
   /// Dev/demo OTP in app memory — production uses API ([requestCustomerOtpAsync]).
   @override
@@ -259,16 +256,4 @@ class AuthRepository extends IAuthRepository {
 
   @override
   void cancelPasswordReset() {}
-}
-
-class _PendingCustomerOtp {
-  _PendingCustomerOtp({
-    required this.phone,
-    required this.otp,
-    required this.expiresAt,
-  });
-
-  final String phone;
-  final String otp;
-  final DateTime expiresAt;
 }

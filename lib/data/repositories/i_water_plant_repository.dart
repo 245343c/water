@@ -24,7 +24,7 @@ import 'package:sri_sai_ro_water/data/models/shop.dart';
 import 'package:sri_sai_ro_water/core/utils/payment_allocation.dart';
 
 /// Abstract contract for all water plant business data.
-/// Concrete implementations: [WaterPlantRepository] (mock), ApiWaterPlantRepository (backend).
+/// Implemented by [WaterPlantRepository] (MongoDB backend API).
 abstract class IWaterPlantRepository extends ChangeNotifier {
   // Settings
   BusinessSettings get settings;

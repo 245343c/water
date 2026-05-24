@@ -10,7 +10,7 @@ This document is the **source of truth** for roles, permissions, and UI scope. A
 |------|--------|--------|
 | **Admin** | Implemented | Dashboard · Customers · Orders · Products · Menu |
 | **Driver** | Implemented | Route · Customers · Profile |
-| **Customer** | Implemented (mock) | Home · Orders · Profile — see [MASTER_PLAN.md](MASTER_PLAN.md) |
+| **Customer** | Implemented (API) | Home · Orders · Profile — see [MASTER_PLAN.md](MASTER_PLAN.md) |
 
 ## Design system (premium)
 
@@ -71,9 +71,9 @@ Enforce in **three layers**: `AppPermissions` → **go_router redirect** → **h
 
 ## Phases
 
-1. **Now**: Roles, driver shell, admin drivers (mock auth).
-2. **Next**: Backend JWT with role claims, sync, offline queue.
-3. **Later**: Customer role + OTP login.
+1. **Done**: Roles, JWT auth, MongoDB API, customer OTP login.
+2. **Next**: Phase B–D in [PENDING_WORK.md](PENDING_WORK.md) (order lifecycle, bills, production).
+3. **Later**: FCM, Razorpay subscription, offline queue.
 
 ## Code map
 
