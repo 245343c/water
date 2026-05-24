@@ -33,6 +33,7 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
   bool _pricingReady = false;
   String? _routeId;
   List<CustomerProductPrice> _productPrices = [];
+  bool _saving = false;
 
   @override
   void initState() {
@@ -78,8 +79,10 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
     super.dispose();
   }
 
-  void _save(WaterPlantRepository repo) {
+  Future<void> _save(WaterPlantRepository repo) async {
     if (!_formKey.currentState!.validate()) return;
+    if (_saving) return;
+    setState(() => _saving = true);
 
     final data = (
       name: _nameController.text.trim(),
@@ -90,45 +93,59 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
       routeId: _routeId,
     );
 
-    if (widget.isEditing) {
-      final existing = repo.customerById(widget.customerId!);
-      if (existing != null) {
-        repo.updateCustomer(
-          existing.copyWith(
-            name: data.name,
-            phone: data.phone,
-            email: data.email,
-            place: data.place,
-            routeId: data.routeId,
-            clearRoute: data.routeId == null,
-            address: data.address,
-            productPrices: _productPrices,
-          ),
+    try {
+      if (widget.isEditing) {
+        final existing = repo.customerById(widget.customerId!);
+        if (existing != null) {
+          await repo.updateCustomerInCurrentAdminShop(
+            existing.copyWith(
+              name: data.name,
+              phone: data.phone,
+              email: data.email,
+              place: data.place,
+              routeId: data.routeId,
+              clearRoute: data.routeId == null,
+              address: data.address,
+              productPrices: _productPrices,
+            ),
+          );
+        }
+      } else {
+        await repo.addCustomerToCurrentAdminShop(
+          name: data.name,
+          phone: data.phone,
+          email: data.email,
+          place: data.place,
+          routeId: data.routeId,
+          address: data.address,
+          productPrices: _productPrices,
         );
       }
-    } else {
-      repo.addCustomer(
-        name: data.name,
-        phone: data.phone,
-        email: data.email,
-        place: data.place,
-        routeId: data.routeId,
-        address: data.address,
-        productPrices: _productPrices,
-      );
-    }
 
-    if (mounted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.isEditing ? 'Customer updated' : 'Customer added',
+              style: GoogleFonts.poppins(),
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        context.pop();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            widget.isEditing ? 'Customer updated' : 'Customer added',
-            style: GoogleFonts.poppins(),
+            'Could not save customer. ${e.toString()}',
+            style: GoogleFonts.poppins(fontSize: 13),
           ),
           behavior: SnackBarBehavior.floating,
         ),
       );
-      context.pop();
     }
   }
 
@@ -138,7 +155,7 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
       customerName: customerName,
     );
     if (!confirmed || !mounted) return;
-    repo.deleteCustomer(widget.customerId!);
+    await repo.deleteCustomerFromCurrentAdminShop(widget.customerId!);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -384,7 +401,11 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
                   ),
                 ),
                 AddEditCustomerSaveButton(
-                  label: widget.isEditing ? 'Save Changes' : 'Add Customer',
+                  label: _saving
+                      ? 'Saving...'
+                      : widget.isEditing
+                      ? 'Save Changes'
+                      : 'Add Customer',
                   onPressed: () => _save(repo),
                 ),
               ],

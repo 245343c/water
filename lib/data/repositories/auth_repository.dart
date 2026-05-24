@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/foundation.dart';
 import 'package:sri_sai_ro_water/core/auth/app_role.dart';
 import 'package:sri_sai_ro_water/data/models/app_user.dart';
@@ -33,19 +35,6 @@ class AuthRepository extends ChangeNotifier {
     _accounts.add(
       _StoredAccount(
         user: const AppUser(
-          id: 'admin-1',
-          ownerName: 'Shop Owner',
-          email: 'admin@srisai.com',
-          phone: '+91 98765 43210',
-          businessName: 'Sri Sai RO Water Plant',
-          role: AppRole.admin,
-        ),
-        password: 'admin123',
-      ),
-    );
-    _accounts.add(
-      _StoredAccount(
-        user: const AppUser(
           id: 'user-driver-1',
           ownerName: 'Rajesh Kumar',
           email: 'driver@srisai.com',
@@ -57,6 +46,7 @@ class AuthRepository extends ChangeNotifier {
         password: 'driver123',
       ),
     );
+    _restoreFirebaseSession();
   }
 
   static const _uuid = Uuid();
@@ -71,17 +61,44 @@ class AuthRepository extends ChangeNotifier {
       .map((a) => a.user)
       .toList();
 
-  String? login({required String email, required String password}) {
+  Future<String?> login({
+    required String email,
+    required String password,
+  }) async {
     final normalized = email.trim().toLowerCase();
     if (normalized.isEmpty) return 'Email is required';
     if (password.isEmpty) return 'Password is required';
 
+    try {
+      final credential = await firebase_auth.FirebaseAuth.instance
+          .signInWithEmailAndPassword(email: normalized, password: password);
+      final user = await _appUserForFirebaseUser(credential.user);
+      if (user == null) {
+        await firebase_auth.FirebaseAuth.instance.signOut();
+        return 'Account profile not found. Contact support.';
+      }
+      if (user.role == AppRole.customer) {
+        await firebase_auth.FirebaseAuth.instance.signOut();
+        return 'Use Order water for customer login';
+      }
+      _currentUser = user;
+      notifyListeners();
+      return null;
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      final localError = _loginMockDriver(normalized, password);
+      if (localError == null) return null;
+      return _loginAuthErrorMessage(e);
+    } catch (_) {
+      final localError = _loginMockDriver(normalized, password);
+      if (localError == null) return null;
+      return 'Could not sign in. Please try again';
+    }
+  }
+
+  String? _loginMockDriver(String normalizedEmail, String password) {
     for (final account in _accounts) {
-      if (account.user.email.toLowerCase() == normalized &&
+      if (account.user.email.toLowerCase() == normalizedEmail &&
           account.password == password) {
-        if (account.user.role == AppRole.driver) {
-          // Driver profile active check happens in UI via WaterPlantRepository.
-        }
         _currentUser = account.user;
         notifyListeners();
         return null;
@@ -90,17 +107,67 @@ class AuthRepository extends ChangeNotifier {
     return 'Invalid email or password';
   }
 
-  String? register({
+  Future<void> _restoreFirebaseSession() async {
+    final user = await _appUserForFirebaseUser(
+      firebase_auth.FirebaseAuth.instance.currentUser,
+    );
+    if (user == null || user.role == AppRole.customer) return;
+    _currentUser = user;
+    notifyListeners();
+  }
+
+  Future<AppUser?> _appUserForFirebaseUser(firebase_auth.User? user) async {
+    if (user == null) return null;
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+    final data = doc.data();
+    if (data == null) return null;
+    final role = _roleFromFirestore(data['role'] as String?);
+    if (role == null) return null;
+    return AppUser(
+      id: user.uid,
+      ownerName: data['name'] as String? ?? user.displayName ?? '',
+      email: data['email'] as String? ?? user.email ?? '',
+      phone: data['phone'] as String? ?? '',
+      businessName: data['businessName'] as String? ?? '',
+      role: role,
+      driverId: data['driverId'] as String?,
+      customerProfileComplete:
+          data['customerProfileComplete'] as bool? ?? true,
+    );
+  }
+
+  AppRole? _roleFromFirestore(String? role) {
+    return switch (role) {
+      'admin' => AppRole.admin,
+      'driver' => AppRole.driver,
+      'customer' => AppRole.customer,
+      _ => null,
+    };
+  }
+
+  Future<String?> register({
     required String ownerName,
     required String businessName,
     required String phone,
     required String email,
     required String password,
-  }) {
+    required String address,
+    required double normalPrice,
+    required double coolPrice,
+    required bool homeDeliveryAvailable,
+  }) async {
     final normalized = email.trim().toLowerCase();
+    final cleanOwnerName = ownerName.trim();
+    final cleanBusinessName = businessName.trim();
+    final cleanPhone = phone.trim();
+    final cleanAddress = address.trim();
     if (ownerName.trim().isEmpty) return 'Owner name is required';
     if (businessName.trim().isEmpty) return 'Business name is required';
     if (phone.trim().length < 10) return 'Valid phone number is required';
+    if (cleanAddress.length < 8) return 'Shop address is required';
     if (normalized.isEmpty || !normalized.contains('@')) {
       return 'Valid email is required';
     }
@@ -110,18 +177,115 @@ class AuthRepository extends ChangeNotifier {
       return 'An account with this email already exists';
     }
 
-    final user = AppUser(
-      id: _uuid.v4(),
-      ownerName: ownerName.trim(),
-      email: normalized,
-      phone: phone.trim(),
-      businessName: businessName.trim(),
-      role: AppRole.admin,
-    );
-    _accounts.add(_StoredAccount(user: user, password: password));
-    _currentUser = user;
-    notifyListeners();
-    return null;
+    firebase_auth.User? firebaseUser;
+    try {
+      final credential = await firebase_auth.FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+            email: normalized,
+            password: password,
+          );
+      firebaseUser = credential.user;
+      if (firebaseUser == null) return 'Could not create Firebase account';
+
+      await firebaseUser.updateDisplayName(cleanOwnerName);
+
+      final shopId = _uuid.v4();
+      final db = FirebaseFirestore.instance;
+      final userRef = db.collection('users').doc(firebaseUser.uid);
+      final shopRef = db.collection('shops').doc(shopId);
+      final now = FieldValue.serverTimestamp();
+
+      final batch = db.batch();
+      batch.set(userRef, {
+        'role': 'admin',
+        'name': cleanOwnerName,
+        'email': normalized,
+        'phone': cleanPhone,
+        'businessName': cleanBusinessName,
+        'shopId': shopId,
+        'customerProfileComplete': true,
+        'active': true,
+        'createdAt': now,
+        'updatedAt': now,
+      });
+      batch.set(shopRef, {
+        'ownerUid': firebaseUser.uid,
+        'name': cleanBusinessName,
+        'address': cleanAddress,
+        'phone': cleanPhone,
+        'email': normalized,
+        'normalPrice': normalPrice,
+        'coolPrice': coolPrice,
+        'homeDeliveryAvailable': homeDeliveryAvailable,
+        'subscriptionStatus': 'trial',
+        'trialEndsAt': Timestamp.fromDate(
+          DateTime.now().add(const Duration(days: 30)),
+        ),
+        'active': true,
+        'isListed': homeDeliveryAvailable,
+        'createdAt': now,
+        'updatedAt': now,
+      });
+      await batch.commit();
+
+      final user = AppUser(
+        id: firebaseUser.uid,
+        ownerName: cleanOwnerName,
+        email: normalized,
+        phone: cleanPhone,
+        businessName: cleanBusinessName,
+        role: AppRole.admin,
+      );
+      _accounts.add(_StoredAccount(user: user, password: password));
+      _currentUser = user;
+      notifyListeners();
+      return null;
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      return _authErrorMessage(e);
+    } on FirebaseException catch (e) {
+      if (firebaseUser != null) {
+        try {
+          await firebaseUser.delete();
+        } catch (_) {
+          // If rollback fails, Firebase console cleanup may be needed.
+        }
+      }
+      return e.message ?? 'Could not save account details';
+    } catch (_) {
+      return 'Could not create account. Please try again';
+    }
+  }
+
+  String _authErrorMessage(firebase_auth.FirebaseAuthException e) {
+    switch (e.code) {
+      case 'email-already-in-use':
+        return 'An account with this email already exists';
+      case 'invalid-email':
+        return 'Valid email is required';
+      case 'weak-password':
+        return 'Password must be at least 6 characters';
+      case 'network-request-failed':
+        return 'Network error. Check your connection and try again';
+      default:
+        return e.message ?? 'Could not create account';
+    }
+  }
+
+  String _loginAuthErrorMessage(firebase_auth.FirebaseAuthException e) {
+    switch (e.code) {
+      case 'invalid-email':
+        return 'Enter a valid email';
+      case 'user-disabled':
+        return 'This account is disabled';
+      case 'user-not-found':
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'Invalid email or password';
+      case 'network-request-failed':
+        return 'Network error. Check your connection and try again';
+      default:
+        return e.message ?? 'Could not sign in';
+    }
   }
 
   /// Admin creates driver login linked to [driverId] from [WaterPlantRepository].
@@ -237,7 +401,8 @@ class AuthRepository extends ChangeNotifier {
     }
   }
 
-  void logout() {
+  Future<void> logout() async {
+    await firebase_auth.FirebaseAuth.instance.signOut();
     _currentUser = null;
     _pendingCustomerOtp = null;
     notifyListeners();
@@ -259,10 +424,10 @@ class AuthRepository extends ChangeNotifier {
   }
 
   /// Returns error message or null on success.
-  String? verifyCustomerOtp({
+  Future<String?> verifyCustomerOtp({
     required String phone,
     required String otp,
-  }) {
+  }) async {
     final digits = phone.replaceAll(RegExp(r'\D'), '');
     final pending = _pendingCustomerOtp;
     if (pending == null || pending.phone != digits) {
@@ -277,31 +442,57 @@ class AuthRepository extends ChangeNotifier {
     }
     _pendingCustomerOtp = null;
 
-    final existing = _accounts.indexWhere(
-      (a) =>
-          a.user.role == AppRole.customer &&
-          a.user.phone.replaceAll(RegExp(r'\D'), '') == digits,
-    );
+    try {
+      await firebase_auth.FirebaseAuth.instance.signOut();
+      final credential =
+          await firebase_auth.FirebaseAuth.instance.signInAnonymously();
+      final firebaseUser = credential.user;
+      if (firebaseUser == null) return 'Could not create customer session';
 
-    if (existing >= 0) {
-      _currentUser = _accounts[existing].user;
+      final db = FirebaseFirestore.instance;
+      final now = FieldValue.serverTimestamp();
+      await db.collection('users').doc(firebaseUser.uid).set({
+        'role': 'customer',
+        'name': 'Customer',
+        'email': '',
+        'phone': digits,
+        'normalizedPhone': digits,
+        'businessName': '',
+        'customerProfileComplete': false,
+        'active': true,
+        'createdAt': now,
+        'updatedAt': now,
+      }, SetOptions(merge: true));
+      await db.collection('appCustomers').doc(firebaseUser.uid).set({
+        'phone': digits,
+        'normalizedPhone': digits,
+        'createdAt': now,
+        'updatedAt': now,
+      }, SetOptions(merge: true));
+
+      final user = AppUser(
+        id: firebaseUser.uid,
+        ownerName: 'Customer',
+        email: '',
+        phone: digits,
+        businessName: '',
+        role: AppRole.customer,
+        customerProfileComplete: false,
+      );
+      _accounts.add(_StoredAccount(user: user, password: ''));
+      _currentUser = user;
       notifyListeners();
       return null;
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      if (e.code == 'operation-not-allowed') {
+        return 'Enable Anonymous sign-in in Firebase Authentication';
+      }
+      return e.message ?? 'Could not verify OTP';
+    } on FirebaseException catch (e) {
+      return e.message ?? 'Could not save customer session';
+    } catch (_) {
+      return 'Could not verify OTP. Please try again';
     }
-
-    final user = AppUser(
-      id: _uuid.v4(),
-      ownerName: 'Customer',
-      email: '',
-      phone: digits,
-      businessName: '',
-      role: AppRole.customer,
-      customerProfileComplete: false,
-    );
-    _accounts.add(_StoredAccount(user: user, password: ''));
-    _currentUser = user;
-    notifyListeners();
-    return null;
   }
 
   /// Permanently removes the customer account (app store requirement).

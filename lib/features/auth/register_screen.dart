@@ -50,13 +50,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
 
+    final normal = double.tryParse(_normalPriceController.text) ?? 20;
+    final cool = double.tryParse(_coolPriceController.text) ?? 30;
+
     final auth = context.read<AuthRepository>();
-    final error = auth.register(
+    final error = await auth.register(
       ownerName: _ownerController.text,
       businessName: _businessController.text,
       phone: _phoneController.text,
       email: _emailController.text,
       password: _passwordController.text,
+      address: _addressController.text,
+      normalPrice: normal,
+      coolPrice: cool,
+      homeDeliveryAvailable: _homeDelivery,
     );
 
     if (!mounted) return;
@@ -71,9 +78,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       return;
     }
-
-    final normal = double.tryParse(_normalPriceController.text) ?? 20;
-    final cool = double.tryParse(_coolPriceController.text) ?? 30;
 
     final repo = context.read<WaterPlantRepository>();
     repo.updateSettings(

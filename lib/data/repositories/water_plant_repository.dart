@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/foundation.dart';
 import 'package:sri_sai_ro_water/data/models/business_settings.dart';
 import 'package:sri_sai_ro_water/core/constants/customer_pricing_keys.dart';
@@ -60,6 +62,7 @@ class WaterPlantRepository extends ChangeNotifier {
 
   /// Local path to the admin's profile photo (null = not set).
   String? adminImagePath;
+  String? _loadedFirebaseCustomerShopId;
 
   void updateAdminImage(String? path) {
     adminImagePath = path;
@@ -363,6 +366,90 @@ class WaterPlantRepository extends ChangeNotifier {
         onboardingComplete: true,
       ),
     );
+  }
+
+  Future<void> linkContractCustomerOnLoginFromFirestore({
+    required String userId,
+    required String phone,
+  }) async {
+    final digits = normalizePhone(phone);
+    if (digits.length < 10) return;
+
+    final snapshot = await FirebaseFirestore.instance
+        .collectionGroup('customers')
+        .where('normalizedPhone', isEqualTo: digits)
+        .get();
+    if (snapshot.docs.isEmpty) return;
+
+    final db = FirebaseFirestore.instance;
+    Customer? firstCustomer;
+    Shop? firstShop;
+
+    for (final doc in snapshot.docs) {
+      if (doc.data()['active'] == false) continue;
+      final shopRef = doc.reference.parent.parent;
+      if (shopRef == null) continue;
+
+      final shopDoc = await shopRef.get();
+      final shopData = shopDoc.data();
+      if (shopData == null) continue;
+
+      final shop = _shopFromFirestore(shopDoc.id, shopData);
+      final customer = _customerFromFirestore(doc);
+      _upsertShop(shop);
+      _upsertCustomer(customer, shop.id);
+
+      firstCustomer ??= customer;
+      firstShop ??= shop;
+
+      await db
+          .collection('customerShopLinks')
+          .doc('${userId}_${shop.id}_${customer.id}')
+          .set({
+            'uid': userId,
+            'shopId': shop.id,
+            'customerId': customer.id,
+            'normalizedPhone': digits,
+            'active': true,
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+    }
+
+    if (firstCustomer == null) return;
+    final lat = firstShop?.latitude ?? settings.shopLatitude ?? 16.9902;
+    final lng = firstShop?.longitude ?? settings.shopLongitude ?? 81.7780;
+
+    saveCustomerProfile(
+      CustomerAppProfile(
+        userId: userId,
+        name: firstCustomer.name,
+        phone: digits,
+        address: firstCustomer.address,
+        latitude: lat,
+        longitude: lng,
+        email: firstCustomer.email,
+        place: firstCustomer.place,
+        linkedCrmCustomerId: firstCustomer.id,
+        onboardingComplete: true,
+      ),
+    );
+    await db.collection('appCustomers').doc(userId).set({
+      'name': firstCustomer.name,
+      'phone': digits,
+      'normalizedPhone': digits,
+      'address': firstCustomer.address,
+      'email': firstCustomer.email,
+      'place': firstCustomer.place,
+      'linkedCrmCustomerId': firstCustomer.id,
+      'onboardingComplete': true,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    await db.collection('users').doc(userId).set({
+      'name': firstCustomer.name,
+      'customerProfileComplete': true,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   void _seedMockData() {
@@ -1262,6 +1349,240 @@ class WaterPlantRepository extends ChangeNotifier {
     _linkCustomerToShop(customer.id, defaultShopId);
     notifyListeners();
     return customer;
+  }
+
+  Future<void> loadCustomersForCurrentAdminFromFirestore({
+    bool force = false,
+  }) async {
+    final shopId = await _currentAdminShopId();
+    if (shopId == null) return;
+    if (!force && _loadedFirebaseCustomerShopId == shopId) return;
+
+    final snapshot = await FirebaseFirestore.instance
+        .collection('shops')
+        .doc(shopId)
+        .collection('customers')
+        .where('active', isEqualTo: true)
+        .get();
+
+    _customers
+      ..clear()
+      ..addAll(snapshot.docs.map(_customerFromFirestore));
+    _customerShopIds
+      ..clear()
+      ..addEntries(_customers.map((c) => MapEntry(c.id, shopId)));
+    _loadedFirebaseCustomerShopId = shopId;
+    notifyListeners();
+  }
+
+  Future<Customer> addCustomerToCurrentAdminShop({
+    required String name,
+    required String phone,
+    required String email,
+    required String place,
+    required String address,
+    String? routeId,
+    CustomerBillingMode billingMode = CustomerBillingMode.monthlyContract,
+    List<CustomerProductPrice>? productPrices,
+  }) async {
+    final shopId = await _currentAdminShopId();
+    if (shopId == null) {
+      return addCustomer(
+        name: name,
+        phone: phone,
+        email: email,
+        place: place,
+        routeId: routeId,
+        address: address,
+        billingMode: billingMode,
+        productPrices: productPrices,
+      );
+    }
+
+    final ref = FirebaseFirestore.instance
+        .collection('shops')
+        .doc(shopId)
+        .collection('customers')
+        .doc();
+    final customer = Customer(
+      id: ref.id,
+      name: name.trim(),
+      phone: phone.trim(),
+      email: email.trim(),
+      place: place.trim(),
+      routeId: routeId,
+      address: address.trim(),
+      billingMode: billingMode,
+      productPrices: productPrices ?? defaultCustomerPricing(),
+    );
+
+    await ref.set(_customerToFirestore(customer, creating: true));
+    _customers.insert(0, customer);
+    _linkCustomerToShop(customer.id, shopId);
+    notifyListeners();
+    return customer;
+  }
+
+  Future<void> updateCustomerInCurrentAdminShop(Customer customer) async {
+    final shopId = await _currentAdminShopId();
+    if (shopId == null) {
+      updateCustomer(customer);
+      return;
+    }
+
+    await FirebaseFirestore.instance
+        .collection('shops')
+        .doc(shopId)
+        .collection('customers')
+        .doc(customer.id)
+        .set(_customerToFirestore(customer), SetOptions(merge: true));
+    updateCustomer(customer);
+    _linkCustomerToShop(customer.id, shopId);
+  }
+
+  Future<void> deleteCustomerFromCurrentAdminShop(String id) async {
+    final shopId = await _currentAdminShopId();
+    if (shopId != null) {
+      await FirebaseFirestore.instance
+          .collection('shops')
+          .doc(shopId)
+          .collection('customers')
+          .doc(id)
+          .set({
+            'active': false,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+    }
+    deleteCustomer(id);
+  }
+
+  Future<String?> _currentAdminShopId() async {
+    final uid = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return null;
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
+    return userDoc.data()?['shopId'] as String?;
+  }
+
+  Customer _customerFromFirestore(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data();
+    final createdAt = data['createdAt'];
+    return Customer(
+      id: doc.id,
+      name: data['name'] as String? ?? '',
+      phone: data['phone'] as String? ?? '',
+      email: data['email'] as String? ?? '',
+      place: data['place'] as String? ?? '',
+      routeId: data['routeId'] as String?,
+      address: data['address'] as String? ?? '',
+      paymentFrequency: data['paymentFrequency'] as String? ?? 'Monthly',
+      billingMode: CustomerBillingMode.monthlyContract,
+      productPrices: _productPricesFromFirestore(data['productPrices']),
+      appUserId: data['appUserId'] as String?,
+      createdAt: createdAt is Timestamp ? createdAt.toDate() : null,
+    );
+  }
+
+  Shop _shopFromFirestore(String id, Map<String, dynamic> data) {
+    final trialEndsAt = data['trialEndsAt'];
+    return Shop(
+      id: id,
+      name: data['name'] as String? ?? '',
+      address: data['address'] as String? ?? '',
+      phone: data['phone'] as String? ?? '',
+      email: data['email'] as String? ?? '',
+      place: data['place'] as String? ?? '',
+      latitude: (data['latitude'] as num?)?.toDouble(),
+      longitude: (data['longitude'] as num?)?.toDouble(),
+      subscriptionStatus: _shopSubscriptionStatusFromFirestore(
+        data['subscriptionStatus'] as String?,
+      ),
+      trialEndsAt: trialEndsAt is Timestamp ? trialEndsAt.toDate() : null,
+      isListed: data['isListed'] as bool? ?? true,
+      homeDeliveryAvailable:
+          data['homeDeliveryAvailable'] as bool? ?? false,
+      normalPrice: (data['normalPrice'] as num?)?.toDouble() ?? 20,
+      coolPrice: (data['coolPrice'] as num?)?.toDouble() ?? 30,
+      coverImageUrl: data['coverImageUrl'] as String?,
+      tagline: data['tagline'] as String? ?? '',
+      rating: (data['rating'] as num?)?.toDouble() ?? 4.5,
+      reviewCount: (data['reviewCount'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  ShopSubscriptionStatus _shopSubscriptionStatusFromFirestore(String? value) {
+    return switch (value) {
+      'active' => ShopSubscriptionStatus.active,
+      'grace' => ShopSubscriptionStatus.grace,
+      'expired' => ShopSubscriptionStatus.expired,
+      _ => ShopSubscriptionStatus.trial,
+    };
+  }
+
+  void _upsertShop(Shop shop) {
+    final index = _shops.indexWhere((s) => s.id == shop.id);
+    if (index >= 0) {
+      _shops[index] = shop;
+    } else {
+      _shops.add(shop);
+    }
+  }
+
+  void _upsertCustomer(Customer customer, String shopId) {
+    final index = _customers.indexWhere((c) => c.id == customer.id);
+    if (index >= 0) {
+      _customers[index] = customer;
+    } else {
+      _customers.add(customer);
+    }
+    _linkCustomerToShop(customer.id, shopId);
+  }
+
+  Map<String, dynamic> _customerToFirestore(
+    Customer customer, {
+    bool creating = false,
+  }) {
+    return {
+      'name': customer.name,
+      'phone': customer.phone,
+      'normalizedPhone': customer.phone.replaceAll(RegExp(r'\D'), ''),
+      'email': customer.email,
+      'place': customer.place,
+      'address': customer.address,
+      'routeId': customer.routeId,
+      'paymentFrequency': customer.paymentFrequency,
+      'billingMode': customer.billingMode.name,
+      'productPrices': customer.productPrices.map(_productPriceToMap).toList(),
+      'appUserId': customer.appUserId,
+      'active': true,
+      if (creating) 'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+  }
+
+  Map<String, dynamic> _productPriceToMap(CustomerProductPrice price) {
+    return {
+      'productId': price.productId,
+      'variantId': price.variantId,
+      'unitPrice': price.unitPrice,
+      'enabled': price.enabled,
+    };
+  }
+
+  List<CustomerProductPrice> _productPricesFromFirestore(Object? value) {
+    if (value is! List) return defaultCustomerPricing();
+    return value.whereType<Map>().map((item) {
+      return CustomerProductPrice(
+        productId: item['productId'] as String? ?? '',
+        variantId: item['variantId'] as String? ?? '',
+        unitPrice: (item['unitPrice'] as num?)?.toDouble() ?? 0,
+        enabled: item['enabled'] as bool? ?? true,
+      );
+    }).toList();
   }
 
   void updateCustomer(Customer customer) {

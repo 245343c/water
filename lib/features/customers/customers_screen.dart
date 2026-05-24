@@ -23,6 +23,17 @@ class _CustomersScreenState extends State<CustomersScreen> {
   CustomerListFilter _filter = CustomerListFilter.all;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context
+          .read<WaterPlantRepository>()
+          .loadCustomersForCurrentAdminFromFirestore();
+    });
+  }
+
+  @override
   void dispose() {
     _search.dispose();
     super.dispose();

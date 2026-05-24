@@ -417,7 +417,7 @@ class AuthDemoHint extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Demo: admin@srisai.com · Password: admin123',
+              'Admin accounts now use Firebase sign in.',
               style: GoogleFonts.poppins(
                 fontSize: 11,
                 height: 1.35,

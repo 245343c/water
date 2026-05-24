@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "50649385420",
+    "project_id": "waterapp-001",
+    "storage_bucket": "waterapp-001.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:50649385420:android:7300b8da221821bcef3569",
+        "android_client_info": {
+          "package_name": "com.srisai.rowater.sri_sai_ro_water"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "50649385420-8d1cetlr1qndiev8aehv1sbbfkfmflta.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBxmLGzONQx7fPCyX9Fw0a8rZU43Ygr4F8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "50649385420-8d1cetlr1qndiev8aehv1sbbfkfmflta.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "50649385420-9ec6pu8v8lieqjq1e5ai1ars64ou0qbg.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.srisai.rowater.sriSaiRoWater"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

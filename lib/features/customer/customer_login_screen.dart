@@ -60,7 +60,7 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
     final repo = context.read<WaterPlantRepository>();
 
     setState(() => _loading = true);
-    final error = auth.verifyCustomerOtp(
+    final error = await auth.verifyCustomerOtp(
       phone: _phoneController.text,
       otp: _otpController.text,
     );
@@ -73,7 +73,10 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
     }
 
     final user = auth.currentUser!;
-    repo.linkContractCustomerOnLogin(userId: user.id, phone: user.phone);
+    await repo.linkContractCustomerOnLoginFromFirestore(
+      userId: user.id,
+      phone: user.phone,
+    );
 
     final isContract = repo.isMonthlyContractAppUser(
       user.id,
@@ -81,7 +84,7 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
     );
     final crm = repo.linkedCrmCustomerForAppUser(user.id);
     if (crm == null) {
-      auth.logout();
+      await auth.logout();
       _snack('This mobile number is not added by a water plant admin.');
       return;
     }
@@ -309,7 +312,7 @@ class _LoginCard extends StatelessWidget {
         const SizedBox(height: 14),
         Center(
           child: Text(
-            'Use shop-registered number. Demo: 9876543210 or 9632580741',
+            'Use the mobile number added by your water plant admin.',
             style: GoogleFonts.poppins(
               fontSize: 11,
               color: CustomerColors.labelGrey,

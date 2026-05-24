@@ -36,7 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final auth = context.read<AuthRepository>();
     final repo = context.read<WaterPlantRepository>();
-    final error = auth.login(
+    final error = await auth.login(
       email: _emailController.text,
       password: _passwordController.text,
     );
@@ -48,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final driverId = auth.currentUser!.driverId;
       final driver = driverId != null ? repo.driverById(driverId) : null;
       if (driver == null || !driver.active) {
-        auth.logout();
+        await auth.logout();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('This driver account is inactive. Contact admin.'),

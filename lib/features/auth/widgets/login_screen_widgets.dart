@@ -813,7 +813,7 @@ class LoginDemoBox extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Admin: admin@srisai.com / admin123\nDriver: driver@srisai.com / driver123',
+              'Admin: use the Firebase account you created\nDriver demo: driver@srisai.com / driver123',
               style: GoogleFonts.poppins(
                 fontSize: 11,
                 height: 1.35,
