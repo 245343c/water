@@ -98,13 +98,7 @@ class DeliveryRecordingService {
       payload: delivery.id,
     );
 
-    // Second banner simulates customer device (demo).
-    _push.showDeliveryRecordedSafe(
-      title: 'Water delivered',
-      body: '${delivery.cansSummary} recorded for ${customer.name}',
-      payload: 'customer:${customer.id}',
-    );
-
+    // Second banner removed — production uses server push / in-app notifications only.
     return delivery;
   }
 }

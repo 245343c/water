@@ -38,6 +38,8 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
   List<Customer> get customers;
   Customer? customerById(String id);
   List<Customer> searchCustomers(String query);
+  Future<void> refreshCustomerSearch(String query);
+  Future<Shop?> fetchPublicShop(String shopId);
   List<Customer> customersForShop(String shopId);
   List<Customer> customersForDriver(String? driverId);
   bool canDriverAccessCustomer(String? driverId, String customerId);

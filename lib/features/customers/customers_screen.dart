@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -21,11 +23,21 @@ class _CustomersScreenState extends State<CustomersScreen> {
   String _query = '';
   String? _routeFilter;
   CustomerListFilter _filter = CustomerListFilter.all;
+  Timer? _searchDebounce;
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _search.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value, WaterPlantRepository repo) {
+    setState(() => _query = value);
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
+      repo.refreshCustomerSearch(value);
+    });
   }
 
   List<Customer> _list(WaterPlantRepository repo) {
@@ -103,7 +115,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 ),
                 CustomersSearchRow(
                   controller: _search,
-                  onChanged: (v) => setState(() => _query = v),
+                  onChanged: (v) => _onSearchChanged(v, repo),
                 ),
                 CustomersListPanel(
                   child: Column(

@@ -223,6 +223,31 @@ class AuthRepository extends IAuthRepository {
     }
   }
 
+  /// Google Sign-In — call when Flutter [google_sign_in] provides an idToken.
+  Future<String?> loginWithGoogleAsync({
+    required String idToken,
+    String? name,
+    String? email,
+    String? phone,
+    String? photoUrl,
+  }) async {
+    try {
+      final result = await _api.loginWithGoogle(
+        idToken: idToken,
+        name: name,
+        email: email,
+        phone: phone,
+        photoUrl: photoUrl,
+      );
+      _currentUser = result.user;
+      notifyListeners();
+      return null;
+    } catch (e) {
+      if (e is ApiException) return e.message;
+      return e.toString();
+    }
+  }
+
   @override
   void deleteCustomerAccount(String userId) {
     if (_currentUser?.id == userId) {

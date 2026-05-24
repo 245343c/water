@@ -10,9 +10,12 @@
     "cleanup": "node scripts/cleanup-db.js",
     "reset": "node scripts/reset-db.js",
     "test:smoke": "node scripts/smoke-test.js",
-    "test:load": "node scripts/smoke-test.js --load"
+    "test:prod": "node scripts/prod-readiness-test.js",
+    "test:load": "node scripts/smoke-test.js --load",
+    "migrate:balance": "node scripts/migrate-advance-credit.js"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.16.0",
     "bcryptjs": "^2.4.3",
     "compression": "^1.8.1",
     "cors": "^2.8.5",

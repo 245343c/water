@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 
 /// Production mode: all app data comes from the MongoDB backend API.
-/// Mock/offline mode has been removed — keep this `true`.
 const bool useBackend = true;
 
 /// Override at build/run time, e.g. physical device on LAN:
@@ -11,11 +10,10 @@ const String _apiBaseUrlOverride = String.fromEnvironment(
   defaultValue: '',
 );
 
+/// Mirrors backend APP_ENV — informational only on client.
+const String appEnv = String.fromEnvironment('APP_ENV', defaultValue: 'local');
+
 /// Backend API base URL (includes `/api` suffix).
-///
-/// Defaults:
-/// - Web / desktop / iOS simulator: `http://localhost:3000/api`
-/// - Android emulator: `http://10.0.2.2:3000/api` (host machine)
 String get backendBaseUrl {
   final override = _apiBaseUrlOverride.trim();
   if (override.isNotEmpty) {
@@ -31,3 +29,5 @@ String get backendBaseUrl {
   }
   return 'http://localhost:3000/api';
 }
+
+bool get isProductionApp => appEnv == 'production';

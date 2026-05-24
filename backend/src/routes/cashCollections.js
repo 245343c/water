@@ -6,6 +6,7 @@ const Customer = require('../models/Customer');
 const { protect } = require('../middleware/auth');
 const { adminOnly, adminOrDriver } = require('../middleware/role');
 const { writeAuditLog } = require('../utils/auditLog');
+const { applyPayment, reversePayment } = require('../utils/customerBalance');
 
 // GET /api/cash — list cash collections
 router.get('/', protect, adminOrDriver, async (req, res) => {
@@ -19,10 +20,11 @@ router.get('/', protect, adminOrDriver, async (req, res) => {
       if (endDate) filter.collectionDate.$lte = new Date(endDate);
     }
 
+    const parsedLimit = Math.min(parseInt(limit, 10) || 50, 500);
     const collections = await CashCollection.find(filter)
       .sort({ collectionDate: -1 })
-      .limit(parseInt(limit))
-      .skip(parseInt(skip));
+      .limit(parsedLimit)
+      .skip(parseInt(skip, 10) || 0);
 
     const total = await CashCollection.countDocuments(filter);
     res.status(200).json({ success: true, collections, total });
@@ -36,7 +38,11 @@ router.get('/pending/:customerId', protect, adminOrDriver, async (req, res) => {
   try {
     const customer = await Customer.findOne({ customerId: req.params.customerId, shopId: req.user.shopId });
     if (!customer) return res.status(404).json({ success: false, message: 'Customer not found' });
-    res.status(200).json({ success: true, pendingAmount: customer.totalPendingAmount || 0 });
+    res.status(200).json({
+      success: true,
+      pendingAmount: customer.totalPendingAmount || 0,
+      advanceCredit: customer.advanceCredit || 0,
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -82,11 +88,9 @@ router.post('/', protect, adminOrDriver, async (req, res) => {
       notes: notes || null,
     });
 
-    // Reduce pending amount
-    await Customer.findOneAndUpdate(
-      { customerId, shopId: req.user.shopId },
-      { $inc: { totalPendingAmount: -amount }, lastCashCollectionAt: collection.collectionDate },
-    );
+    applyPayment(customer, amount);
+    customer.lastCashCollectionAt = collection.collectionDate;
+    await customer.save({ validateBeforeSave: false });
 
     await writeAuditLog({
       shopId: req.user.shopId, actorUid: req.user.uid, actorRole: req.user.role,
@@ -125,11 +129,14 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
     const col = await CashCollection.findOne({ cashCollectionId: req.params.id, shopId: req.user.shopId });
     if (!col) return res.status(404).json({ success: false, message: 'Collection not found' });
 
-    // Reverse the amount deduction
-    await Customer.findOneAndUpdate(
-      { customerId: col.customerId, shopId: req.user.shopId },
-      { $inc: { totalPendingAmount: col.amount } },
-    );
+    const customer = await Customer.findOne({
+      customerId: col.customerId,
+      shopId: req.user.shopId,
+    });
+    if (customer) {
+      reversePayment(customer, col.amount);
+      await customer.save({ validateBeforeSave: false });
+    }
 
     await col.deleteOne();
 

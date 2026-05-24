@@ -111,12 +111,17 @@ async function loadTest(path, concurrency = 50, total = 500) {
   if (errors > total * 0.05) throw new Error(`Load test error rate too high: ${errors}/${total}`);
 }
 
+function resOtpFromEnv() {
+  return process.env.CUSTOMER_DEMO_OTP || '123456';
+}
+
 async function main() {
   console.log(`Smoke test → ${BASE}\n`);
 
   let adminToken;
   let customerToken;
   let placedOrderId;
+  let smokeCustomerPhone;
 
   await assert('GET /health', async () => {
     const res = await request('GET', '/health');
@@ -167,11 +172,12 @@ async function main() {
   });
 
   await assert('POST /api/customers with routeId', async () => {
+    smokeCustomerPhone = `9${String(Date.now()).slice(-9)}`;
     const res = await request('POST', '/api/customers', {
       token: adminToken,
       body: {
-        name: 'Route Test Customer',
-        phone: `9${String(Date.now()).slice(-9)}`,
+        name: 'Smoke Test Customer',
+        phone: smokeCustomerPhone,
         address: 'Test address',
         routeId: smokeRouteId,
         routeNote: 'Smoke test route note',
@@ -189,14 +195,17 @@ async function main() {
 
   await assert('POST /api/auth/customer/request-otp', async () => {
     const res = await request('POST', '/api/auth/customer/request-otp', {
-      body: { phone: '9999999999' },
+      body: { phone: smokeCustomerPhone },
     });
     if (res.status !== 200) throw new Error(JSON.stringify(res.json));
   });
 
   await assert('POST /api/auth/customer/verify-otp', async () => {
     const res = await request('POST', '/api/auth/customer/verify-otp', {
-      body: { phone: '9999999999', otp: process.env.CUSTOMER_DEMO_OTP || '123456' },
+      body: {
+        phone: smokeCustomerPhone,
+        otp: resOtpFromEnv(),
+      },
     });
     if (res.status !== 200 || !res.json.token) throw new Error(JSON.stringify(res.json));
     customerToken = res.json.token;

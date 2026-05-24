@@ -23,7 +23,7 @@ router.get('/', protect, adminOrDriver, async (req, res) => {
     if (customerId) filter.customerId = customerId;
     if (driverId) filter.assignedDriverId = driverId;
 
-    const parsedLimit = Math.min(parseInt(limit, 10) || 50, 200);
+    const parsedLimit = Math.min(parseInt(limit, 10) || 50, 500);
     const parsedSkip = parseInt(skip, 10) || 0;
 
     const [orders, total] = await Promise.all([

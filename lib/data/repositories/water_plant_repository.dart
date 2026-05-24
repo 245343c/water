@@ -785,8 +785,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
   }
 
   Future<ReportsSummary> fetchReportsSummary(DateTime start, DateTime end) async {
-    final sameMonth = start.year == end.year && start.month == end.month;
-  final clientFallback = () {
+    final clientFallback = () {
       final deliveries = deliveriesInRange(start, end);
       final daily = dailyCanTotals(start, end);
       final cans = deliveries.fold<int>(0, (s, d) => s + d.normalQty + d.coolQty);
@@ -812,60 +811,47 @@ class WaterPlantRepository extends IWaterPlantRepository {
       );
     };
 
-    if (!sameMonth) return clientFallback();
+    if (!useBackend) return clientFallback();
 
     try {
-      final month = start.month;
-      final year = start.year;
-      final results = await Future.wait([
-        _apiService.getMonthlyReport(month: month, year: year),
-        _apiService.getDashboardStats(month: month, year: year),
-        _apiService.getPendingReport(),
-      ]);
-      final monthly = results[0];
-      final dash = results[1];
-      final pendingReport = results[2];
-
-      final dailyList = monthly['daily'] as List<dynamic>? ?? [];
+      final startStr = DateTime(start.year, start.month, start.day)
+          .toIso8601String()
+          .split('T')
+          .first;
+      final endStr = DateTime(end.year, end.month, end.day)
+          .toIso8601String()
+          .split('T')
+          .first;
+      final range = await _apiService.getReportsRange(
+        startDate: startStr,
+        endDate: endStr,
+      );
+      final stats = range['stats'] as Map<String, dynamic>? ?? {};
+      final dailyList = range['daily'] as List<dynamic>? ?? [];
       final buckets = <DateTime, ({int normal, int cool})>{};
-      var totalDeliveries = 0;
-      var totalSales = 0.0;
-
       for (final row in dailyList) {
         final map = row as Map<String, dynamic>;
         final dayStr = map['_id'] as String?;
         if (dayStr == null) continue;
         final day = DateTime.parse(dayStr);
-        final dayOnly = DateTime(day.year, day.month, day.day);
-        final rangeStart = DateTime(start.year, start.month, start.day);
-        final rangeEnd = DateTime(end.year, end.month, end.day);
-        if (dayOnly.isBefore(rangeStart) || dayOnly.isAfter(rangeEnd)) continue;
-        final count = (map['totalDeliveries'] as num?)?.toInt() ?? 0;
-        final amount = (map['totalAmount'] as num?)?.toDouble() ?? 0;
-        totalDeliveries += count;
-        totalSales += amount;
-        buckets[DateTime(day.year, day.month, day.day)] = (normal: count, cool: 0);
+        buckets[DateTime(day.year, day.month, day.day)] = (
+          normal: (map['normalCans'] as num?)?.toInt() ??
+              (map['totalDeliveries'] as num?)?.toInt() ??
+              0,
+          cool: (map['coolCans'] as num?)?.toInt() ?? 0,
+        );
       }
-
-      final s = dash['stats'] as Map<String, dynamic>? ?? {};
-      final normalCans = (s['totalNormalCans'] as num?)?.toInt() ?? 0;
-      final coolCans = (s['totalCoolCans'] as num?)?.toInt() ?? 0;
-
       return ReportsSummary(
-        totalDeliveries: totalDeliveries > 0
-            ? totalDeliveries
-            : (s['totalDeliveries'] as num?)?.toInt() ?? 0,
-        totalCans: normalCans + coolCans,
-        normalCans: normalCans,
-        coolCans: coolCans,
-        totalSales: totalSales > 0
-            ? totalSales
-            : (s['totalSales'] as num?)?.toDouble() ?? 0,
-        collected: (s['cashCollected'] as num?)?.toDouble() ?? 0,
-        activeCustomers: (s['activeCustomers'] as num?)?.toInt() ?? 0,
-        pendingAmount: (pendingReport['totalPending'] as num?)?.toDouble() ??
-            (s['totalPendingAmount'] as num?)?.toDouble() ??
-            0,
+        totalDeliveries: (stats['totalDeliveries'] as num?)?.toInt() ?? 0,
+        totalCans:
+            ((stats['totalNormalCans'] as num?)?.toInt() ?? 0) +
+            ((stats['totalCoolCans'] as num?)?.toInt() ?? 0),
+        normalCans: (stats['totalNormalCans'] as num?)?.toInt() ?? 0,
+        coolCans: (stats['totalCoolCans'] as num?)?.toInt() ?? 0,
+        totalSales: (stats['totalSales'] as num?)?.toDouble() ?? 0,
+        collected: (stats['cashCollected'] as num?)?.toDouble() ?? 0,
+        activeCustomers: (stats['activeCustomers'] as num?)?.toInt() ?? 0,
+        pendingAmount: (stats['totalPendingAmount'] as num?)?.toDouble() ?? 0,
         fromApi: true,
         dailyBuckets: buckets.isNotEmpty ? buckets : dailyCanTotals(start, end),
       );
@@ -2215,26 +2201,26 @@ class WaterPlantRepository extends IWaterPlantRepository {
       if (isAdmin || isDriver) {
         final endDate = DateTime.now().toIso8601String().split('T')[0];
         final startDate = DateTime.now()
-            .subtract(const Duration(days: 60))
+            .subtract(const Duration(days: 365))
             .toIso8601String()
             .split('T')[0];
         final deliveriesData = await _apiService.listDeliveries(
           startDate: startDate,
           endDate: endDate,
-          limit: 200,
+          limit: 500,
         );
         _deliveries.clear();
         for (final d in (deliveriesData['deliveries'] as List<dynamic>? ?? [])) {
           _deliveries.add(_deliveryFromJson(d as Map<String, dynamic>));
         }
 
-        final ordersData = await _apiService.listOrders(limit: 100);
+        final ordersData = await _apiService.listOrders(limit: 500);
         _orders.clear();
         for (final o in (ordersData['orders'] as List<dynamic>? ?? [])) {
           _orders.add(_orderFromJson(o as Map<String, dynamic>));
         }
 
-        final cashData = await _apiService.listCashCollections(limit: 200);
+        final cashData = await _apiService.listCashCollections(limit: 500);
         _payments.clear();
         for (final c in (cashData['collections'] as List<dynamic>? ?? [])) {
           _payments.add(_paymentFromCashJson(c as Map<String, dynamic>));
@@ -2485,5 +2471,47 @@ class WaterPlantRepository extends IWaterPlantRepository {
               deliveryRouteName(c.routeId).toLowerCase().contains(q),
         )
         .toList();
+  }
+
+  /// Server-side customer search (admin list).
+  Future<void> refreshCustomerSearch(String query) async {
+    if (!useBackend) return;
+    try {
+      final trimmed = query.trim();
+      final data = await _apiService.listCustomers(
+        query: trimmed.isEmpty ? null : trimmed,
+      );
+      _customers.clear();
+      for (final c in (data['customers'] as List<dynamic>? ?? [])) {
+        final map = c as Map<String, dynamic>;
+        final customer = _customerFromJson(map);
+        _customers.add(customer);
+        _customerShopIds[customer.id] =
+            map['shopId'] as String? ?? defaultShopId;
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('refreshCustomerSearch error: $e');
+    }
+  }
+
+  /// Loads latest public shop profile for customer order screen.
+  Future<Shop?> fetchPublicShop(String shopId) async {
+    if (!useBackend) return shopById(shopId);
+    try {
+      final data = await _apiService.getPublicShop(shopId);
+      final shop = _shopFromJson(data['shop'] as Map<String, dynamic>);
+      final idx = _shops.indexWhere((s) => s.id == shop.id);
+      if (idx >= 0) {
+        _shops[idx] = shop;
+      } else {
+        _shops.add(shop);
+      }
+      notifyListeners();
+      return shop;
+    } catch (e) {
+      debugPrint('fetchPublicShop error: $e');
+      return shopById(shopId);
+    }
   }
 }

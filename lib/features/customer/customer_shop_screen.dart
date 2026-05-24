@@ -9,7 +9,6 @@ import 'package:sri_sai_ro_water/core/services/shop_map_launcher.dart';
 import 'package:sri_sai_ro_water/core/constants/customer_pricing_keys.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
-import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/data/models/order_status.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
@@ -38,6 +37,15 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
   final Map<String, int> _variantQty = {};
   bool _placing = false;
   bool _loadedExistingOrder = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<WaterPlantRepository>().fetchPublicShop(widget.shopId);
+    });
+  }
 
   @override
   void dispose() {

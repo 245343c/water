@@ -150,6 +150,32 @@ class ApiAuthService {
     }
   }
 
+  Future<ApiAuthResult> loginWithGoogle({
+    required String idToken,
+    String? name,
+    String? email,
+    String? phone,
+    String? photoUrl,
+  }) async {
+    final data = await _client.post(
+      '/auth/customer/google',
+      {
+        'idToken': idToken,
+        if (name != null) 'name': name,
+        if (email != null) 'email': email,
+        if (phone != null) 'phone': phone,
+        if (photoUrl != null) 'photoUrl': photoUrl,
+      },
+      requireAuth: false,
+    );
+    final token = data['token'] as String;
+    await _client.saveToken(token);
+    return ApiAuthResult(
+      user: _parseUser(data['user'] as Map<String, dynamic>),
+      token: token,
+    );
+  }
+
   Future<String?> createDriverAccount({
     required String driverId,
     required String name,
@@ -161,7 +187,14 @@ class ApiAuthService {
     try {
       await _client.post(
         '/auth/driver',
-        {'driverId': driverId, 'name': name, 'phone': phone, 'email': email, 'password': password, if (shopId != null) 'shopId': shopId},
+        {
+          'driverId': driverId,
+          'name': name,
+          'phone': phone,
+          'email': email,
+          'password': password,
+          if (shopId != null) 'shopId': shopId,
+        },
       );
       return null;
     } catch (e) {

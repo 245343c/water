@@ -772,8 +772,14 @@ class _CategoryBadge extends StatelessWidget {
 // ΓöÇΓöÇΓöÇ Product detail screen widgets ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 class ProductDetailHeader extends StatelessWidget {
-  const ProductDetailHeader({super.key, required this.onBack, this.onDelete});
+  const ProductDetailHeader({
+    super.key,
+    required this.onBack,
+    this.onEdit,
+    this.onDelete,
+  });
   final VoidCallback onBack;
+  final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
   @override
@@ -782,16 +788,28 @@ class ProductDetailHeader extends StatelessWidget {
       title: 'Product Details',
       subtitle: 'Catalog item and pricing reference',
       onBack: onBack,
-      trailing: onDelete == null
+      trailing: (onEdit == null && onDelete == null)
           ? null
-          : IconButton(
-              icon: const Icon(
-                Icons.delete_outline_rounded,
-                color: Colors.white,
-                size: 24,
-              ),
-              tooltip: 'Delete product',
-              onPressed: onDelete,
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (onEdit != null)
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 22),
+                    tooltip: 'Edit product',
+                    onPressed: onEdit,
+                  ),
+                if (onDelete != null)
+                  IconButton(
+                    icon: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    tooltip: 'Delete product',
+                    onPressed: onDelete,
+                  ),
+              ],
             ),
     );
   }

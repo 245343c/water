@@ -278,6 +278,15 @@ class ApiDataService {
 
   // ─── Reports ─────────────────────────────────────────────────────────────────
 
+  Future<Map<String, dynamic>> getReportsRange({
+    required String startDate,
+    required String endDate,
+  }) =>
+      _client.get('/reports/range', queryParams: {
+        'startDate': startDate,
+        'endDate': endDate,
+      });
+
   Future<Map<String, dynamic>> getDashboardStats({int? month, int? year}) =>
       _client.get('/reports/dashboard', queryParams: {
         if (month != null) 'month': month.toString(),

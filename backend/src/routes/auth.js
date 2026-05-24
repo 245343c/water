@@ -7,7 +7,13 @@ const User = require('../models/User');
 const Customer = require('../models/Customer');
 const { sendTokenResponse } = require('../utils/jwt');
 const { protect } = require('../middleware/auth');
-const { generateOtp, storeOtp, verifyOtp, dispatchOtp, isProd } = require('../services/otpService');
+const {
+  generateOtp,
+  storeOtp,
+  verifyOtp,
+  dispatchOtp,
+  exposeOtpInResponse,
+} = require('../services/otpService');
 const { phoneDigits } = require('../utils/phone');
 const logger = require('../utils/logger');
 
@@ -134,7 +140,7 @@ router.post('/customer/request-otp', async (req, res) => {
       success: true,
       message: 'OTP sent',
     };
-    if (!isProd) {
+    if (exposeOtpInResponse()) {
       payload.otp = otp;
     }
     logger.info('Customer OTP requested', { phone: digits.slice(-4) });
@@ -219,17 +225,21 @@ router.post('/customer/verify-otp', async (req, res) => {
   }
 });
 
-// POST /api/auth/customer/google — customer Google login (verifies idToken in production)
+// POST /api/auth/customer/google — customer Google login
 router.post('/customer/google', async (req, res) => {
   try {
     const { idToken, name, email, phone, photoUrl } = req.body;
+    const config = require('../config/env');
 
     if (!email) {
       return res.status(400).json({ success: false, message: 'Email required from Google token' });
     }
 
-    // In production: verify idToken with Firebase Admin SDK
-    // For local dev: trust the payload directly
+    if (config.isProduction && !idToken) {
+      return res.status(400).json({ success: false, message: 'Google idToken required in production' });
+    }
+    // Production: verify idToken with Firebase Admin / Google OAuth (configure separately).
+
     let user = await User.findOne({ email: email.toLowerCase().trim(), role: 'customer' });
 
     if (!user) {
@@ -299,7 +309,8 @@ router.post(
 
     try {
       const { email } = req.body;
-      const user = await User.findOne({ email: email.toLowerCase().trim(), role: { $in: ['shop_admin', 'driver'] } });
+      const normalized = email.toLowerCase().trim();
+      const user = await User.findOne({ email: normalized, role: { $in: ['shop_admin', 'driver'] } });
 
       if (!user) {
         // Don't reveal if email exists
@@ -317,9 +328,9 @@ router.post(
 
       const payload = {
         success: true,
-        message: isProd ? 'If account exists, reset instructions sent' : 'OTP sent',
+        message: exposeOtpInResponse() ? 'OTP sent' : 'If account exists, reset instructions sent',
       };
-      if (!isProd) {
+      if (exposeOtpInResponse()) {
         payload.otp = otp;
       }
       res.status(200).json(payload);

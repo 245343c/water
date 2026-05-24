@@ -43,6 +43,7 @@ const customerSchema = new mongoose.Schema(
     },
     productPrices: [customerProductPriceSchema],
     totalPendingAmount: { type: Number, default: 0 },
+    advanceCredit: { type: Number, default: 0 },
     lastDeliveryAt: { type: Date, default: null },
     lastCashCollectionAt: { type: Date, default: null },
   },

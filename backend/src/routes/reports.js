@@ -152,4 +152,107 @@ router.get('/monthly', protect, adminOnly, async (req, res) => {
   }
 });
 
+// GET /api/reports/range?startDate=2026-01-01&endDate=2026-01-31
+router.get('/range', protect, adminOnly, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    if (!startDate || !endDate) {
+      return res.status(400).json({ success: false, message: 'startDate and endDate required' });
+    }
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    const [deliveryStats, cashStats, daily, activeCustomers] = await Promise.all([
+      Delivery.aggregate([
+        { $match: { shopId: req.user.shopId, deliveryDate: { $gte: start, $lte: end } } },
+        {
+          $group: {
+            _id: null,
+            totalDeliveries: { $sum: 1 },
+            totalAmount: { $sum: '$totalAmount' },
+            totalNormalCans: {
+              $sum: {
+                $reduce: {
+                  input: { $filter: { input: '$lines', as: 'l', cond: { $eq: ['$$l.kind', 'normalCan'] } } },
+                  initialValue: 0,
+                  in: { $add: ['$$value', '$$this.quantity'] },
+                },
+              },
+            },
+            totalCoolCans: {
+              $sum: {
+                $reduce: {
+                  input: { $filter: { input: '$lines', as: 'l', cond: { $eq: ['$$l.kind', 'coolCan'] } } },
+                  initialValue: 0,
+                  in: { $add: ['$$value', '$$this.quantity'] },
+                },
+              },
+            },
+          },
+        },
+      ]),
+      CashCollection.aggregate([
+        { $match: { shopId: req.user.shopId, collectionDate: { $gte: start, $lte: end } } },
+        { $group: { _id: null, totalCollected: { $sum: '$amount' } } },
+      ]),
+      Delivery.aggregate([
+        { $match: { shopId: req.user.shopId, deliveryDate: { $gte: start, $lte: end } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$deliveryDate' } },
+            totalDeliveries: { $sum: 1 },
+            totalAmount: { $sum: '$totalAmount' },
+            normalCans: {
+              $sum: {
+                $reduce: {
+                  input: { $filter: { input: '$lines', as: 'l', cond: { $eq: ['$$l.kind', 'normalCan'] } } },
+                  initialValue: 0,
+                  in: { $add: ['$$value', '$$this.quantity'] },
+                },
+              },
+            },
+            coolCans: {
+              $sum: {
+                $reduce: {
+                  input: { $filter: { input: '$lines', as: 'l', cond: { $eq: ['$$l.kind', 'coolCan'] } } },
+                  initialValue: 0,
+                  in: { $add: ['$$value', '$$this.quantity'] },
+                },
+              },
+            },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+      Delivery.distinct('customerId', {
+        shopId: req.user.shopId,
+        deliveryDate: { $gte: start, $lte: end },
+      }),
+    ]);
+
+    const pendingAmountResult = await Customer.aggregate([
+      { $match: { shopId: req.user.shopId, status: 'active' } },
+      { $group: { _id: null, totalPending: { $sum: '$totalPendingAmount' } } },
+    ]);
+
+    const ds = deliveryStats[0] || {};
+    res.status(200).json({
+      success: true,
+      stats: {
+        totalDeliveries: ds.totalDeliveries || 0,
+        totalSales: ds.totalAmount || 0,
+        totalNormalCans: ds.totalNormalCans || 0,
+        totalCoolCans: ds.totalCoolCans || 0,
+        cashCollected: cashStats[0]?.totalCollected || 0,
+        activeCustomers: activeCustomers.length,
+        totalPendingAmount: pendingAmountResult[0]?.totalPending || 0,
+      },
+      daily,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;

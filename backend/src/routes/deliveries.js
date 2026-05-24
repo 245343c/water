@@ -3,10 +3,12 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const Delivery = require('../models/Delivery');
 const Customer = require('../models/Customer');
+const Order = require('../models/Order');
 const { protect } = require('../middleware/auth');
 const { adminOnly, adminOrDriver } = require('../middleware/role');
 const { writeAuditLog } = require('../utils/auditLog');
 const { notifyDeliveryRecorded } = require('../utils/notificationService');
+const { applyDeliveryCharge, reverseDeliveryCharge } = require('../utils/customerBalance');
 
 // GET /api/deliveries — list deliveries (admin/driver)
 router.get('/', protect, adminOrDriver, async (req, res) => {
@@ -26,10 +28,11 @@ router.get('/', protect, adminOrDriver, async (req, res) => {
       if (endDate) filter.deliveryDate.$lte = new Date(endDate);
     }
 
+    const parsedLimit = Math.min(parseInt(limit, 10) || 50, 500);
     const deliveries = await Delivery.find(filter)
       .sort({ deliveryDate: -1 })
-      .limit(parseInt(limit))
-      .skip(parseInt(skip));
+      .limit(parsedLimit)
+      .skip(parseInt(skip, 10) || 0);
 
     const total = await Delivery.countDocuments(filter);
     res.status(200).json({ success: true, deliveries, total });
@@ -58,37 +61,63 @@ router.post('/', protect, adminOrDriver, async (req, res) => {
     }
 
     const customer = await Customer.findOne({ customerId, shopId: req.user.shopId });
-    const totalAmount = lines.reduce((sum, l) => sum + (l.quantity * l.unitPrice), 0);
+    if (!customer) {
+      return res.status(404).json({ success: false, message: 'Customer not found' });
+    }
 
-    // Add lineTotal to each line
+    const totalAmount = lines.reduce((sum, l) => sum + (l.quantity * l.unitPrice), 0);
     const processedLines = lines.map((l) => ({
       ...l,
       lineTotal: l.quantity * l.unitPrice,
     }));
 
+    let linkedOrderId = orderId || null;
+    if (!linkedOrderId) {
+      const orderFilter = {
+        shopId: req.user.shopId,
+        customerId,
+        orderStatus: { $in: ['accepted', 'assigned', 'out_for_delivery'] },
+      };
+      if (req.user.role === 'driver' && req.user.driverId) {
+        orderFilter.$or = [
+          { assignedDriverId: req.user.driverId },
+          { assignedDriverId: null },
+          { assignedDriverId: { $exists: false } },
+        ];
+      }
+      const openOrder = await Order.findOne(orderFilter).sort({ createdAt: -1 });
+      if (openOrder) linkedOrderId = openOrder.orderId;
+    }
+
     const deliveryId = uuidv4();
+    const resolvedType =
+      deliveryType || (linkedOrderId ? 'app_order_delivery' : 'manual_delivery');
+
     const delivery = await Delivery.create({
       deliveryId,
       shopId: req.user.shopId,
-      orderId: orderId || null,
+      orderId: linkedOrderId,
       customerId,
-      customerName: customer?.name || '',
-      customerPhone: customer?.phone || '',
+      customerName: customer.name,
+      customerPhone: customer.phone,
       driverId: req.user.role === 'driver' ? (req.user.driverId || null) : (req.body.driverId || null),
       deliveryDate: deliveryDate ? new Date(deliveryDate) : new Date(),
       lines: processedLines,
       totalAmount,
-      deliveryType: deliveryType || 'manual_delivery',
+      deliveryType: resolvedType,
       recordedByUid: req.user.uid,
       recordedByRole: req.user.role,
       notes: notes || null,
     });
 
-    // Update customer's lastDeliveryAt and totalPendingAmount
-    if (customer) {
-      await Customer.findOneAndUpdate(
-        { customerId, shopId: req.user.shopId },
-        { lastDeliveryAt: delivery.deliveryDate, $inc: { totalPendingAmount: totalAmount } },
+    applyDeliveryCharge(customer, totalAmount);
+    customer.lastDeliveryAt = delivery.deliveryDate;
+    await customer.save({ validateBeforeSave: false });
+
+    if (linkedOrderId) {
+      await Order.findOneAndUpdate(
+        { orderId: linkedOrderId, shopId: req.user.shopId },
+        { orderStatus: 'delivered', deliveredAt: new Date() },
       );
     }
 
@@ -148,6 +177,15 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
   try {
     const delivery = await Delivery.findOneAndDelete({ deliveryId: req.params.id, shopId: req.user.shopId });
     if (!delivery) return res.status(404).json({ success: false, message: 'Delivery not found' });
+
+    const customer = await Customer.findOne({
+      customerId: delivery.customerId,
+      shopId: req.user.shopId,
+    });
+    if (customer) {
+      reverseDeliveryCharge(customer, delivery.totalAmount);
+      await customer.save({ validateBeforeSave: false });
+    }
 
     await writeAuditLog({
       shopId: req.user.shopId, actorUid: req.user.uid, actorRole: req.user.role,

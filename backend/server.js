@@ -7,6 +7,7 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const connectDB = require('./src/config/db');
 const logger = require('./src/utils/logger');
+const config = require('./src/config/env');
 const requestLogger = require('./src/middleware/requestLogger');
 
 const app = express();
@@ -88,6 +89,9 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 app.listen(PORT, () => {
   logger.info('Server started', {
     port: PORT,
+    appEnv: config.appEnv,
+    storageMode: config.storageMode,
+    otpMode: config.otpMode,
     nodeEnv: process.env.NODE_ENV || 'development',
     mongoUri: process.env.MONGO_URI ? '(configured)' : '(missing)',
   });
