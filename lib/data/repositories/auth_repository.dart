@@ -183,6 +183,42 @@ class AuthRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateDriverAccount({
+    required String driverId,
+    required String name,
+    required String phone,
+    required String email,
+  }) {
+    final normalized = email.trim().toLowerCase();
+    final index = _accounts.indexWhere((a) => a.user.driverId == driverId);
+    if (index < 0) return;
+    final user = _accounts[index].user;
+    _accounts[index] = _StoredAccount(
+      user: AppUser(
+        id: user.id,
+        ownerName: name.trim(),
+        email: normalized,
+        phone: phone.trim(),
+        businessName: user.businessName,
+        role: user.role,
+        driverId: user.driverId,
+      ),
+      password: _accounts[index].password,
+    );
+    if (_currentUser?.driverId == driverId) {
+      _currentUser = _accounts[index].user;
+    }
+    notifyListeners();
+  }
+
+  void deleteDriverAccount(String driverId) {
+    _accounts.removeWhere((a) => a.user.driverId == driverId);
+    if (_currentUser?.driverId == driverId) {
+      _currentUser = null;
+    }
+    notifyListeners();
+  }
+
   void resetDriverPassword(String driverId, String newPassword) {
     final index = _accounts.indexWhere((a) => a.user.driverId == driverId);
     if (index < 0) return;

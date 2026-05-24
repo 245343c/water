@@ -63,23 +63,15 @@ class AddProductLivePreview extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [accent.withValues(alpha: 0.12), Colors.white],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: accent.withValues(alpha: 0.25)),
-      ),
+      padding: const EdgeInsets.all(12),
+      decoration: ProductsColors.cardDecoration,
       child: Row(
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: SizedBox(
-              width: 64,
-              height: 64,
+              width: 56,
+              height: 56,
               child: file != null
                   ? Image.file(file, fit: BoxFit.cover)
                   : ColoredBox(
@@ -100,10 +92,10 @@ class AddProductLivePreview extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Preview',
+                  'Live preview',
                   style: GoogleFonts.poppins(
                     fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                     color: AddProductColors.labelGrey,
                   ),
                 ),
@@ -161,75 +153,76 @@ class AddProductPhotoSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final file = ProductImageService.fileForPath(imagePath);
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: ProductsColors.cardDecoration,
+      child: Row(
         children: [
-          Text(
-            'PHOTO',
-            style: GoogleFonts.poppins(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
-              color: AddProductColors.labelGrey,
+          GestureDetector(
+            onTap: onPickGallery,
+            child: Container(
+              width: 62,
+              height: 62,
+              decoration: BoxDecoration(
+                color: ProductsColors.bottleBg,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AddProductColors.fieldBorder),
+                image: file != null
+                    ? DecorationImage(image: FileImage(file), fit: BoxFit.cover)
+                    : null,
+              ),
+              child: file == null
+                  ? const Icon(
+                      Icons.add_a_photo_outlined,
+                      color: ProductsColors.statBlue,
+                    )
+                  : null,
             ),
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              GestureDetector(
-                onTap: onPickCamera,
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: ProductsColors.bottleBg,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AddProductColors.fieldBorder),
-                    image: file != null
-                        ? DecorationImage(
-                            image: FileImage(file),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Product photo',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: AddProductColors.titleNavy,
                   ),
-                  child: file == null
-                      ? const Icon(
-                          Icons.add_a_photo_outlined,
-                          color: ProductsColors.statBlue,
-                        )
-                      : null,
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                const SizedBox(height: 8),
+                Row(
                   children: [
-                    _PhotoBtn(
-                      icon: Icons.photo_camera_outlined,
-                      label: 'Camera',
-                      onTap: onPickCamera,
+                    Expanded(
+                      child: _PhotoBtn(
+                        icon: Icons.photo_camera_outlined,
+                        label: 'Camera',
+                        onTap: onPickCamera,
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    _PhotoBtn(
-                      icon: Icons.photo_library_outlined,
-                      label: 'Gallery',
-                      onTap: onPickGallery,
-                      outlined: true,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _PhotoBtn(
+                        icon: Icons.photo_library_outlined,
+                        label: 'Gallery',
+                        onTap: onPickGallery,
+                        outlined: true,
+                      ),
                     ),
                   ],
                 ),
-              ),
-              if (file != null)
-                IconButton(
-                  onPressed: onRemove,
-                  icon: const Icon(Icons.close_rounded, size: 20),
-                  color: AddProductColors.labelGrey,
-                ),
-            ],
+              ],
+            ),
           ),
+          if (file != null)
+            IconButton(
+              onPressed: onRemove,
+              icon: const Icon(Icons.close_rounded, size: 20),
+              color: AddProductColors.labelGrey,
+            ),
         ],
       ),
     );
@@ -304,7 +297,7 @@ class AddProductCategorySelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -371,7 +364,7 @@ class _TypeChip extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
@@ -381,8 +374,12 @@ class _TypeChip extends StatelessWidget {
           ),
           child: Column(
             children: [
-              Icon(icon, color: selected ? accent : AddProductColors.labelGrey),
-              const SizedBox(height: 4),
+              Icon(
+                icon,
+                size: 20,
+                color: selected ? accent : AddProductColors.labelGrey,
+              ),
+              const SizedBox(height: 3),
               Text(
                 label,
                 style: GoogleFonts.poppins(

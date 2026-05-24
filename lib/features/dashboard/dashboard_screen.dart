@@ -10,7 +10,6 @@ import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/widgets/month_year_wheel_picker.dart';
 import 'package:sri_sai_ro_water/data/models/order_status.dart';
-import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/notifications/notifications_screen.dart';
@@ -246,8 +245,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Consumer2<WaterPlantRepository, NotificationRepository>(
       builder: (context, repo, notifications, _) {
-        final ownerName =
-            context.watch<AuthRepository>().currentUser?.ownerName ?? 'Owner';
         final stats = repo.dashboardStats(_month);
         final business = repo.settings.businessName;
         final today = DateTime.now();
@@ -295,7 +292,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   DashboardHeader(
                     title: business,
-                    ownerName: ownerName,
                     adminImagePath: repo.adminImagePath,
                     onAdminTap: () => _pickAdminImage(repo),
                     notificationCount: notifications.unreadCountForAdmin(),

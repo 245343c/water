@@ -85,11 +85,147 @@ class AddDriverResult {
   final String password;
 }
 
+class EditDriverResult {
+  const EditDriverResult({
+    required this.name,
+    required this.phone,
+    required this.email,
+  });
+
+  final String name;
+  final String phone;
+  final String email;
+}
+
 class AddDriverSheet extends StatefulWidget {
   const AddDriverSheet({super.key});
 
   @override
   State<AddDriverSheet> createState() => _AddDriverSheetState();
+}
+
+class EditDriverSheet extends StatefulWidget {
+  const EditDriverSheet({
+    super.key,
+    required this.initialName,
+    required this.initialPhone,
+    required this.initialEmail,
+  });
+
+  final String initialName;
+  final String initialPhone;
+  final String initialEmail;
+
+  @override
+  State<EditDriverSheet> createState() => _EditDriverSheetState();
+}
+
+class _EditDriverSheetState extends State<EditDriverSheet> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _name;
+  late final TextEditingController _phone;
+  late final TextEditingController _email;
+
+  @override
+  void initState() {
+    super.initState();
+    _name = TextEditingController(text: widget.initialName);
+    _phone = TextEditingController(text: widget.initialPhone);
+    _email = TextEditingController(text: widget.initialEmail);
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _phone.dispose();
+    _email.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+    Navigator.pop(
+      context,
+      EditDriverResult(
+        name: _name.text.trim(),
+        phone: _phone.text.trim(),
+        email: _email.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottom),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        decoration: DriversColors.cardDecoration.copyWith(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Edit driver',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: DriversColors.titleNavy,
+                  ),
+                ),
+                Text(
+                  'Update driver profile and login details',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: DriversColors.labelGrey,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _driverField(_name, 'Full name', Icons.person_outline),
+                const SizedBox(height: 12),
+                _driverField(
+                  _phone,
+                  'Phone',
+                  Icons.phone_outlined,
+                  keyboard: TextInputType.phone,
+                ),
+                const SizedBox(height: 12),
+                _driverField(
+                  _email,
+                  'Login email',
+                  Icons.email_outlined,
+                  keyboard: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 20),
+                FilledButton(
+                  onPressed: _submit,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: DriversColors.accent,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Save changes',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _AddDriverSheetState extends State<AddDriverSheet> {
@@ -227,4 +363,29 @@ class _AddDriverSheetState extends State<AddDriverSheet> {
       ),
     );
   }
+}
+
+Widget _driverField(
+  TextEditingController controller,
+  String label,
+  IconData icon, {
+  TextInputType? keyboard,
+}) {
+  return TextFormField(
+    controller: controller,
+    keyboardType: keyboard,
+    validator: (v) {
+      if (v == null || v.trim().isEmpty) return 'Required';
+      if (label.contains('email') && !v.contains('@')) return 'Invalid email';
+      if (label == 'Phone' && v.trim().length < 10) {
+        return 'Valid phone is required';
+      }
+      return null;
+    },
+    decoration: InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: DriversColors.accent, size: 22),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+  );
 }

@@ -1507,6 +1507,28 @@ class WaterPlantRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateDriver({
+    required String driverId,
+    required String name,
+    required String phone,
+    required String email,
+  }) {
+    final i = _drivers.indexWhere((d) => d.id == driverId);
+    if (i < 0) return;
+    _drivers[i] = _drivers[i].copyWith(
+      name: name.trim(),
+      phone: phone.trim(),
+      email: email.trim().toLowerCase(),
+    );
+    notifyListeners();
+  }
+
+  void deleteDriver(String driverId) {
+    _drivers.removeWhere((d) => d.id == driverId);
+    _driverShopIds.remove(driverId);
+    notifyListeners();
+  }
+
   List<Delivery> deliveriesOnDate(DateTime day) {
     final start = DateTime(day.year, day.month, day.day);
     final end = start.add(const Duration(days: 1));

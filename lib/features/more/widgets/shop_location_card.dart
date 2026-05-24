@@ -20,141 +20,142 @@ class ShopLocationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasPin = settings.hasMapPin;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      decoration: _locationCardDecoration(),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: () => _showLocationMap(context),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: MoreColors.iconNavy.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.location_on_rounded,
+                    color: MoreColors.iconNavy,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Location',
+                        style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: MoreColors.titleNavy,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        hasPin ? 'View shop map and directions' : 'Add shop pin for directions',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: MoreColors.labelGrey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: MoreColors.labelGrey,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showLocationMap(BuildContext context) {
+    final hasPin = settings.hasMapPin;
     final center = hasPin
         ? LatLng(settings.shopLatitude!, settings.shopLongitude!)
         : ShopLocationService.defaultCenter;
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
-          ),
-        ],
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Stack(
-            children: [
-              ShopMapPreview(
-                center: center,
-                zoom: hasPin ? 16 : 13,
-                showMarker: hasPin,
-                interactive: true,
-                height: 168,
-              ),
-              if (!hasPin)
-                Positioned.fill(
-                  child: Container(
-                    color: Colors.white.withValues(alpha: 0.72),
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.add_location_alt_outlined,
-                            size: 36,
-                            color: MoreColors.iconNavy.withValues(alpha: 0.5),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'No pin set — tap Edit to add',
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: MoreColors.labelGrey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              Positioned(
-                top: 10,
-                left: 10,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.95),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 6,
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.store_rounded, size: 16, color: Color(0xFF2563EB)),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Shop location',
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: MoreColors.titleNavy,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              14,
+              16,
+              MediaQuery.paddingOf(ctx).bottom + 16,
+            ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        settings.address,
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          height: 1.4,
-                          color: MoreColors.labelGrey,
-                        ),
-                      ),
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5E7EB),
+                      borderRadius: BorderRadius.circular(999),
                     ),
-                    if (onEditLocation != null)
-                      TextButton(
-                        onPressed: onEditLocation,
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Text(
-                          'Edit pin',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: MoreColors.iconNavy,
-                          ),
-                        ),
-                      ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
+                Text(
+                  'Shop location',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: MoreColors.titleNavy,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  settings.address,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    height: 1.4,
+                    color: MoreColors.labelGrey,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: ShopMapPreview(
+                    center: center,
+                    zoom: hasPin ? 16 : 13,
+                    showMarker: hasPin,
+                    interactive: true,
+                    height: 220,
+                  ),
+                ),
+                const SizedBox(height: 14),
                 Row(
                   children: [
                     Expanded(
                       child: _MapActionButton(
-                        label: 'Open in Maps',
+                        label: 'Open Maps',
                         icon: Icons.map_rounded,
                         filled: true,
                         onTap: () => ShopMapLauncher.open(
@@ -179,14 +180,38 @@ class ShopLocationCard extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (onEditLocation != null) ...[
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      onEditLocation!();
+                    },
+                    icon: const Icon(Icons.edit_location_alt_outlined),
+                    label: const Text('Edit location pin'),
+                  ),
+                ],
               ],
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
+
+BoxDecoration _locationCardDecoration() => BoxDecoration(
+  color: Colors.white,
+  borderRadius: BorderRadius.circular(16),
+  border: Border.all(color: MoreColors.cardBorder),
+  boxShadow: [
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.05),
+      blurRadius: 12,
+      offset: const Offset(0, 4),
+    ),
+  ],
+);
 
 class _MapActionButton extends StatelessWidget {
   const _MapActionButton({
@@ -218,7 +243,11 @@ class _MapActionButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 18, color: filled ? Colors.white : const Color(0xFF2563EB)),
+              Icon(
+                icon,
+                size: 18,
+                color: filled ? Colors.white : const Color(0xFF2563EB),
+              ),
               const SizedBox(width: 6),
               Flexible(
                 child: Text(

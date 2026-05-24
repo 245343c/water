@@ -21,6 +21,19 @@ abstract final class ProductsColors {
   static const Color canBg = Color(0xFFECFDF5);
   static const Color coolBg = Color(0xFFE0F2FE);
   static const Color screenBg = AppColors.surface;
+
+  static BoxDecoration get cardDecoration => BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(color: cardBorder),
+    boxShadow: [
+      BoxShadow(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.06),
+        blurRadius: 14,
+        offset: const Offset(0, 6),
+      ),
+    ],
+  );
 }
 
 // ─── Scaffold ────────────────────────────────────────────────────────────────
@@ -343,113 +356,149 @@ class ProductCatalogCard extends StatelessWidget {
     final icon = _isBottle
         ? Icons.water_drop_rounded
         : Icons.local_drink_rounded;
+    final variantsLabel =
+        '${product.variants.length} variant${product.variants.length == 1 ? '' : 's'}';
 
-    return Material(
-      color: Colors.white,
-      elevation: 0,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.white,
+        elevation: 0,
         borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: ProductsColors.cardBorder),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: 110,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: _imageBg,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(15),
-                    ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(15),
-                    ),
-                    child: file != null
-                        ? Image.file(
-                            file,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: 110,
-                          )
-                        : Center(
-                            child: Icon(
-                              icon,
-                              size: 44,
-                              color: _accent.withValues(alpha: 0.85),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Ink(
+            decoration: ProductsColors.cardDecoration,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: SizedBox(
+                      width: 82,
+                      height: 82,
+                      child: file != null
+                          ? Image.file(file, fit: BoxFit.cover)
+                          : ColoredBox(
+                              color: _imageBg,
+                              child: Center(
+                                child: Icon(
+                                  icon,
+                                  size: 38,
+                                  color: _accent.withValues(alpha: 0.9),
+                                ),
+                              ),
                             ),
-                          ),
+                    ),
                   ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(
-                            product.name,
-                            style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: ProductsColors.titleNavy,
-                              height: 1.15,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                product.name,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: ProductsColors.titleNavy,
+                                  height: 1.2,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                            const SizedBox(width: 8),
+                            _CategoryBadge(category: product.category),
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        _CategoryBadge(category: product.category),
+                        const SizedBox(height: 5),
+                        Text(
+                          product.variantSummary,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: ProductsColors.labelGrey,
+                            height: 1.25,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            _ProductInfoPill(
+                              icon: Icons.currency_rupee_rounded,
+                              label: CurrencyUtils.format(product.startingPrice),
+                              color: _accent,
+                            ),
+                            _ProductInfoPill(
+                              icon: Icons.layers_outlined,
+                              label: variantsLabel,
+                              color: ProductsColors.labelGrey,
+                            ),
+                          ],
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      product.variantSummary,
-                      style: GoogleFonts.poppins(
-                        fontSize: 10,
-                        color: ProductsColors.labelGrey,
-                        height: 1.2,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Default ${CurrencyUtils.format(product.startingPrice)}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: _accent,
-                        height: 1.1,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: _accent,
+                    size: 24,
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ProductInfoPill extends StatelessWidget {
+  const _ProductInfoPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -820,21 +869,15 @@ class ProductDetailCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: isBottle ? 3 : 2,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 0.82,
-            ),
-            itemCount: product.variants.length,
-            itemBuilder: (_, i) => _VariantIconTile(
-              variant: product.variants[i],
-              product: product,
-              onTap: () {},
-            ),
+          Column(
+            children: [
+              for (final variant in product.variants)
+                _ProductVariantRow(
+                  variant: variant,
+                  product: product,
+                  accent: accent,
+                ),
+            ],
           ),
           const SizedBox(height: 14),
           Row(
@@ -856,6 +899,74 @@ class ProductDetailCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProductVariantRow extends StatelessWidget {
+  const _ProductVariantRow({
+    required this.variant,
+    required this.product,
+    required this.accent,
+  });
+
+  final ProductVariant variant;
+  final Product product;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final isCool = variant.isCool;
+    final rowAccent = isCool ? ProductsColors.coolAccent : accent;
+    final icon = isCool
+        ? Icons.ac_unit_rounded
+        : product.category == ProductCategory.bottle
+        ? Icons.water_drop_rounded
+        : Icons.local_drink_rounded;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: rowAccent.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: rowAccent.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: rowAccent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: rowAccent, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              variant.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: ProductsColors.titleNavy,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            CurrencyUtils.format(variant.price),
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: rowAccent,
+            ),
           ),
         ],
       ),

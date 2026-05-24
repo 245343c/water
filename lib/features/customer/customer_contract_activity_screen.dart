@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
-import 'package:sri_sai_ro_water/data/models/payment.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customer/widgets/customer_request_card.dart';
@@ -72,23 +70,9 @@ class CustomerContractActivityScreen extends StatelessWidget {
       );
     }
 
-    final now = DateTime.now();
-    final month = DateTime(now.year, now.month);
-
-    final allPayments = <({Payment p, String shopName})>[];
     final requests = userId != null
         ? repo.ordersForAppUser(userId)
         : <CustomerOrder>[];
-
-    for (final b in billings) {
-      final shopName = b.shop.name;
-      final pays = repo.paymentsForCustomer(b.customer.id, month: month);
-      for (final p in pays) {
-        allPayments.add((p: p, shopName: shopName));
-      }
-    }
-
-    allPayments.sort((a, b) => b.p.date.compareTo(a.p.date));
 
     return CustomerScaffold(
       child: Column(
@@ -143,26 +127,6 @@ class CustomerContractActivityScreen extends StatelessWidget {
                           : null,
                     );
                   }),
-                CustomerSectionTitle(title: 'Payments (${allPayments.length})'),
-                if (allPayments.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'No payments recorded this month',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: CustomerColors.labelGrey,
-                      ),
-                    ),
-                  )
-                else
-                  ...allPayments.map(
-                    (e) => _PaymentTile(
-                      payment: e.p,
-                      shopName: e.shopName,
-                      showShopName: billings.length > 1,
-                    ),
-                  ),
               ],
             ),
           ),
@@ -212,84 +176,6 @@ class _ActivityHeader extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _PaymentTile extends StatelessWidget {
-  const _PaymentTile({
-    required this.payment,
-    required this.shopName,
-    required this.showShopName,
-  });
-
-  final Payment payment;
-  final String shopName;
-  final bool showShopName;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: CustomerColors.cardDecoration,
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF16A34A).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.payments_rounded,
-                color: Color(0xFF16A34A),
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (showShopName)
-                    Text(
-                      shopName,
-                      style: GoogleFonts.poppins(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: CustomerColors.accent,
-                      ),
-                    ),
-                  Text(
-                    payment.method.label,
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    '${payment.date.day}/${payment.date.month}/${payment.date.year}',
-                    style: GoogleFonts.poppins(
-                      fontSize: 11,
-                      color: CustomerColors.labelGrey,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              CurrencyUtils.format(payment.amount),
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF16A34A),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

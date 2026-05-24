@@ -45,6 +45,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
     return Consumer<WaterPlantRepository>(
       builder: (context, repo, _) {
         final products = _filtered(repo);
+        final totalProducts = repo.products.length;
+        final bottleCount = repo.products
+            .where((p) => p.category == ProductCategory.bottle)
+            .length;
+        final canCount = repo.products
+            .where((p) => p.category == ProductCategory.can)
+            .length;
 
         return Scaffold(
           backgroundColor: CustomersColors.screenBg,
@@ -65,34 +72,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 CustomersListPanel(
                   child: Column(
                     children: [
-                      const _ProductPricingNote(),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                        child: Row(
-                          children: [
-                            ProductCategoryChip(
-                              label: 'All',
-                              selected: _filter == _ProductFilter.all,
-                              onTap: () =>
-                                  setState(() => _filter = _ProductFilter.all),
-                            ),
-                            const SizedBox(width: 8),
-                            ProductCategoryChip(
-                              label: 'Bottles',
-                              selected: _filter == _ProductFilter.bottles,
-                              onTap: () => setState(
-                                () => _filter = _ProductFilter.bottles,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ProductCategoryChip(
-                              label: 'Cans',
-                              selected: _filter == _ProductFilter.cans,
-                              onTap: () =>
-                                  setState(() => _filter = _ProductFilter.cans),
-                            ),
-                          ],
-                        ),
+                      _ProductsToolbar(
+                        totalProducts: totalProducts,
+                        bottleCount: bottleCount,
+                        canCount: canCount,
+                        selectedFilter: _filter,
+                        onAdd: () => context.push('/products/add'),
+                        onFilterChanged: (filter) =>
+                            setState(() => _filter = filter),
                       ),
                       Expanded(
                         child: products.isEmpty
@@ -102,41 +89,20 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                     _filter != _ProductFilter.all,
                                 onAdd: () => context.push('/products/add'),
                               )
-                            : LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final width = constraints.maxWidth;
-                                  final crossAxisCount = width >= 900
-                                      ? 4
-                                      : width >= 640
-                                      ? 3
-                                      : 2;
-                                  final aspectRatio = width >= 640
-                                      ? 0.86
-                                      : 0.72;
-
-                                  return GridView.builder(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      16,
-                                      4,
-                                      16,
-                                      28,
-                                    ),
-                                    gridDelegate:
-                                        SliverGridDelegateWithFixedCrossAxisCount(
-                                          crossAxisCount: crossAxisCount,
-                                          crossAxisSpacing: 14,
-                                          mainAxisSpacing: 14,
-                                          childAspectRatio: aspectRatio,
-                                        ),
-                                    itemCount: products.length,
-                                    itemBuilder: (context, i) {
-                                      final p = products[i];
-                                      return ProductCatalogCard(
-                                        product: p,
-                                        onTap: () =>
-                                            context.push('/products/${p.id}'),
-                                      );
-                                    },
+                            : ListView.builder(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  4,
+                                  16,
+                                  28,
+                                ),
+                                itemCount: products.length,
+                                itemBuilder: (context, i) {
+                                  final p = products[i];
+                                  return ProductCatalogCard(
+                                    product: p,
+                                    onTap: () =>
+                                        context.push('/products/${p.id}'),
                                   );
                                 },
                               ),
@@ -174,89 +140,199 @@ class _EmptyProducts extends StatelessWidget {
       );
     }
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.inventory_2_outlined,
-              size: 64,
-              color: ProductsColors.statBlue.withValues(alpha: 0.5),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: constraints.maxHeight > 60
+                  ? constraints.maxHeight - 60
+                  : 0,
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Your catalog is empty',
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: ProductsColors.titleNavy,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.inventory_2_outlined,
+                    size: 54,
+                    color: ProductsColors.statBlue.withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Your catalog is empty',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: ProductsColors.titleNavy,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Add bottles and water cans here. Final rates are assigned inside each customer profile.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: ProductsColors.labelGrey,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  FilledButton.icon(
+                    onPressed: onAdd,
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Add product'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: CustomersColors.addButton,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 22,
+                        vertical: 13,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Add bottles and water cans here. Final rates are assigned inside each customer profile.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: ProductsColors.labelGrey,
-                height: 1.45,
-              ),
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: onAdd,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Add product'),
-              style: FilledButton.styleFrom(
-                backgroundColor: CustomersColors.addButton,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 14,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
 
-class _ProductPricingNote extends StatelessWidget {
-  const _ProductPricingNote();
+class _ProductsToolbar extends StatelessWidget {
+  const _ProductsToolbar({
+    required this.totalProducts,
+    required this.bottleCount,
+    required this.canCount,
+    required this.selectedFilter,
+    required this.onFilterChanged,
+    required this.onAdd,
+  });
+
+  final int totalProducts;
+  final int bottleCount;
+  final int canCount;
+  final _ProductFilter selectedFilter;
+  final ValueChanged<_ProductFilter> onFilterChanged;
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFBFDBFE)),
-      ),
-      child: Row(
+      margin: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+      padding: const EdgeInsets.all(14),
+      decoration: ProductsColors.cardDecoration,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.sell_outlined,
-            color: ProductsColors.statBlue,
-            size: 20,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Products are your catalog. Customer-specific rates are assigned when admin creates or edits a customer.',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                height: 1.35,
-                color: ProductsColors.titleNavy,
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: ProductsColors.statBlue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const Icon(
+                  Icons.inventory_2_rounded,
+                  color: ProductsColors.statBlue,
+                ),
               ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$totalProducts catalog products',
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: ProductsColors.titleNavy,
+                      ),
+                    ),
+                    Text(
+                      '$bottleCount bottles · $canCount cans',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: ProductsColors.labelGrey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: onAdd,
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Add Product'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: CustomersColors.addButton,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  textStyle: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                ProductCategoryChip(
+                  label: 'All',
+                  selected: selectedFilter == _ProductFilter.all,
+                  onTap: () => onFilterChanged(_ProductFilter.all),
+                ),
+                const SizedBox(width: 8),
+                ProductCategoryChip(
+                  label: 'Bottles',
+                  selected: selectedFilter == _ProductFilter.bottles,
+                  onTap: () => onFilterChanged(_ProductFilter.bottles),
+                ),
+                const SizedBox(width: 8),
+                ProductCategoryChip(
+                  label: 'Cans',
+                  selected: selectedFilter == _ProductFilter.cans,
+                  onTap: () => onFilterChanged(_ProductFilter.cans),
+                ),
+              ],
             ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(
+                Icons.info_outline_rounded,
+                color: ProductsColors.labelGrey,
+                size: 16,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Customer-specific rates are assigned in each customer profile.',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    height: 1.35,
+                    color: ProductsColors.labelGrey,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

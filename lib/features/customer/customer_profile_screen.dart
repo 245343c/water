@@ -2,13 +2,121 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/data/models/customer_app_profile.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customer/widgets/customer_theme.dart';
+import 'package:sri_sai_ro_water/features/more/widgets/shop_location_picker.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
-class CustomerProfileScreen extends StatelessWidget {
+class CustomerProfileScreen extends StatefulWidget {
   const CustomerProfileScreen({super.key});
+
+  @override
+  State<CustomerProfileScreen> createState() => _CustomerProfileScreenState();
+}
+
+class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _emailController = TextEditingController();
+  String? _loadedUserId;
+  double? _lat;
+  double? _lng;
+  String _place = '';
+  bool _saving = false;
+  bool _editing = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final auth = context.read<AuthRepository>();
+    final repo = context.read<WaterPlantRepository>();
+    final user = auth.currentUser;
+    if (user == null || _loadedUserId == user.id) return;
+
+    final profile = repo.customerProfileByUserId(user.id);
+    final crm = repo.linkedCrmCustomerForAppUser(user.id);
+    _loadedUserId = user.id;
+    _nameController.text =
+        profile?.name ?? crm?.name ?? user.ownerName.replaceAll('Customer', '');
+    _addressController.text = profile?.address ?? crm?.address ?? '';
+    _emailController.text = profile?.email ?? '';
+    _lat = profile?.latitude;
+    _lng = profile?.longitude;
+    _place = profile?.place ?? '';
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _addressController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_lat == null || _lng == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Set your delivery location on the map'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final auth = context.read<AuthRepository>();
+    final repo = context.read<WaterPlantRepository>();
+    final user = auth.currentUser;
+    if (user == null) return;
+
+    final existing = repo.customerProfileByUserId(user.id);
+    final profile = CustomerAppProfile(
+      userId: user.id,
+      name: _capitalizeWords(_nameController.text.trim()),
+      phone: user.phone,
+      address: _capitalizeSentence(_addressController.text.trim()),
+      latitude: _lat!,
+      longitude: _lng!,
+      email: _emailController.text.trim(),
+      place: _place,
+      linkedCrmCustomerId: existing?.linkedCrmCustomerId,
+      onboardingComplete: true,
+    );
+
+    setState(() => _saving = true);
+    repo.saveCustomerProfile(profile);
+    auth.markCustomerOnboardingComplete(user.id, name: profile.name);
+    if (!mounted) return;
+    setState(() {
+      _saving = false;
+      _editing = false;
+      _nameController.text = profile.name;
+      _addressController.text = profile.address;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Profile updated'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  static String _capitalizeWords(String s) {
+    if (s.isEmpty) return s;
+    return s
+        .split(RegExp(r'\s+'))
+        .map((w) => w.isEmpty ? w : w[0].toUpperCase() + w.substring(1))
+        .join(' ');
+  }
+
+  static String _capitalizeSentence(String s) {
+    if (s.isEmpty) return s;
+    return s[0].toUpperCase() + s.substring(1);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,173 +124,206 @@ class CustomerProfileScreen extends StatelessWidget {
     final repo = context.watch<WaterPlantRepository>();
     final user = auth.currentUser;
     final profile = user != null ? repo.customerProfileByUserId(user.id) : null;
+    final crm = user != null ? repo.linkedCrmCustomerForAppUser(user.id) : null;
     final isContract = user != null &&
         repo.isMonthlyContractAppUser(user.id, phone: user.phone);
-    final crm = user != null ? repo.linkedCrmCustomerForAppUser(user.id) : null;
-    final shopCount = user != null ? repo.shopBillingsForAppUser(user.id).length : 0;
-    final displayName = crm?.name ?? profile?.name ?? user?.ownerName ?? 'Customer';
-    final hasDelivery = profile != null && profile.onboardingComplete;
+    final displayName = _nameController.text.trim().isNotEmpty
+        ? _nameController.text.trim()
+        : crm?.name ?? profile?.name ?? user?.ownerName ?? 'Customer';
     final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
 
     return CustomerScaffold(
       child: Column(
         children: [
-          _ProfileHero(
+          _ProfileHeader(
             name: displayName,
             phone: user?.phone ?? '',
             initial: initial,
             isContract: isContract,
-            shopCount: shopCount,
+            editing: _editing,
+            onEdit: () => setState(() => _editing = !_editing),
           ),
           Expanded(
-            child: ListView(
-              padding: EdgeInsets.only(
-                bottom: customerBottomInset(context, extra: 16),
-              ),
-              children: [
-                  CustomerSectionTitle(title: 'Account'),
-                  _ProfileTile(
-                    icon: Icons.phone_android_rounded,
-                    label: 'Mobile',
-                    value: user?.phone ?? '—',
-                    iconColor: CustomerColors.accent,
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                padding: EdgeInsets.fromLTRB(
+                  18,
+                  18,
+                  18,
+                  customerBottomInset(context, extra: 18),
+                ),
+                children: [
+                  _ProfileDetailsPanel(
+                    editing: _editing,
+                    nameController: _nameController,
+                    emailController: _emailController,
+                    addressController: _addressController,
+                    phone: user?.phone ?? '-',
+                    onChanged: () => setState(() {}),
                   ),
-                  if (isContract && shopCount > 0)
-                    _ProfileTile(
-                      icon: Icons.storefront_rounded,
-                      label: 'Linked shops',
-                      value: '$shopCount shops with monthly billing',
-                      iconColor: CustomerColors.contractPurple,
-                    ),
-                  CustomerSectionTitle(title: 'Delivery'),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Material(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      elevation: 0,
-                      child: InkWell(
-                        onTap: () => context.push(AppRoutes.customerOnboarding),
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: CustomerColors.cardBorder),
-                            gradient: LinearGradient(
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                              colors: [
-                                CustomerColors.accent.withValues(alpha: 0.06),
-                                Colors.white,
-                              ],
+                  const SizedBox(height: 14),
+                  _LocationBar(
+                    latitude: _lat,
+                    longitude: _lng,
+                    place: _place,
+                    address: _addressController.text,
+                    onTap: () => _showLocationSheet(context),
+                  ),
+                  if (_editing) ...[
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: _saving
+                                ? null
+                                : () => setState(() => _editing = false),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(48),
+                              foregroundColor: CustomerColors.labelGrey,
+                              side: const BorderSide(
+                                color: CustomerColors.cardBorder,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: Text(
+                              'Cancel',
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: CustomerColors.accent.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: const Icon(
-                                  Icons.location_on_rounded,
-                                  color: CustomerColors.accent,
-                                  size: 26,
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      hasDelivery ? 'Deliver to' : 'Set delivery address',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: CustomerColors.labelGrey,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      hasDelivery
-                                          ? profile.address
-                                          : 'Add home address & map pin for orders',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: CustomerColors.titleNavy,
-                                        height: 1.35,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Icon(Icons.chevron_right_rounded,
-                                  color: CustomerColors.accent),
-                            ],
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 2,
+                          child: CustomerPrimaryButton(
+                            label: 'Save profile',
+                            icon: Icons.check_rounded,
+                            loading: _saving,
+                            onPressed: _saving ? null : _saveProfile,
                           ),
                         ),
-                      ),
+                      ],
                     ),
+                  ],
+                  const SizedBox(height: 18),
+                  _AccountActions(
+                    onSignOut: () {
+                      auth.logout();
+                      context.go(AppRoutes.welcome);
+                    },
+                    onDelete: () => _confirmDelete(context, auth),
                   ),
-                  const SizedBox(height: 24),
-                  CustomerSectionTitle(title: 'Session'),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: CustomerPrimaryButton(
-                      label: 'Sign out',
-                      icon: Icons.logout_rounded,
-                      onPressed: () {
-                        auth.logout();
-                        context.go(AppRoutes.welcome);
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: OutlinedButton.icon(
-                      onPressed: () => _confirmDelete(context, auth),
-                      icon: const Icon(Icons.delete_outline_rounded,
-                          color: Color(0xFFEF4444), size: 20),
-                      label: Text(
-                        'Delete account',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFFEF4444),
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(48),
-                        side: const BorderSide(color: Color(0xFFEF4444)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-                    child: Text(
-                      'Deleting your account removes your profile from this device. '
-                      'Required by Google Play & App Store for apps with sign-in.',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.poppins(
-                        fontSize: 10,
-                        color: CustomerColors.labelGrey,
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
-          ],
-        ),
-      );
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showLocationSheet(BuildContext context) async {
+    var tempLat = _lat;
+    var tempLng = _lng;
+    var tempPlace = _place;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                14,
+                16,
+                MediaQuery.paddingOf(ctx).bottom + 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE5E7EB),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Delivery location',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: CustomerColors.titleNavy,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Move the map and confirm the customer delivery pin.',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: CustomerColors.labelGrey,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    height: MediaQuery.sizeOf(ctx).height * 0.46,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: ShopLocationPicker(
+                        minimal: true,
+                        latitude: tempLat,
+                        longitude: tempLng,
+                        addressText: _addressController.text,
+                        onChanged: (lat, lng, place) {
+                          if (lat == null || lng == null) return;
+                          setSheetState(() {
+                            tempLat = lat;
+                            tempLng = lng;
+                            if (place != null && place.isNotEmpty) {
+                              tempPlace = place;
+                            }
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  CustomerPrimaryButton(
+                    label: 'Use this location',
+                    icon: Icons.location_on_rounded,
+                    onPressed: tempLat == null || tempLng == null
+                        ? null
+                        : () {
+                            setState(() {
+                              _lat = tempLat;
+                              _lng = tempLng;
+                              _place = tempPlace;
+                            });
+                            Navigator.of(ctx).pop();
+                          },
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _confirmDelete(BuildContext context, AuthRepository auth) {
@@ -192,18 +333,21 @@ class CustomerProfileScreen extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Delete account?',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+        title: Text(
+          'Delete account?',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+        ),
         content: Text(
-          'This permanently deletes your app account and saved delivery details. '
-          'Monthly billing with shops is managed by each shop separately.',
-          style: GoogleFonts.poppins(fontSize: 13),
+          'This permanently deletes your app account and saved delivery details. Monthly billing with shops is managed separately.',
+          style: GoogleFonts.poppins(fontSize: 13, height: 1.4),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('Cancel',
-                style: GoogleFonts.poppins(color: CustomerColors.labelGrey)),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(color: CustomerColors.labelGrey),
+            ),
           ),
           TextButton(
             onPressed: () {
@@ -211,9 +355,13 @@ class CustomerProfileScreen extends StatelessWidget {
               auth.deleteCustomerAccount(userId);
               context.go(AppRoutes.welcome);
             },
-            child: Text('Delete',
-                style: GoogleFonts.poppins(
-                    color: const Color(0xFFEF4444), fontWeight: FontWeight.w700)),
+            child: Text(
+              'Delete',
+              style: GoogleFonts.poppins(
+                color: const Color(0xFFDC2626),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),
@@ -221,20 +369,22 @@ class CustomerProfileScreen extends StatelessWidget {
   }
 }
 
-class _ProfileHero extends StatelessWidget {
-  const _ProfileHero({
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({
     required this.name,
     required this.phone,
     required this.initial,
     required this.isContract,
-    required this.shopCount,
+    required this.editing,
+    required this.onEdit,
   });
 
   final String name;
   final String phone;
   final String initial;
   final bool isContract;
-  final int shopCount;
+  final bool editing;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -243,22 +393,21 @@ class _ProfileHero extends StatelessWidget {
       decoration: CustomerColors.headerGradient,
       padding: EdgeInsets.fromLTRB(
         20,
-        MediaQuery.paddingOf(context).top + 20,
+        MediaQuery.paddingOf(context).top + 18,
         20,
-        28,
+        22,
       ),
-      child: Column(
+      child: Row(
         children: [
           Container(
-            width: 88,
-            height: 88,
+            width: 68,
+            height: 68,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.white,
-              border: Border.all(color: Colors.white, width: 3),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.15),
+                  color: Colors.black.withValues(alpha: 0.16),
                   blurRadius: 16,
                   offset: const Offset(0, 6),
                 ),
@@ -268,112 +417,502 @@ class _ProfileHero extends StatelessWidget {
             child: Text(
               initial,
               style: GoogleFonts.poppins(
-                fontSize: 36,
+                fontSize: 28,
                 fontWeight: FontWeight.w800,
                 color: CustomerColors.accent,
               ),
             ),
           ),
-          const SizedBox(height: 14),
-          Text(
-            name,
-            style: GoogleFonts.poppins(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  phone,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    color: Colors.white.withValues(alpha: 0.86),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (isContract) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.22),
+                      ),
+                    ),
+                    child: Text(
+                      'Monthly customer',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            phone,
-            style: GoogleFonts.poppins(
-              color: Colors.white.withValues(alpha: 0.85),
-              fontSize: 14,
-            ),
-          ),
-          if (isContract) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                shopCount > 1
-                    ? 'Bulk · $shopCount shop accounts'
-                    : 'Bulk / monthly account',
-                style: GoogleFonts.poppins(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+          const SizedBox(width: 10),
+          Material(
+            color: Colors.white.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              onTap: onEdit,
+              borderRadius: BorderRadius.circular(14),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      editing ? Icons.close_rounded : Icons.edit_rounded,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      editing ? 'Close' : 'Edit',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
+          ),
         ],
       ),
     );
   }
 }
 
-class _ProfileTile extends StatelessWidget {
-  const _ProfileTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.iconColor,
+class _ProfileDetailsPanel extends StatelessWidget {
+  const _ProfileDetailsPanel({
+    required this.editing,
+    required this.nameController,
+    required this.emailController,
+    required this.addressController,
+    required this.phone,
+    required this.onChanged,
   });
 
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color iconColor;
+  final bool editing;
+  final TextEditingController nameController;
+  final TextEditingController emailController;
+  final TextEditingController addressController;
+  final String phone;
+  final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: CustomerColors.cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _ProfileRow(
+            icon: Icons.person_outline_rounded,
+            label: 'Full name',
+            value: nameController.text,
+            editing: editing,
+            controller: nameController,
+            validator: (v) =>
+                v == null || v.trim().isEmpty ? 'Name is required' : null,
+            textCapitalization: TextCapitalization.words,
+            onChanged: (_) => onChanged(),
+          ),
+          const _ProfileInsetDivider(),
+          _ProfileRow(
+            icon: Icons.phone_iphone_rounded,
+            label: 'Mobile number',
+            value: phone,
+            editing: false,
+          ),
+          const _ProfileInsetDivider(),
+          _ProfileRow(
+            icon: Icons.mail_outline_rounded,
+            label: 'Email',
+            value: emailController.text.trim().isEmpty
+                ? 'Not added'
+                : emailController.text.trim(),
+            editing: editing,
+            controller: emailController,
+            hint: 'Optional',
+            keyboardType: TextInputType.emailAddress,
+          ),
+          const _ProfileInsetDivider(),
+          _ProfileRow(
+            icon: Icons.home_outlined,
+            label: 'Delivery address',
+            value: addressController.text.trim().isEmpty
+                ? 'Add delivery address'
+                : addressController.text.trim(),
+            editing: editing,
+            controller: addressController,
+            hint: 'House no., street, area, city',
+            maxLines: 2,
+            validator: (v) => v == null || v.trim().length < 8
+                ? 'Enter full address'
+                : null,
+            textCapitalization: TextCapitalization.sentences,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileRow extends StatelessWidget {
+  const _ProfileRow({
+    required this.label,
+    required this.icon,
+    required this.value,
+    required this.editing,
+    this.controller,
+    this.hint,
+    this.keyboardType,
+    this.validator,
+    this.maxLines = 1,
+    this.textCapitalization = TextCapitalization.none,
+    this.onChanged,
+  });
+
+  final String label;
+  final IconData icon;
+  final String value;
+  final bool editing;
+  final TextEditingController? controller;
+  final String? hint;
+  final TextInputType? keyboardType;
+  final String? Function(String?)? validator;
+  final int maxLines;
+  final TextCapitalization textCapitalization;
+  final ValueChanged<String>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final canEdit = editing && controller != null;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: CustomerColors.cardDecoration,
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: iconColor, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: GoogleFonts.poppins(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: CustomerColors.labelGrey,
-                    ),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Row(
+        crossAxisAlignment:
+            maxLines > 1 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+        children: [
+          _FieldIcon(icon: icon),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: CustomerColors.labelGrey,
                   ),
-                  Text(
-                    value,
+                ),
+                const SizedBox(height: 4),
+                if (canEdit)
+                  TextFormField(
+                    controller: controller,
+                    keyboardType: keyboardType,
+                    validator: validator,
+                    maxLines: maxLines,
+                    onChanged: onChanged,
+                    textCapitalization: textCapitalization,
                     style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
                       color: CustomerColors.titleNavy,
                     ),
+                    decoration: InputDecoration(
+                      hintText: hint,
+                      hintStyle: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: CustomerColors.labelGrey,
+                      ),
+                      isDense: true,
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: CustomerColors.cardBorder,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: CustomerColors.accent,
+                        ),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: Color(0xFFDC2626),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Text(
+                    value,
+                    maxLines: maxLines > 1 ? 3 : 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
+                      height: 1.35,
+                      fontWeight: FontWeight.w800,
+                      color: value == 'Not added' ||
+                              value == 'Add delivery address'
+                          ? CustomerColors.labelGrey
+                          : CustomerColors.titleNavy,
+                    ),
                   ),
-                ],
-              ),
+              ],
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FieldIcon extends StatelessWidget {
+  const _FieldIcon({required this.icon});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        color: CustomerColors.accent.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(icon, color: CustomerColors.accent, size: 20),
+    );
+  }
+}
+
+class _ProfileInsetDivider extends StatelessWidget {
+  const _ProfileInsetDivider();
+
+  @override
+  Widget build(BuildContext context) => const Padding(
+        padding: EdgeInsets.only(left: 66),
+        child: Divider(height: 1, color: CustomerColors.cardBorder),
+      );
+}
+
+class _LocationBar extends StatelessWidget {
+  const _LocationBar({
+    required this.latitude,
+    required this.longitude,
+    required this.place,
+    required this.address,
+    required this.onTap,
+  });
+
+  final double? latitude;
+  final double? longitude;
+  final String place;
+  final String address;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPin = latitude != null && longitude != null;
+    final subtitle = place.trim().isNotEmpty
+        ? place.trim()
+        : hasPin
+            ? 'Pin selected for delivery'
+            : 'Tap to set delivery pin';
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: CustomerColors.cardBorder),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+            color: Colors.white,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: CustomerColors.accent.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.location_on_rounded,
+                  color: CustomerColors.accent,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Location',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: CustomerColors.labelGrey,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      address.trim().isEmpty ? subtitle : address.trim(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: CustomerColors.titleNavy,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: CustomerColors.labelGrey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: CustomerColors.accent,
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _AccountActions extends StatelessWidget {
+  const _AccountActions({
+    required this.onSignOut,
+    required this.onDelete,
+  });
+
+  final VoidCallback onSignOut;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: onSignOut,
+            icon: const Icon(Icons.logout_rounded, size: 18),
+            label: Text(
+              'Sign out',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: CustomerColors.accent,
+              minimumSize: const Size.fromHeight(48),
+              side: const BorderSide(color: CustomerColors.cardBorder),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: onDelete,
+            icon: const Icon(Icons.delete_outline_rounded, size: 18),
+            label: Text(
+              'Delete',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFFDC2626),
+              minimumSize: const Size.fromHeight(48),
+              side: const BorderSide(color: Color(0xFFFECACA)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

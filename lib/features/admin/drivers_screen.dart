@@ -79,6 +79,77 @@ class DriversScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _showEditDriver(BuildContext context, Driver driver) async {
+    final result = await showModalBottomSheet<EditDriverResult>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => EditDriverSheet(
+        initialName: driver.name,
+        initialPhone: driver.phone,
+        initialEmail: driver.email,
+      ),
+    );
+    if (result == null || !context.mounted) return;
+
+    final repo = context.read<WaterPlantRepository>();
+    final auth = context.read<AuthRepository>();
+    repo.updateDriver(
+      driverId: driver.id,
+      name: result.name,
+      phone: result.phone,
+      email: result.email,
+    );
+    auth.updateDriverAccount(
+      driverId: driver.id,
+      name: result.name,
+      phone: result.phone,
+      email: result.email,
+    );
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Driver updated', style: GoogleFonts.poppins())),
+    );
+  }
+
+  Future<void> _deleteDriver(BuildContext context, Driver driver) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Delete driver?',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          'This removes ${driver.name} and their login access.',
+          style: GoogleFonts.poppins(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: GoogleFonts.poppins()),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Delete', style: GoogleFonts.poppins()),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+
+    context.read<AuthRepository>().deleteDriverAccount(driver.id);
+    context.read<WaterPlantRepository>().deleteDriver(driver.id);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Driver deleted', style: GoogleFonts.poppins())),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer2<WaterPlantRepository, AuthRepository>(
@@ -110,6 +181,8 @@ class DriversScreen extends StatelessWidget {
                             hasLogin: auth.hasAccountForDriver(drivers[i].id),
                             accountEmail: auth.accountForDriver(drivers[i].id)?.email,
                             onToggleActive: (active) => repo.setDriverActive(drivers[i].id, active),
+                            onEdit: () => _showEditDriver(context, drivers[i]),
+                            onDelete: () => _deleteDriver(context, drivers[i]),
                           ),
                         ),
                 ),
@@ -128,12 +201,16 @@ class _DriverCard extends StatelessWidget {
     required this.hasLogin,
     required this.accountEmail,
     required this.onToggleActive,
+    required this.onEdit,
+    required this.onDelete,
   });
 
   final Driver driver;
   final bool hasLogin;
   final String? accountEmail;
   final ValueChanged<bool> onToggleActive;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -180,6 +257,44 @@ class _DriverCard extends StatelessWidget {
                 value: driver.active,
                 activeTrackColor: DriversColors.accent,
                 onChanged: onToggleActive,
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'Driver actions',
+                onSelected: (value) {
+                  if (value == 'edit') onEdit();
+                  if (value == 'delete') onDelete();
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.edit_outlined, size: 18),
+                        const SizedBox(width: 8),
+                        Text('Edit', style: GoogleFonts.poppins()),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 18,
+                          color: Color(0xFFDC2626),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Delete',
+                          style: GoogleFonts.poppins(
+                            color: const Color(0xFFDC2626),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
