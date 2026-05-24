@@ -8,6 +8,7 @@ const User = require('../src/models/User');
 const Shop = require('../src/models/Shop');
 const Driver = require('../src/models/Driver');
 const Customer = require('../src/models/Customer');
+const DeliveryRoute = require('../src/models/DeliveryRoute');
 
 const SHOP_ID = 'shop-1';
 
@@ -111,6 +112,39 @@ async function seed() {
     { upsert: true, new: true },
   );
   console.log('Customer seeded for OTP login: +91 99999 99999 (OTP: 123456)');
+
+  const routes = [
+    { routeId: 'route-1', name: 'Route 1', sortOrder: 1 },
+    { routeId: 'route-2', name: 'Route 2', sortOrder: 2 },
+    { routeId: 'route-3', name: 'Route 3', sortOrder: 3 },
+  ];
+  for (const route of routes) {
+    await DeliveryRoute.findOneAndUpdate(
+      { routeId: route.routeId, shopId: SHOP_ID },
+      { ...route, shopId: SHOP_ID, active: true },
+      { upsert: true, new: true },
+    );
+  }
+  console.log('Delivery routes seeded:', routes.map((r) => r.name).join(', '));
+
+  await Customer.findOneAndUpdate(
+    { customerId: 'cust-demo-2', shopId: SHOP_ID },
+    {
+      customerId: 'cust-demo-2',
+      shopId: SHOP_ID,
+      name: 'Ramesh Kumar',
+      phone: '+91 98850 12345',
+      address: 'Door No: 12-5-8, Gandhi Nagar',
+      place: 'Gandhi Nagar, Rajahmundry',
+      routeId: 'route-1',
+      routeNote: 'Weekly route — usually 3 normal + 1 cool',
+      customerType: 'manual_customer',
+      billingMode: 'monthly_contract',
+      status: 'active',
+    },
+    { upsert: true, new: true },
+  );
+  console.log('Sample routed customer seeded: Ramesh Kumar (Route 1)');
 
   // Backfill phoneLast10 for existing customers (production index)
   const { phoneDigits } = require('../src/utils/phone');

@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/core/widgets/monthly_metrics_list.dart';
@@ -15,49 +17,49 @@ import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class MonthlySummaryColors {
-  static const Color screenBg = Color(0xFFF3F4F6);
-  static const Color titleNavy = Color(0xFF1E3A8A);
+  static const Color screenBg = AppColors.surface;
+  static const Color titleNavy = AppColors.textPrimary;
   static const Color valueNavy = Color(0xFF1E40AF);
   static const Color labelGrey = Color(0xFF6B7280);
-  static const Color cardBorder = Color(0xFFE5E7EB);
-  static const Color divider = Color(0xFFE5E7EB);
+  static const Color cardBorder = AppColors.cardBorder;
+  static const Color divider = AppColors.cardBorder;
   static const Color statBlue = Color(0xFF2563EB);
   static const Color statGreen = Color(0xFF16A34A);
   static const Color statOrange = Color(0xFFEA580C);
   static const Color statRed = Color(0xFFDC2626);
-  static const Color linkBlue = Color(0xFF1A73E8);
-  static const Color primaryBtn = Color(0xFF1A73E8);
+  static const Color linkBlue = AppColors.primary;
+  static const Color primaryBtn = AppColors.primary;
   static const Color whatsapp = Color(0xFF25D366);
 
   static BoxDecoration get cardDecoration => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      );
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(color: cardBorder),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.05),
+        blurRadius: 10,
+        offset: const Offset(0, 2),
+      ),
+    ],
+  );
 
   static BoxDecoration get premiumPanel => BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFEFF6FF), Color(0xFFF8FAFC), Colors.white],
-        ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFBFDBFE)),
-        boxShadow: [
-          BoxShadow(
-            color: statBlue.withValues(alpha: 0.07),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      );
+    gradient: const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFFEFF6FF), Color(0xFFF8FAFC), Colors.white],
+    ),
+    borderRadius: BorderRadius.circular(14),
+    border: Border.all(color: const Color(0xFFBFDBFE)),
+    boxShadow: [
+      BoxShadow(
+        color: statBlue.withValues(alpha: 0.07),
+        blurRadius: 12,
+        offset: const Offset(0, 4),
+      ),
+    ],
+  );
 }
 
 class MonthlySummaryHeader extends StatelessWidget {
@@ -72,46 +74,10 @@ class MonthlySummaryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(4, MediaQuery.paddingOf(context).top + 4, 8, 14),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Monthly Summary',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (monthLabel != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    monthLabel!,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.poppins(
-                      color: Colors.white.withValues(alpha: 0.85),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 48),
-        ],
-      ),
+    return AdminPageHeader(
+      title: 'Monthly Summary',
+      subtitle: monthLabel,
+      onBack: onBack,
     );
   }
 }
@@ -128,10 +94,7 @@ class MonthlySummaryCustomerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomerInfoBar(
-      customer: customer,
-      colorIndex: colorIndex,
-    );
+    return CustomerInfoBar(customer: customer, colorIndex: colorIndex);
   }
 }
 
@@ -159,7 +122,10 @@ class MonthlySummaryMonthNav extends StatelessWidget {
         child: Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.chevron_left, color: MonthlySummaryColors.labelGrey),
+              icon: const Icon(
+                Icons.chevron_left,
+                color: MonthlySummaryColors.labelGrey,
+              ),
               onPressed: onPrev,
             ),
             Expanded(
@@ -176,7 +142,9 @@ class MonthlySummaryMonthNav extends StatelessWidget {
             IconButton(
               icon: Icon(
                 Icons.chevron_right,
-                color: canGoNext ? MonthlySummaryColors.labelGrey : MonthlySummaryColors.labelGrey.withValues(alpha: 0.35),
+                color: canGoNext
+                    ? MonthlySummaryColors.labelGrey
+                    : MonthlySummaryColors.labelGrey.withValues(alpha: 0.35),
               ),
               onPressed: canGoNext ? onNext : null,
             ),
@@ -238,7 +206,9 @@ class MonthlySummaryAccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = stats.isPaid ? MonthlySummaryColors.statGreen : MonthlySummaryColors.statOrange;
+    final statusColor = stats.isPaid
+        ? MonthlySummaryColors.statGreen
+        : MonthlySummaryColors.statOrange;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -272,7 +242,9 @@ class MonthlySummaryAccountCard extends StatelessWidget {
                   Expanded(
                     child: _StatCell(
                       label: 'Balance Due',
-                      value: CurrencyUtils.format(balance.clamp(0, double.infinity)),
+                      value: CurrencyUtils.format(
+                        balance.clamp(0, double.infinity),
+                      ),
                       color: MonthlySummaryColors.statRed,
                       compact: true,
                     ),
@@ -346,7 +318,10 @@ class MonthlyDeliveriesSection extends StatelessWidget {
                   GestureDetector(
                     onTap: onViewAll,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEFF6FF),
                         borderRadius: BorderRadius.circular(20),
@@ -370,7 +345,10 @@ class MonthlyDeliveriesSection extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 20),
                 child: Text(
                   'No deliveries this month',
-                  style: GoogleFonts.poppins(fontSize: 13, color: MonthlySummaryColors.labelGrey),
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: MonthlySummaryColors.labelGrey,
+                  ),
                 ),
               )
             else
@@ -380,7 +358,10 @@ class MonthlyDeliveriesSection extends StatelessWidget {
                   children: [
                     _DeliveryRow(delivery: d),
                     if (i < preview.length - 1)
-                      const Divider(height: 1, color: MonthlySummaryColors.divider),
+                      const Divider(
+                        height: 1,
+                        color: MonthlySummaryColors.divider,
+                      ),
                   ],
                 );
               }),
@@ -416,7 +397,10 @@ class _DeliveryRow extends StatelessWidget {
           Expanded(
             child: Text(
               delivery.itemsSummary,
-              style: GoogleFonts.poppins(fontSize: 13, color: MonthlySummaryColors.valueNavy),
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: MonthlySummaryColors.valueNavy,
+              ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -487,7 +471,10 @@ class MonthlyPaymentsSection extends StatelessWidget {
                   GestureDetector(
                     onTap: onViewAllPayments,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFECFDF5),
                         borderRadius: BorderRadius.circular(20),
@@ -512,7 +499,10 @@ class MonthlyPaymentsSection extends StatelessWidget {
                 child: Center(
                   child: Text(
                     'No payments recorded for this month',
-                    style: GoogleFonts.poppins(fontSize: 13, color: MonthlySummaryColors.labelGrey),
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: MonthlySummaryColors.labelGrey,
+                    ),
                   ),
                 ),
               )
@@ -532,7 +522,10 @@ class MonthlyPaymentsSection extends StatelessWidget {
                   children: [
                     _PaymentRow(payment: p),
                     if (i < preview.length - 1)
-                      const Divider(height: 1, color: MonthlySummaryColors.divider),
+                      const Divider(
+                        height: 1,
+                        color: MonthlySummaryColors.divider,
+                      ),
                   ],
                 );
               }),
@@ -562,7 +555,11 @@ class _PaymentRow extends StatelessWidget {
               color: MonthlySummaryColors.statGreen.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.payments_outlined, size: 20, color: MonthlySummaryColors.statGreen),
+            child: const Icon(
+              Icons.payments_outlined,
+              size: 20,
+              color: MonthlySummaryColors.statGreen,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -579,7 +576,10 @@ class _PaymentRow extends StatelessWidget {
                 ),
                 Text(
                   payment.method.label,
-                  style: GoogleFonts.poppins(fontSize: 12, color: MonthlySummaryColors.labelGrey),
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: MonthlySummaryColors.labelGrey,
+                  ),
                 ),
               ],
             ),
@@ -617,7 +617,11 @@ class MonthlySummaryInfoBanner extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.info_outline, size: 18, color: MonthlySummaryColors.statBlue),
+            const Icon(
+              Icons.info_outline,
+              size: 18,
+              color: MonthlySummaryColors.statBlue,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -741,8 +745,13 @@ class MonthlySummaryPdfButton extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: MonthlySummaryColors.primaryBtn,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                textStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               child: const Text('View Monthly Bill (PDF)'),
             ),
@@ -773,7 +782,10 @@ class _StatCell extends StatelessWidget {
         Text(
           label,
           textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(fontSize: 10, color: MonthlySummaryColors.labelGrey),
+          style: GoogleFonts.poppins(
+            fontSize: 10,
+            color: MonthlySummaryColors.labelGrey,
+          ),
           maxLines: 2,
         ),
         const SizedBox(height: 8),
@@ -799,7 +811,11 @@ class _VertDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const VerticalDivider(width: 1, thickness: 1, color: MonthlySummaryColors.divider);
+    return const VerticalDivider(
+      width: 1,
+      thickness: 1,
+      color: MonthlySummaryColors.divider,
+    );
   }
 }
 
@@ -815,7 +831,7 @@ class MonthlySummaryScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: child,
+      child: PremiumResponsiveBody(maxWidth: 1180, child: child),
     );
   }
 }

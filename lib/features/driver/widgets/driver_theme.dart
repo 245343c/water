@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
+import 'package:sri_sai_ro_water/data/models/delivery_route.dart';
 
 /// Driver persona theme — teal field-app accent (see PRODUCT_ARCHITECTURE.md).
 abstract final class DriverColors {
@@ -50,9 +51,12 @@ class DriverScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: PremiumResponsiveBody(
-        maxWidth: 920,
-        child: child,
+      child: ColoredBox(
+        color: DriverColors.screenBg,
+        child: PremiumResponsiveBody(
+          maxWidth: 1180,
+          child: child,
+        ),
       ),
     );
   }
@@ -64,11 +68,13 @@ class DriverHeader extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.onBack,
+    this.trailing,
   });
 
   final String title;
   final String? subtitle;
   final VoidCallback? onBack;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -84,28 +90,47 @@ class DriverHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (onBack != null)
-            IconButton(
-              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-              onPressed: onBack,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-            ),
-          Text(
-            title,
-            style: GoogleFonts.poppins(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-            ),
+          Row(
+            children: [
+              if (onBack != null)
+                IconButton(
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: Colors.white,
+                  ),
+                  onPressed: onBack,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
+                ),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (trailing != null) ...[
+                const SizedBox(width: 12),
+                trailing!,
+              ],
+            ],
           ),
           if (subtitle != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              subtitle!,
-              style: GoogleFonts.poppins(
-                color: Colors.white.withValues(alpha: 0.9),
-                fontSize: 12,
+            SizedBox(height: onBack != null ? 4 : 6),
+            Padding(
+              padding: EdgeInsets.only(left: onBack != null ? 40 : 0),
+              child: Text(
+                subtitle!,
+                style: GoogleFonts.poppins(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontSize: 12,
+                ),
               ),
             ),
           ],
@@ -225,6 +250,83 @@ class DriverSectionTitle extends StatelessWidget {
           ),
           ?trailing,
         ],
+      ),
+    );
+  }
+}
+
+const String driverUnassignedRouteFilter = '__driver_unassigned_route__';
+
+class DriverRouteFilter extends StatelessWidget {
+  const DriverRouteFilter({
+    super.key,
+    required this.routes,
+    required this.selected,
+    required this.onSelected,
+    this.showUnassigned = false,
+  });
+
+  final List<DeliveryRoute> routes;
+  final String? selected;
+  final ValueChanged<String?> onSelected;
+  final bool showUnassigned;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: DropdownButtonFormField<String?>(
+        value: selected,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: 'Route',
+          labelStyle: GoogleFonts.poppins(
+            fontSize: 12,
+            color: DriverColors.labelGrey,
+          ),
+          prefixIcon: const Icon(
+            Icons.route_rounded,
+            color: DriverColors.accent,
+          ),
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 12,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: DriverColors.cardBorder),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: DriverColors.cardBorder),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(
+              color: DriverColors.accent,
+              width: 1.4,
+            ),
+          ),
+        ),
+        items: [
+          DropdownMenuItem<String?>(
+            value: null,
+            child: Text('All Routes', style: GoogleFonts.poppins()),
+          ),
+          if (showUnassigned)
+            DropdownMenuItem<String?>(
+              value: driverUnassignedRouteFilter,
+              child: Text('Unassigned', style: GoogleFonts.poppins()),
+            ),
+          for (final route in routes)
+            DropdownMenuItem<String?>(
+              value: route.id,
+              child: Text(route.name, style: GoogleFonts.poppins()),
+            ),
+        ],
+        onChanged: onSelected,
       ),
     );
   }

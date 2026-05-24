@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 
 /// Customer app theme — mirrors driver field-app quality with blue accent.
 abstract final class CustomerColors {
@@ -50,7 +51,10 @@ class CustomerScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: child,
+      child: ColoredBox(
+        color: CustomerColors.screenBg,
+        child: PremiumResponsiveBody(maxWidth: 1180, child: child),
+      ),
     );
   }
 }

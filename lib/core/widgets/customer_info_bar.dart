@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
@@ -16,7 +17,7 @@ class CustomerInfoBar extends StatelessWidget {
   final int colorIndex;
   final VoidCallback? onWhatsAppTap;
 
-  static const Color _titleNavy = Color(0xFF1E3A8A);
+  static const Color _titleNavy = AppColors.textPrimary;
   static const Color _labelGrey = Color(0xFF6B7280);
   static const Color _statBlue = Color(0xFF2563EB);
   static const Color _whatsapp = Color(0xFF25D366);

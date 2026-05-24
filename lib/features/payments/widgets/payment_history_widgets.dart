@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/payment.dart';
 import 'package:sri_sai_ro_water/data/models/payment_method.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class PaymentHistoryColors {
-  static const Color screenBg = Color(0xFFF3F4F6);
-  static const Color titleNavy = Color(0xFF1E3A8A);
+  static const Color screenBg = AppColors.surface;
+  static const Color titleNavy = AppColors.textPrimary;
   static const Color valueNavy = Color(0xFF111827);
   static const Color labelGrey = Color(0xFF6B7280);
   static const Color statGreen = Color(0xFF16A34A);
-  static const Color cardBorder = Color(0xFFE5E7EB);
+  static const Color cardBorder = AppColors.cardBorder;
 }
 
 class PaymentHistoryHeader extends StatelessWidget {
@@ -24,29 +26,10 @@ class PaymentHistoryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(4, MediaQuery.paddingOf(context).top + 4, 8, 14),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Payment History',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(width: 48),
-        ],
-      ),
+    return AdminPageHeader(
+      title: 'Payment History',
+      subtitle: 'Collections and monthly records',
+      onBack: onBack,
     );
   }
 }
@@ -63,7 +46,8 @@ class PaymentHistoryCustomerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = CustomersColors.avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
+    final bg = CustomersColors
+        .avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
 
     return Container(
       color: Colors.white,
@@ -150,7 +134,11 @@ class PaymentHistoryHeroCard extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 26),
+            child: const Icon(
+              Icons.account_balance_wallet_rounded,
+              color: Colors.white,
+              size: 26,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -439,7 +427,7 @@ class PaymentHistoryScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: child,
+      child: PremiumResponsiveBody(maxWidth: 1180, child: child),
     );
   }
 }

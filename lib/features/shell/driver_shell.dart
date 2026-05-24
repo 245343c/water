@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -14,7 +16,11 @@ class DriverShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer3<WaterPlantRepository, NotificationRepository, AuthRepository>(
+    return Consumer3<
+      WaterPlantRepository,
+      NotificationRepository,
+      AuthRepository
+    >(
       builder: (context, repo, notifications, auth, _) {
         final driverId = auth.currentUser?.driverId;
         final tasks = repo.driverAcceptedOrders(driverId: driverId).length;
@@ -23,8 +29,8 @@ class DriverShell extends StatelessWidget {
 
         return Scaffold(
           backgroundColor: DriverColors.screenBg,
-          body: navigationShell,
-          bottomNavigationBar: Container(
+          body: _ResponsiveDriverShellBody(child: navigationShell),
+          bottomNavigationBar: _DriverBottomNavFrame(
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
@@ -45,7 +51,9 @@ class DriverShell extends StatelessWidget {
                 return GoogleFonts.poppins(
                   fontSize: 11,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  color: selected ? DriverColors.accent : DriverColors.labelGrey,
+                  color: selected
+                      ? DriverColors.accent
+                      : DriverColors.labelGrey,
                 );
               }),
               selectedIndex: navigationShell.currentIndex,
@@ -82,6 +90,56 @@ class DriverShell extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _ResponsiveDriverShellBody extends StatelessWidget {
+  const _ResponsiveDriverShellBody({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = math.min(constraints.maxWidth, 1180.0);
+        return Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: width,
+            height: constraints.maxHeight,
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _DriverBottomNavFrame extends StatelessWidget {
+  const _DriverBottomNavFrame({required this.child, required this.decoration});
+
+  final Widget child;
+  final BoxDecoration decoration;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = math.min(constraints.maxWidth, 1180.0);
+          return Align(
+            alignment: Alignment.bottomCenter,
+            heightFactor: 1,
+            child: SizedBox(
+              width: width,
+              child: DecoratedBox(decoration: decoration, child: child),
+            ),
+          );
+        },
+      ),
     );
   }
 }

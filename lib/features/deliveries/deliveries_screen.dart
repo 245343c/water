@@ -32,7 +32,10 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
     return all.where((d) {
       final customer = repo.customerById(d.customerId);
       return (customer?.name.toLowerCase().contains(q) ?? false) ||
-          (customer?.phone.replaceAll(' ', '').contains(q.replaceAll(' ', '')) ?? false) ||
+          (customer?.phone
+                  .replaceAll(' ', '')
+                  .contains(q.replaceAll(' ', '')) ??
+              false) ||
           d.cansSummary.toLowerCase().contains(q);
     }).toList();
   }
@@ -48,7 +51,13 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Filter', style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 18)),
+            Text(
+              'Filter',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w700,
+                fontSize: 18,
+              ),
+            ),
             const SizedBox(height: 12),
             Text(
               'Filter options will be available when backend is connected.',
@@ -87,27 +96,44 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
               padding: const EdgeInsets.all(16),
               child: Text(
                 'Select Customer',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 18),
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                ),
               ),
             ),
             Expanded(
               child: ListView.separated(
                 controller: controller,
                 itemCount: repo.customers.length,
-                separatorBuilder: (_, _) => const Divider(height: 1, color: CustomersColors.divider),
+                separatorBuilder: (_, _) =>
+                    const Divider(height: 1, color: CustomersColors.divider),
                 itemBuilder: (_, i) {
                   final c = repo.customers[i];
-                  final bg = CustomersColors.avatarBgs[i % CustomersColors.avatarBgs.length];
+                  final bg = CustomersColors
+                      .avatarBgs[i % CustomersColors.avatarBgs.length];
                   return ListTile(
                     leading: CircleAvatar(
                       backgroundColor: bg,
                       child: Text(
                         c.initials,
-                        style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w700),
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                    title: Text(c.name, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-                    subtitle: Text(c.phone, style: GoogleFonts.poppins(fontSize: 13, color: CustomersColors.labelGrey)),
+                    title: Text(
+                      c.name,
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      c.phone,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: CustomersColors.labelGrey,
+                      ),
+                    ),
                     onTap: () {
                       Navigator.pop(ctx);
                       context.push('/customers/${c.id}/delivery');
@@ -130,7 +156,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
         final grouped = groupDeliveriesByDay(deliveries, DateTime.now());
 
         return Scaffold(
-          backgroundColor: CustomersColors.headerBottom,
+          backgroundColor: CustomersColors.screenBg,
           body: CustomersScaffold(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -162,17 +188,25 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                               for (final d in entry.items)
                                 Builder(
                                   builder: (context) {
-                                    final customer = repo.customerById(d.customerId);
+                                    final customer = repo.customerById(
+                                      d.customerId,
+                                    );
                                     final customerIndex = customer == null
                                         ? 0
-                                        : repo.customers.indexWhere((c) => c.id == customer.id);
+                                        : repo.customers.indexWhere(
+                                            (c) => c.id == customer.id,
+                                          );
                                     return DeliveryListCard(
                                       customerName: customer?.name ?? 'Unknown',
                                       initials: customer?.initials ?? '?',
-                                      colorIndex: customerIndex >= 0 ? customerIndex : 0,
+                                      colorIndex: customerIndex >= 0
+                                          ? customerIndex
+                                          : 0,
                                       delivery: d,
                                       onTap: customer != null
-                                          ? () => context.push('/customers/${customer.id}')
+                                          ? () => context.push(
+                                              '/customers/${customer.id}',
+                                            )
                                           : () {},
                                     );
                                   },

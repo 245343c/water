@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
@@ -10,7 +12,7 @@ abstract final class DeliverySuccessColors {
   static const Color successGreen = Color(0xFF2E7D32);
   static const Color successGreenLight = Color(0xFF4CAF50);
   static const Color ringGreen = Color(0xFFA5D6A7);
-  static const Color titleNavy = Color(0xFF1E3A8A);
+  static const Color titleNavy = AppColors.textPrimary;
   static const Color labelGrey = Color(0xFF6B7280);
   static const Color valueNavy = Color(0xFF1E40AF);
   static const Color whatsapp = Color(0xFF25D366);
@@ -72,8 +74,13 @@ class DeliverySuccessView extends StatelessWidget {
                   style: FilledButton.styleFrom(
                     backgroundColor: DeliverySuccessColors.successGreen,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    textStyle: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    textStyle: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   child: const Text('Continue'),
                 ),
@@ -98,11 +105,31 @@ class _SuccessHero extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          const Positioned(left: 36, top: 18, child: _ConfettiDiamond(color: Color(0xFFFFEB3B))),
-          const Positioned(right: 48, top: 28, child: _ConfettiDiamond(color: Color(0xFF81D4FA))),
-          const Positioned(left: 72, bottom: 12, child: _ConfettiDiamond(color: Color(0xFFA5D6A7), size: 8)),
-          const Positioned(right: 80, bottom: 20, child: _ConfettiDiamond(color: Color(0xFFFFCC80), size: 9)),
-          const Positioned(right: 28, top: 8, child: _ConfettiDiamond(color: Color(0xFFCE93D8), size: 7)),
+          const Positioned(
+            left: 36,
+            top: 18,
+            child: _ConfettiDiamond(color: Color(0xFFFFEB3B)),
+          ),
+          const Positioned(
+            right: 48,
+            top: 28,
+            child: _ConfettiDiamond(color: Color(0xFF81D4FA)),
+          ),
+          const Positioned(
+            left: 72,
+            bottom: 12,
+            child: _ConfettiDiamond(color: Color(0xFFA5D6A7), size: 8),
+          ),
+          const Positioned(
+            right: 80,
+            bottom: 20,
+            child: _ConfettiDiamond(color: Color(0xFFFFCC80), size: 9),
+          ),
+          const Positioned(
+            right: 28,
+            top: 8,
+            child: _ConfettiDiamond(color: Color(0xFFCE93D8), size: 7),
+          ),
           Container(
             width: 108,
             height: 108,
@@ -125,7 +152,11 @@ class _SuccessHero extends StatelessWidget {
                 ),
               ],
             ),
-            child: const Icon(Icons.check_rounded, color: Colors.white, size: 44),
+            child: const Icon(
+              Icons.check_rounded,
+              color: Colors.white,
+              size: 44,
+            ),
           ),
         ],
       ),
@@ -156,10 +187,7 @@ class _ConfettiDiamond extends StatelessWidget {
 }
 
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({
-    required this.customerName,
-    required this.delivery,
-  });
+  const _SummaryCard({required this.customerName, required this.delivery});
 
   final String customerName;
   final Delivery delivery;
@@ -198,7 +226,8 @@ class _SummaryCard extends StatelessWidget {
             const SizedBox(height: 10),
             _SummaryRow(
               label: line.label,
-              value: '${line.quantity} × ${CurrencyUtils.format(line.unitPrice)}',
+              value:
+                  '${line.quantity} × ${CurrencyUtils.format(line.unitPrice)}',
             ),
           ],
           const SizedBox(height: 12),
@@ -266,7 +295,11 @@ class _WhatsAppBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.chat, color: DeliverySuccessColors.whatsapp, size: 24),
+          const Icon(
+            Icons.chat,
+            color: DeliverySuccessColors.whatsapp,
+            size: 24,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -296,7 +329,7 @@ class DeliverySuccessScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.dark,
       ),
-      child: child,
+      child: PremiumResponsiveBody(maxWidth: 1180, child: child),
     );
   }
 }

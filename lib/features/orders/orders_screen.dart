@@ -130,7 +130,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
         final pendingCount = repo.pendingOrderCount;
 
         return Scaffold(
-          backgroundColor: CustomersColors.headerBottom,
+          backgroundColor: CustomersColors.screenBg,
           body: CustomersScaffold(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,

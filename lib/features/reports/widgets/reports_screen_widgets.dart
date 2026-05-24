@@ -3,17 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 enum ReportsPeriodPreset { thisWeek, thisMonth, lastMonth, custom }
 
 abstract final class ReportsColors {
-  static const Color screenBg = Color(0xFFF3F4F6);
-  static const Color titleNavy = Color(0xFF111827);
+  static const Color screenBg = AppColors.surface;
+  static const Color titleNavy = AppColors.textPrimary;
   static const Color labelGrey = Color(0xFF6B7280);
-  static const Color cardBorder = Color(0xFFE5E7EB);
+  static const Color cardBorder = AppColors.cardBorder;
   static const Color statGreen = Color(0xFF16A34A);
   static const Color statNavy = Color(0xFF1E3A8A);
   static const Color statRed = Color(0xFFDC2626);
@@ -64,7 +66,7 @@ class ReportsScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: child,
+      child: PremiumResponsiveBody(maxWidth: 1180, child: child),
     );
   }
 }
@@ -76,45 +78,10 @@ class ReportsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(4, MediaQuery.paddingOf(context).top + 4, 4, 16),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
-                onPressed: onBack,
-              ),
-              Expanded(
-                child: Text(
-                  'Reports',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 48),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
-            child: Text(
-              'Sales, deliveries & collections',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                color: Colors.white.withValues(alpha: 0.85),
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return AdminPageHeader(
+      title: 'Reports',
+      subtitle: 'Sales, deliveries and collections',
+      onBack: onBack,
     );
   }
 }
@@ -162,7 +129,9 @@ class ReportsPeriodChips extends StatelessWidget {
                 selectedColor: ReportsColors.heroEnd,
                 backgroundColor: Colors.white,
                 side: BorderSide(
-                  color: isSelected ? ReportsColors.heroEnd : ReportsColors.cardBorder,
+                  color: isSelected
+                      ? ReportsColors.heroEnd
+                      : ReportsColors.cardBorder,
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
               ),
@@ -208,7 +177,11 @@ class ReportsDateRangeBar extends StatelessWidget {
                     color: const Color(0xFFEFF6FF),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.date_range_rounded, color: ReportsColors.heroEnd, size: 22),
+                  child: const Icon(
+                    Icons.date_range_rounded,
+                    color: ReportsColors.heroEnd,
+                    size: 22,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -234,7 +207,11 @@ class ReportsDateRangeBar extends StatelessWidget {
                     ],
                   ),
                 ),
-                const Icon(Icons.tune_rounded, size: 20, color: ReportsColors.labelGrey),
+                const Icon(
+                  Icons.tune_rounded,
+                  size: 20,
+                  color: ReportsColors.labelGrey,
+                ),
               ],
             ),
           ),
@@ -285,7 +262,11 @@ class ReportsHeroSummaryCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.analytics_rounded, color: Colors.white.withValues(alpha: 0.9), size: 20),
+                Icon(
+                  Icons.analytics_rounded,
+                  color: Colors.white.withValues(alpha: 0.9),
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Period performance',
@@ -323,14 +304,22 @@ class ReportsHeroSummaryCard extends StatelessWidget {
                     value: CurrencyUtils.format(collected),
                   ),
                 ),
-                Container(width: 1, height: 36, color: Colors.white.withValues(alpha: 0.25)),
+                Container(
+                  width: 1,
+                  height: 36,
+                  color: Colors.white.withValues(alpha: 0.25),
+                ),
                 Expanded(
                   child: _HeroMetric(
                     label: 'Outstanding',
                     value: CurrencyUtils.format(gap),
                   ),
                 ),
-                Container(width: 1, height: 36, color: Colors.white.withValues(alpha: 0.25)),
+                Container(
+                  width: 1,
+                  height: 36,
+                  color: Colors.white.withValues(alpha: 0.25),
+                ),
                 Expanded(
                   child: _HeroMetric(
                     label: 'Cans',
@@ -434,7 +423,8 @@ class ReportsKpiGrid extends StatelessWidget {
             icon: Icons.water_drop_outlined,
             iconColor: ReportsColors.normalCan,
             label: 'Normal · Cool',
-            value: '${ReportsFormat.count(normalCans)} · ${ReportsFormat.count(coolCans)}',
+            value:
+                '${ReportsFormat.count(normalCans)} · ${ReportsFormat.count(coolCans)}',
             valueColor: ReportsColors.titleNavy,
             valueSize: 16,
           ),
@@ -574,11 +564,11 @@ class ReportsInsightStrip extends StatelessWidget {
   }
 
   Widget _verticalDivider() => Container(
-        width: 1,
-        height: 40,
-        margin: const EdgeInsets.symmetric(horizontal: 6),
-        color: ReportsColors.cardBorder,
-      );
+    width: 1,
+    height: 40,
+    margin: const EdgeInsets.symmetric(horizontal: 6),
+    color: ReportsColors.cardBorder,
+  );
 }
 
 class _InsightCell extends StatelessWidget {
@@ -609,7 +599,10 @@ class _InsightCell extends StatelessWidget {
           ),
           Text(
             label,
-            style: GoogleFonts.poppins(fontSize: 10, color: ReportsColors.labelGrey),
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              color: ReportsColors.labelGrey,
+            ),
           ),
         ],
       ),
@@ -658,7 +651,13 @@ class ReportsCansOverviewCard extends StatelessWidget {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.bar_chart_rounded, size: 40, color: ReportsColors.labelGrey.withValues(alpha: 0.4)),
+                          Icon(
+                            Icons.bar_chart_rounded,
+                            size: 40,
+                            color: ReportsColors.labelGrey.withValues(
+                              alpha: 0.4,
+                            ),
+                          ),
                           const SizedBox(height: 8),
                           Text(
                             'No deliveries in this period',
@@ -693,10 +692,19 @@ class _LegendDot extends StatelessWidget {
         Container(
           width: 10,
           height: 10,
-          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
         ),
         const SizedBox(width: 5),
-        Text(label, style: GoogleFonts.poppins(fontSize: 11, color: ReportsColors.labelGrey)),
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 11,
+            color: ReportsColors.labelGrey,
+          ),
+        ),
       ],
     );
   }
@@ -725,7 +733,8 @@ class _ReportsGroupedBarChart extends StatelessWidget {
           show: true,
           drawVerticalLine: false,
           horizontalInterval: interval,
-          getDrawingHorizontalLine: (_) => const FlLine(color: ReportsColors.gridLine, strokeWidth: 1),
+          getDrawingHorizontalLine: (_) =>
+              const FlLine(color: ReportsColors.gridLine, strokeWidth: 1),
         ),
         borderData: FlBorderData(show: false),
         titlesData: FlTitlesData(
@@ -737,10 +746,15 @@ class _ReportsGroupedBarChart extends StatelessWidget {
               reservedSize: 28,
               interval: interval,
               getTitlesWidget: (value, meta) {
-                if (value < 0 || value > chartMax) return const SizedBox.shrink();
+                if (value < 0 || value > chartMax) {
+                  return const SizedBox.shrink();
+                }
                 return Text(
                   value.toInt().toString(),
-                  style: GoogleFonts.poppins(fontSize: 10, color: ReportsColors.labelGrey),
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    color: ReportsColors.labelGrey,
+                  ),
                 );
               },
             ),
@@ -751,12 +765,17 @@ class _ReportsGroupedBarChart extends StatelessWidget {
               reservedSize: 28,
               getTitlesWidget: (value, meta) {
                 final i = value.toInt();
-                if (i < 0 || i >= buckets.length) return const SizedBox.shrink();
+                if (i < 0 || i >= buckets.length) {
+                  return const SizedBox.shrink();
+                }
                 return Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
                     buckets[i].label.dayMonth,
-                    style: GoogleFonts.poppins(fontSize: 10, color: ReportsColors.labelGrey),
+                    style: GoogleFonts.poppins(
+                      fontSize: 10,
+                      color: ReportsColors.labelGrey,
+                    ),
                   ),
                 );
               },
@@ -773,7 +792,11 @@ class _ReportsGroupedBarChart extends StatelessWidget {
               final qty = rodIndex == 0 ? bucket.normal : bucket.cool;
               return BarTooltipItem(
                 '$label: $qty',
-                GoogleFonts.poppins(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+                GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
               );
             },
           ),
@@ -787,13 +810,17 @@ class _ReportsGroupedBarChart extends StatelessWidget {
                   toY: buckets[i].normal.toDouble(),
                   color: ReportsColors.normalCan,
                   width: 10,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(4),
+                  ),
                 ),
                 BarChartRodData(
                   toY: buckets[i].cool.toDouble(),
                   color: ReportsColors.coolCan,
                   width: 10,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(4),
+                  ),
                 ),
               ],
             ),
@@ -843,7 +870,11 @@ List<ReportsChartBucket> reportsChartBuckets(
     final endDay = bucketEnd.isAfter(rangeEnd) ? rangeEnd : bucketEnd;
     var normal = 0;
     var cool = 0;
-    for (var d = cursor; !d.isAfter(endDay); d = d.add(const Duration(days: 1))) {
+    for (
+      var d = cursor;
+      !d.isAfter(endDay);
+      d = d.add(const Duration(days: 1))
+    ) {
       final key = DateTime(d.year, d.month, d.day);
       final data = daily[key];
       if (data != null) {
@@ -859,14 +890,14 @@ List<ReportsChartBucket> reportsChartBuckets(
 }
 
 BoxDecoration get _reportsCardDecoration => BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: ReportsColors.cardBorder),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.05),
-          blurRadius: 8,
-          offset: const Offset(0, 2),
-        ),
-      ],
-    );
+  color: Colors.white,
+  borderRadius: BorderRadius.circular(14),
+  border: Border.all(color: ReportsColors.cardBorder),
+  boxShadow: [
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.05),
+      blurRadius: 8,
+      offset: const Offset(0, 2),
+    ),
+  ],
+);

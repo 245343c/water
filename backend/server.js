@@ -49,6 +49,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), { maxAge: '7
 app.use('/api/auth', require('./src/routes/auth'));
 app.use('/api/shop', require('./src/routes/shop'));
 app.use('/api/customers', require('./src/routes/customers'));
+app.use('/api/delivery-routes', require('./src/routes/deliveryRoutes'));
 app.use('/api/drivers', require('./src/routes/drivers'));
 app.use('/api/products', require('./src/routes/products'));
 app.use('/api/orders', require('./src/routes/orders'));

@@ -10,6 +10,7 @@ import 'package:sri_sai_ro_water/data/models/dashboard_action_item.dart';
 import 'package:sri_sai_ro_water/data/models/dashboard_stats.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/data/models/delivery_line_item.dart';
+import 'package:sri_sai_ro_water/data/models/delivery_route.dart';
 import 'package:sri_sai_ro_water/data/models/driver.dart';
 import 'package:sri_sai_ro_water/data/models/monthly_stats.dart';
 import 'package:sri_sai_ro_water/data/models/order_status.dart';
@@ -48,6 +49,7 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
     required String address,
     String email = '',
     String place = '',
+    String? routeId,
     CustomerBillingMode billingMode = CustomerBillingMode.monthlyContract,
     List<CustomerProductPrice>? productPrices,
   });
@@ -89,6 +91,10 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
   Future<Driver> addDriver({required String name, required String phone, required String email});
   Future<void> setDriverActive(String driverId, bool active);
   Future<void> setMyDriverAvailability(bool active);
+  List<DeliveryRoute> get deliveryRoutes;
+  Future<DeliveryRoute> addDeliveryRoute(String name);
+  DeliveryRoute? deliveryRouteById(String? id);
+  String deliveryRouteName(String? id);
   List<Customer> todaysRouteCustomersForDriver(String? driverId);
   String? routeNoteForCustomer(String customerId);
 

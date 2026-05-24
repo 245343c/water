@@ -27,7 +27,8 @@ class CustomerMonthReadonlyScreen extends StatefulWidget {
       _CustomerMonthReadonlyScreenState();
 }
 
-class _CustomerMonthReadonlyScreenState extends State<CustomerMonthReadonlyScreen> {
+class _CustomerMonthReadonlyScreenState
+    extends State<CustomerMonthReadonlyScreen> {
   late DateTime _month;
 
   @override
@@ -54,13 +55,16 @@ class _CustomerMonthReadonlyScreenState extends State<CustomerMonthReadonlyScree
 
         final stats = repo.monthlyStatsForCustomer(widget.customerId, _month);
         final balance = repo.customerBalance(widget.customerId);
-        final deliveries =
-            repo.deliveriesForCustomer(widget.customerId, month: _month);
-        final payments =
-            repo.paymentsForCustomer(widget.customerId, month: _month);
-        final colorIndex =
-            repo.customers.indexWhere((c) => c.id == widget.customerId);
-        final shopId = widget.shopId ?? repo.shopIdForCustomer(widget.customerId);
+        final deliveries = repo.deliveriesForCustomer(
+          widget.customerId,
+          month: _month,
+        );
+        final payments = repo.paymentsForCustomer(
+          widget.customerId,
+          month: _month,
+        );
+        final shopId =
+            widget.shopId ?? repo.shopIdForCustomer(widget.customerId);
         final shop = repo.shopById(shopId);
 
         return Scaffold(
@@ -87,10 +91,6 @@ class _CustomerMonthReadonlyScreenState extends State<CustomerMonthReadonlyScree
                       ),
                     ),
                   ),
-                MonthlySummaryCustomerBar(
-                  customer: customer,
-                  colorIndex: colorIndex >= 0 ? colorIndex : 0,
-                ),
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.only(bottom: 24),

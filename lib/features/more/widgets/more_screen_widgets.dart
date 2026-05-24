@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/core/widgets/home_delivery_choice.dart';
 import 'package:sri_sai_ro_water/data/models/business_settings.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class MoreColors {
-  static const Color screenBg = Color(0xFFF3F4F6);
-  static const Color titleNavy = Color(0xFF111827);
+  static const Color screenBg = AppColors.surface;
+  static const Color titleNavy = AppColors.textPrimary;
   static const Color labelGrey = Color(0xFF6B7280);
-  static const Color cardBorder = Color(0xFFE5E7EB);
+  static const Color cardBorder = AppColors.cardBorder;
   static const Color iconTileBg = Color(0xFFEFF6FF);
   static const Color iconNavy = Color(0xFF1E3A8A);
   static const Color divider = Color(0xFFE5E7EB);
@@ -27,17 +29,13 @@ class MoreScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: child,
+      child: PremiumResponsiveBody(maxWidth: 1180, child: child),
     );
   }
 }
 
 class MoreHeader extends StatelessWidget {
-  const MoreHeader({
-    super.key,
-    required this.title,
-    this.subtitle,
-  });
+  const MoreHeader({super.key, required this.title, this.subtitle});
 
   final String title;
   final String? subtitle;
@@ -47,7 +45,12 @@ class MoreHeader extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 12, 20, 18),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        MediaQuery.paddingOf(context).top + 16,
+        20,
+        14,
+      ),
       alignment: Alignment.centerLeft,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,7 +60,8 @@ class MoreHeader extends StatelessWidget {
             style: GoogleFonts.poppins(
               color: Colors.white,
               fontSize: 22,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
+              height: 1.12,
             ),
           ),
           if (subtitle != null) ...[
@@ -65,9 +69,9 @@ class MoreHeader extends StatelessWidget {
             Text(
               subtitle!,
               style: GoogleFonts.poppins(
-                color: Colors.white.withValues(alpha: 0.85),
+                color: Colors.white.withValues(alpha: 0.72),
                 fontSize: 12,
-                fontWeight: FontWeight.w400,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -98,7 +102,9 @@ class MoreBusinessProfileCard extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(16),
           child: Ink(
-            decoration: _cardDecoration.copyWith(borderRadius: BorderRadius.circular(16)),
+            decoration: _cardDecoration.copyWith(
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -109,9 +115,14 @@ class MoreBusinessProfileCard extends StatelessWidget {
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [CustomersColors.headerTop, CustomersColors.headerBottom],
+                        colors: [
+                          CustomersColors.headerTop,
+                          CustomersColors.headerBottom,
+                        ],
                       ),
-                      borderRadius: BorderRadius.horizontal(left: Radius.circular(16)),
+                      borderRadius: BorderRadius.horizontal(
+                        left: Radius.circular(16),
+                      ),
                     ),
                   ),
                   Expanded(
@@ -128,7 +139,9 @@ class MoreBusinessProfileCard extends StatelessWidget {
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                                 colors: [
-                                  CustomersColors.addButton.withValues(alpha: 0.15),
+                                  CustomersColors.addButton.withValues(
+                                    alpha: 0.15,
+                                  ),
                                   MoreColors.iconNavy.withValues(alpha: 0.08),
                                 ],
                               ),
@@ -164,16 +177,25 @@ class MoreBusinessProfileCard extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(height: 10),
-                                _ProfileLine(icon: Icons.phone_outlined, text: settings.phone),
+                                _ProfileLine(
+                                  icon: Icons.phone_outlined,
+                                  text: settings.phone,
+                                ),
                                 if (settings.email.isNotEmpty) ...[
                                   const SizedBox(height: 4),
-                                  _ProfileLine(icon: Icons.email_outlined, text: settings.email),
+                                  _ProfileLine(
+                                    icon: Icons.email_outlined,
+                                    text: settings.email,
+                                  ),
                                 ],
                               ],
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFF1A73E8),
                               borderRadius: BorderRadius.circular(20),
@@ -190,7 +212,11 @@ class MoreBusinessProfileCard extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(width: 2),
-                                const Icon(Icons.arrow_forward_ios_rounded, size: 11, color: Colors.white),
+                                const Icon(
+                                  Icons.arrow_forward_ios_rounded,
+                                  size: 11,
+                                  color: Colors.white,
+                                ),
                               ],
                             ),
                           ),
@@ -227,7 +253,9 @@ class MoreHomeDeliveryCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         child: Ink(
-          decoration: _cardDecoration.copyWith(borderRadius: BorderRadius.circular(16)),
+          decoration: _cardDecoration.copyWith(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
             child: HomeDeliveryChoice(
@@ -261,7 +289,7 @@ class MoreInsightsReportCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -296,7 +324,11 @@ class MoreInsightsReportCard extends StatelessWidget {
                           color: Colors.white.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.insights_rounded, color: Colors.white, size: 22),
+                        child: const Icon(
+                          Icons.insights_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -321,17 +353,26 @@ class MoreInsightsReportCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                      Icon(Icons.arrow_forward_rounded, color: Colors.white.withValues(alpha: 0.9)),
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      _InsightPill(label: 'Sales', value: _formatCurrency(monthSales)),
+                      _InsightPill(
+                        label: 'Sales',
+                        value: _formatCurrency(monthSales),
+                      ),
                       const SizedBox(width: 8),
                       _InsightPill(label: 'Cans', value: monthCans.toString()),
                       const SizedBox(width: 8),
-                      _InsightPill(label: 'Collected', value: _formatCurrency(monthCollected)),
+                      _InsightPill(
+                        label: 'Collected',
+                        value: _formatCurrency(monthCollected),
+                      ),
                     ],
                   ),
                 ],
@@ -471,13 +512,20 @@ class _AccountRow extends StatelessWidget {
                     ),
                     Text(
                       subtitle,
-                      style: GoogleFonts.poppins(fontSize: 11, color: MoreColors.labelGrey),
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: MoreColors.labelGrey,
+                      ),
                     ),
                   ],
                 ),
               ),
               if (showChevron)
-                const Icon(Icons.chevron_right, color: MoreColors.labelGrey, size: 22),
+                const Icon(
+                  Icons.chevron_right,
+                  color: MoreColors.labelGrey,
+                  size: 22,
+                ),
             ],
           ),
         ),
@@ -487,10 +535,7 @@ class _AccountRow extends StatelessWidget {
 }
 
 class _ProfileLine extends StatelessWidget {
-  const _ProfileLine({
-    required this.icon,
-    required this.text,
-  });
+  const _ProfileLine({required this.icon, required this.text});
 
   final IconData icon;
   final String text;
@@ -585,7 +630,11 @@ class MoreMenuTile extends StatelessWidget {
                     ),
                   ),
                   if (showChevron)
-                    const Icon(Icons.chevron_right, color: MoreColors.labelGrey, size: 22),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: MoreColors.labelGrey,
+                      size: 22,
+                    ),
                 ],
               ),
             ),
@@ -604,7 +653,7 @@ class MoreSectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 16, 4),
+      padding: const EdgeInsets.fromLTRB(20, 18, 16, 8),
       child: Text(
         title.toUpperCase(),
         style: GoogleFonts.poppins(
@@ -642,24 +691,21 @@ class MoreVersionLabel extends StatelessWidget {
       child: Text(
         'Version $version',
         textAlign: TextAlign.center,
-        style: GoogleFonts.poppins(
-          fontSize: 13,
-          color: MoreColors.labelGrey,
-        ),
+        style: GoogleFonts.poppins(fontSize: 13, color: MoreColors.labelGrey),
       ),
     );
   }
 }
 
 BoxDecoration get _cardDecoration => BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: MoreColors.cardBorder),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.05),
-          blurRadius: 8,
-          offset: const Offset(0, 2),
-        ),
-      ],
-    );
+  color: Colors.white,
+  borderRadius: BorderRadius.circular(16),
+  border: Border.all(color: MoreColors.cardBorder),
+  boxShadow: [
+    BoxShadow(
+      color: const Color(0xFF0F172A).withValues(alpha: 0.06),
+      blurRadius: 16,
+      offset: const Offset(0, 6),
+    ),
+  ],
+);

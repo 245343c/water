@@ -21,7 +21,6 @@ bool isCustomerShellRoute(String location) =>
     location.startsWith('/customer/home') ||
     location.startsWith('/customer/account') ||
     location.startsWith('/customer/orders') ||
-    location.startsWith('/customer/promotions') ||
     location.startsWith('/customer/profile');
 
 bool isCustomerRoute(String location) =>
@@ -82,10 +81,7 @@ String? redirectForRole({
   }
 
   if (isPublicEntryRoute(location)) {
-    return homeRouteForRole(
-      user,
-      customerProfile: customerProfile,
-    );
+    return homeRouteForRole(user, customerProfile: customerProfile);
   }
 
   if (location == AppRoutes.driverToday || location == AppRoutes.driverOrders) {
@@ -96,10 +92,10 @@ String? redirectForRole({
     AppRole.admin => _adminRedirect(location),
     AppRole.driver => _driverRedirect(location),
     AppRole.customer => _customerRedirect(
-        location,
-        user,
-        customerProfile: customerProfile,
-      ),
+      location,
+      user,
+      customerProfile: customerProfile,
+    ),
   };
 }
 
@@ -110,7 +106,10 @@ String homeRouteForRole(
   return switch (user.role) {
     AppRole.admin => AppRoutes.dashboard,
     AppRole.driver => AppRoutes.driverRoute,
-    AppRole.customer => _customerHomeRoute(user, customerProfile: customerProfile),
+    AppRole.customer => _customerHomeRoute(
+      user,
+      customerProfile: customerProfile,
+    ),
   };
 }
 
@@ -119,10 +118,13 @@ String _customerHomeRoute(
   CustomerProfileLookup? customerProfile,
 }) {
   final profile = customerProfile?.call(user.id);
-  final needsOnboarding = !user.customerProfileComplete ||
+  final needsOnboarding =
+      !user.customerProfileComplete ||
       profile == null ||
       !profile.onboardingComplete;
-  return needsOnboarding ? AppRoutes.customerOnboarding : AppRoutes.customerHome;
+  return needsOnboarding
+      ? AppRoutes.customerOnboarding
+      : AppRoutes.customerHome;
 }
 
 String? _adminRedirect(String location) {
@@ -165,13 +167,11 @@ String? _customerRedirect(
     return home;
   }
 
-  if (home == AppRoutes.customerOnboarding &&
-      isCustomerShellRoute(location)) {
+  if (home == AppRoutes.customerOnboarding && isCustomerShellRoute(location)) {
     return AppRoutes.customerOnboarding;
   }
 
-  if (home == AppRoutes.customerHome &&
-      isCustomerOnboardingRoute(location)) {
+  if (home == AppRoutes.customerHome && isCustomerOnboardingRoute(location)) {
     return AppRoutes.customerHome;
   }
 

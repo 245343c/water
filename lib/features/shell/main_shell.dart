@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -15,8 +17,9 @@ class MainShell extends StatelessWidget {
         final pendingOrders = repo.pendingOrderCount;
 
         return Scaffold(
-          body: navigationShell,
-          bottomNavigationBar: Container(
+          backgroundColor: AppColors.surface,
+          body: _ResponsiveShellBody(child: navigationShell),
+          bottomNavigationBar: _ResponsiveBottomNav(
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
@@ -76,6 +79,56 @@ class MainShell extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _ResponsiveShellBody extends StatelessWidget {
+  const _ResponsiveShellBody({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = math.min(constraints.maxWidth, 1180.0);
+        return Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: width,
+            height: constraints.maxHeight,
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ResponsiveBottomNav extends StatelessWidget {
+  const _ResponsiveBottomNav({required this.child, required this.decoration});
+
+  final Widget child;
+  final BoxDecoration decoration;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = math.min(constraints.maxWidth, 1180.0);
+          return Align(
+            alignment: Alignment.bottomCenter,
+            heightFactor: 1,
+            child: SizedBox(
+              width: width,
+              child: DecoratedBox(decoration: decoration, child: child),
+            ),
+          );
+        },
+      ),
     );
   }
 }

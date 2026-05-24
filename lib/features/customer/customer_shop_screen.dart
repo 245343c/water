@@ -363,26 +363,6 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
                             coolPrice: coolPrice,
                             hasCustomerPricing: linkedCustomer != null,
                           ),
-                          const SizedBox(height: 12),
-                          _LinkedAccountBanner(
-                            customerName:
-                                linkedCustomer?.name ?? user.ownerName,
-                            shopName: shop.name,
-                          ),
-                          const SizedBox(height: 18),
-                          CustomerSectionTitle(
-                            title: isEditing ? 'Edit request' : 'Request water',
-                            trailing: Text(
-                              'Monthly account',
-                              style: GoogleFonts.poppins(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: CustomerColors.accent,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          _RequestInfoCard(shopName: shop.name),
                           const SizedBox(height: 18),
                           CustomerSectionTitle(
                             title: 'Choose cans',
@@ -533,7 +513,7 @@ class _ShopDetailsCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          'Linked monthly account · Home delivery',
+                          'Home delivery',
                           style: GoogleFonts.poppins(
                             fontSize: 12,
                             color: CustomerColors.labelGrey,
@@ -694,117 +674,6 @@ class _DetailRow extends StatelessWidget {
           ),
           if (onTap != null)
             Icon(Icons.copy_rounded, size: 16, color: CustomerColors.accent),
-        ],
-      ),
-    );
-  }
-}
-
-class _LinkedAccountBanner extends StatelessWidget {
-  const _LinkedAccountBanner({
-    required this.customerName,
-    required this.shopName,
-  });
-
-  final String customerName;
-  final String shopName;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFBFDBFE)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: CustomerColors.accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.link_rounded,
-              color: CustomerColors.accent,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Linked customer account',
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: CustomerColors.titleNavy,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '$customerName can request water from $shopName on this monthly account.',
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    height: 1.35,
-                    color: CustomerColors.labelGrey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RequestInfoCard extends StatelessWidget {
-  const _RequestInfoCard({required this.shopName});
-
-  final String shopName;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF0FDF4),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFBBF7D0)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: CustomerColors.success.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.local_shipping_outlined,
-              color: CustomerColors.success,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Choose cans and send a request. $shopName will confirm before delivery.',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                height: 1.4,
-                fontWeight: FontWeight.w600,
-                color: CustomerColors.titleNavy,
-              ),
-            ),
-          ),
         ],
       ),
     );

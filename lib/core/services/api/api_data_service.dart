@@ -54,6 +54,20 @@ class ApiDataService {
   Future<Map<String, dynamic>> blockCustomer(String id, bool blocked) =>
       _client.patch('/customers/$id/block', {'blocked': blocked});
 
+  // ─── Delivery routes ────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> listDeliveryRoutes() =>
+      _client.get('/delivery-routes');
+
+  Future<Map<String, dynamic>> createDeliveryRoute(Map<String, dynamic> data) =>
+      _client.post('/delivery-routes', data);
+
+  Future<Map<String, dynamic>> updateDeliveryRoute(String id, Map<String, dynamic> data) =>
+      _client.patch('/delivery-routes/$id', data);
+
+  Future<Map<String, dynamic>> deleteDeliveryRoute(String id) =>
+      _client.delete('/delivery-routes/$id');
+
   // ─── Drivers ────────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> listDrivers() => _client.get('/drivers');

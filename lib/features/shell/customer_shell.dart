@@ -10,14 +10,12 @@ import 'package:sri_sai_ro_water/features/customer/customer_contract_account_scr
 import 'package:sri_sai_ro_water/features/customer/customer_home_screen.dart';
 import 'package:sri_sai_ro_water/features/customer/customer_orders_screen.dart';
 import 'package:sri_sai_ro_water/features/customer/customer_profile_screen.dart';
-import 'package:sri_sai_ro_water/features/customer/customer_promotions_screen.dart';
 import 'package:sri_sai_ro_water/features/customer/widgets/customer_theme.dart';
 
 abstract final class _CustomerRoutes {
   static const home = '/customer/home';
   static const account = '/customer/account';
   static const orders = '/customer/orders';
-  static const promotions = '/customer/promotions';
   static const profile = '/customer/profile';
 }
 
@@ -30,16 +28,13 @@ class CustomerShell extends StatelessWidget {
 
   int _navIndexForLocation(bool isContract) {
     if (_path.startsWith(_CustomerRoutes.account)) {
-      return isContract ? 1 : 0;
+      return 0;
     }
     if (_path.startsWith(_CustomerRoutes.orders)) {
-      return isContract ? 2 : 1;
-    }
-    if (_path.startsWith(_CustomerRoutes.promotions)) {
-      return isContract ? 3 : 2;
+      return 1;
     }
     if (_path.startsWith(_CustomerRoutes.profile)) {
-      return isContract ? 4 : 3;
+      return 2;
     }
     return 0;
   }
@@ -48,10 +43,8 @@ class CustomerShell extends StatelessWidget {
     if (isContract) {
       return switch (navIndex) {
         0 => _CustomerRoutes.home,
-        1 => _CustomerRoutes.account,
-        2 => _CustomerRoutes.orders,
-        3 => _CustomerRoutes.promotions,
-        4 => _CustomerRoutes.profile,
+        1 => _CustomerRoutes.orders,
+        2 => _CustomerRoutes.profile,
         _ => _CustomerRoutes.home,
       };
     }
@@ -59,8 +52,7 @@ class CustomerShell extends StatelessWidget {
     return switch (navIndex) {
       0 => _CustomerRoutes.home,
       1 => _CustomerRoutes.orders,
-      2 => _CustomerRoutes.promotions,
-      3 => _CustomerRoutes.profile,
+      2 => _CustomerRoutes.profile,
       _ => _CustomerRoutes.home,
     };
   }
@@ -82,10 +74,12 @@ class CustomerShell extends StatelessWidget {
       backgroundColor: CustomerColors.screenBg,
       body: LayoutBuilder(
         builder: (context, constraints) {
+          final maxWidth = _customerShellMaxWidth(context);
           return Align(
             alignment: Alignment.topCenter,
             child: SizedBox(
-              width: math.min(constraints.maxWidth, 860),
+              width: math.min(constraints.maxWidth, maxWidth),
+              height: constraints.maxHeight,
               child: _tabForLocation(isContract: isContract),
             ),
           );
@@ -109,9 +103,6 @@ class CustomerShell extends StatelessWidget {
       }
       if (_path.startsWith(_CustomerRoutes.orders)) {
         return const CustomerOrdersScreen();
-      }
-      if (_path.startsWith(_CustomerRoutes.promotions)) {
-        return const CustomerPromotionsScreen();
       }
       if (_path.startsWith(_CustomerRoutes.profile)) {
         return const CustomerProfileScreen();
@@ -174,11 +165,12 @@ class _CustomerBottomNavigation extends StatelessWidget {
       top: false,
       child: LayoutBuilder(
         builder: (context, constraints) {
+          final maxWidth = _customerShellMaxWidth(context);
           return Align(
             alignment: Alignment.bottomCenter,
             heightFactor: 1,
             child: SizedBox(
-              width: math.min(constraints.maxWidth, 860),
+              width: math.min(constraints.maxWidth, maxWidth),
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(18),
@@ -240,11 +232,6 @@ class _CustomerBottomNavigation extends StatelessWidget {
       ),
       _ordersDestination(),
       const NavigationDestination(
-        icon: Icon(Icons.campaign_outlined),
-        selectedIcon: Icon(Icons.campaign_rounded),
-        label: 'Offers',
-      ),
-      const NavigationDestination(
         icon: Icon(Icons.person_outline),
         selectedIcon: Icon(Icons.person_rounded),
         label: 'Profile',
@@ -259,17 +246,7 @@ class _CustomerBottomNavigation extends StatelessWidget {
         selectedIcon: Icon(Icons.home_rounded),
         label: 'Home',
       ),
-      const NavigationDestination(
-        icon: Icon(Icons.account_balance_wallet_outlined),
-        selectedIcon: Icon(Icons.account_balance_wallet_rounded),
-        label: 'Account',
-      ),
       _ordersDestination(),
-      const NavigationDestination(
-        icon: Icon(Icons.campaign_outlined),
-        selectedIcon: Icon(Icons.campaign_rounded),
-        label: 'Offers',
-      ),
       const NavigationDestination(
         icon: Icon(Icons.person_outline),
         selectedIcon: Icon(Icons.person_rounded),
@@ -289,4 +266,11 @@ class _CustomerBottomNavigation extends StatelessWidget {
       label: 'Orders',
     );
   }
+}
+
+double _customerShellMaxWidth(BuildContext context) {
+  final width = MediaQuery.sizeOf(context).width;
+  if (width >= 1100) return 1180;
+  if (width >= 700) return 1180;
+  return width;
 }

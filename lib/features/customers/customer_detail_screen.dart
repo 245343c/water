@@ -121,9 +121,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
           currentMonth,
         );
         final idx = repo.customers.indexWhere((c) => c.id == widget.customerId);
-        final shopId = repo.shopIdForCustomer(customer.id);
-        final shopName =
-            repo.shopById(shopId)?.name ?? repo.settings.businessName;
 
         return Scaffold(
           backgroundColor: CustomerDetailColors.screenBg,
@@ -142,12 +139,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                       CustomerInfoBar(
                         customer: customer,
                         colorIndex: idx >= 0 ? idx : 0,
-                      ),
-                      const CustomerFixedAccountCard(),
-                      CustomerAppAccessStatusCard(
-                        phone: customer.phone,
-                        shopName: shopName,
-                        shopId: shopId,
                       ),
                       CustomerPendingCard(
                         totalPending: totalPending,

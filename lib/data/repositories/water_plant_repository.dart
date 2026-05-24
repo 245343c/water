@@ -14,6 +14,7 @@ import 'package:sri_sai_ro_water/data/models/dashboard_stats.dart';
 import 'package:sri_sai_ro_water/data/models/driver.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/data/models/delivery_line_item.dart';
+import 'package:sri_sai_ro_water/data/models/delivery_route.dart';
 import 'package:sri_sai_ro_water/data/models/monthly_stats.dart';
 import 'package:sri_sai_ro_water/data/models/payment_allocation_preview.dart';
 import 'package:sri_sai_ro_water/data/models/payment.dart';
@@ -58,6 +59,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
   final List<CustomerOrder> _orders = [];
   final List<Product> _products = [];
   final List<Driver> _drivers = [];
+  final List<DeliveryRoute> _deliveryRoutes = [];
   final List<Shop> _shops = [];
   final List<Promotion> _promotions = [];
 
@@ -67,7 +69,6 @@ class WaterPlantRepository extends IWaterPlantRepository {
   /// Driver id -> shop id. Mock uses one shop today, but this is Firebase-ready.
   final Map<String, String> _driverShopIds = {};
   final Map<String, CustomerAppProfile> _customerProfiles = {};
-  final Map<String, String> _routeNotes = {};
 
   static const defaultShopId = 'shop-1';
 
@@ -113,7 +114,46 @@ class WaterPlantRepository extends IWaterPlantRepository {
   List<CustomerOrder> get orders => List.unmodifiable(_orders);
   List<Product> get products => List.unmodifiable(_products);
   List<Driver> get drivers => List.unmodifiable(_drivers);
+  List<DeliveryRoute> get deliveryRoutes => List.unmodifiable(_deliveryRoutes);
   List<Shop> get shops => List.unmodifiable(_shops);
+
+  List<DeliveryRoute> get activeDeliveryRoutes =>
+      _deliveryRoutes.where((route) => route.active).toList();
+
+  DeliveryRoute? deliveryRouteById(String? id) {
+    if (id == null || id.trim().isEmpty) return null;
+    try {
+      return _deliveryRoutes.firstWhere((route) => route.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String deliveryRouteName(String? id) =>
+      deliveryRouteById(id)?.name ?? 'Unassigned';
+
+  Future<DeliveryRoute> addDeliveryRoute(String name) async {
+    final cleaned = name.trim();
+    if (cleaned.isEmpty) {
+      throw ArgumentError('Route name is required');
+    }
+    final existing = _deliveryRoutes.any(
+      (route) => route.name.toLowerCase() == cleaned.toLowerCase(),
+    );
+    if (existing) {
+      throw ArgumentError('Route already exists');
+    }
+
+    if (useBackend) {
+      final data = await _apiService.createDeliveryRoute({'name': cleaned});
+      final route = _deliveryRouteFromJson(data['route'] as Map<String, dynamic>);
+      _deliveryRoutes.add(route);
+      notifyListeners();
+      return route;
+    }
+
+    throw StateError('Backend is required');
+  }
 
   List<Shop> listedShops() =>
       _shops.where((s) => s.isVisibleToCustomers).toList();
@@ -428,7 +468,11 @@ class WaterPlantRepository extends IWaterPlantRepository {
     return customersForDriver(driverId);
   }
 
-  String? routeNoteForCustomer(String customerId) => _routeNotes[customerId];
+  String? routeNoteForCustomer(String customerId) {
+    final note = customerById(customerId)?.routeNote.trim();
+    if (note == null || note.isEmpty) return null;
+    return note;
+  }
 
   bool hasDeliveryToday(String customerId) {
     final today = DateTime.now();
@@ -1147,6 +1191,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
     required String address,
     String email = '',
     String place = '',
+    String? routeId,
     CustomerBillingMode billingMode = CustomerBillingMode.monthlyContract,
     List<CustomerProductPrice>? productPrices,
   }) async {
@@ -1158,6 +1203,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
         'email': email,
         'place': place,
         'billingMode': 'monthly_contract',
+        if (routeId != null && routeId.isNotEmpty) 'routeId': routeId,
         if (productPrices != null)
           'productPrices': productPrices
               .map((p) => {
@@ -1191,6 +1237,8 @@ class WaterPlantRepository extends IWaterPlantRepository {
         'address': customer.address,
         'email': customer.email,
         'place': customer.place,
+        'routeId': customer.routeId,
+        'routeNote': customer.routeNote,
         'productPrices': customer.productPrices
             .map((p) => {
                   'productId': p.productId,
@@ -2176,6 +2224,12 @@ class WaterPlantRepository extends IWaterPlantRepository {
       }
 
       if (isAdmin || isDriver) {
+        final routesData = await _apiService.listDeliveryRoutes();
+        _deliveryRoutes.clear();
+        for (final r in (routesData['routes'] as List<dynamic>? ?? [])) {
+          _deliveryRoutes.add(_deliveryRouteFromJson(r as Map<String, dynamic>));
+        }
+
         final customersData = await _apiService.listCustomers();
         _customers.clear();
         for (final c in (customersData['customers'] as List<dynamic>? ?? [])) {
@@ -2332,6 +2386,8 @@ class WaterPlantRepository extends IWaterPlantRepository {
       email: map['email'] as String? ?? '',
       address: map['address'] as String? ?? '',
       place: map['place'] as String? ?? '',
+      routeId: map['routeId'] as String?,
+      routeNote: map['routeNote'] as String? ?? '',
       status: map['status'] as String? ?? 'active',
       appUserId: map['appUserId'] as String?,
       latitude: (map['latitude'] as num?)?.toDouble(),
@@ -2347,6 +2403,14 @@ class WaterPlantRepository extends IWaterPlantRepository {
                 enabled: e['enabled'] as bool? ?? true,
               ))
           .toList(),
+    );
+  }
+
+  DeliveryRoute _deliveryRouteFromJson(Map<String, dynamic> map) {
+    return DeliveryRoute(
+      id: map['routeId'] as String? ?? map['_id'] as String,
+      name: map['name'] as String? ?? '',
+      active: map['active'] as bool? ?? true,
     );
   }
 
@@ -2468,6 +2532,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
       isActive: map['isActive'] as bool? ?? true,
       createdAt: map['createdAt'] != null ? DateTime.parse(map['createdAt'] as String) : DateTime.now(),
     );
+
   }
 
   String customerActivityLabel(String customerId, DateTime month) {
@@ -2490,7 +2555,10 @@ class WaterPlantRepository extends IWaterPlantRepository {
         .where(
           (c) =>
               c.name.toLowerCase().contains(q) ||
-              c.phone.replaceAll(' ', '').contains(q.replaceAll(' ', '')),
+              c.phone.replaceAll(' ', '').contains(q.replaceAll(' ', '')) ||
+              c.place.toLowerCase().contains(q) ||
+              c.address.toLowerCase().contains(q) ||
+              deliveryRouteName(c.routeId).toLowerCase().contains(q),
         )
         .toList();
   }

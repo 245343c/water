@@ -3,6 +3,11 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
+import 'package:sri_sai_ro_water/data/models/app_notification.dart';
+import 'package:sri_sai_ro_water/data/models/customer.dart';
+import 'package:sri_sai_ro_water/data/models/customer_order.dart';
+import 'package:sri_sai_ro_water/data/models/delivery.dart';
+import 'package:sri_sai_ro_water/data/models/delivery_route.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
@@ -11,8 +16,15 @@ import 'package:sri_sai_ro_water/features/driver/widgets/driver_theme.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
 /// Driver home: accepted customer requests + today's route + completed.
-class DriverRouteScreen extends StatelessWidget {
+class DriverRouteScreen extends StatefulWidget {
   const DriverRouteScreen({super.key});
+
+  @override
+  State<DriverRouteScreen> createState() => _DriverRouteScreenState();
+}
+
+class _DriverRouteScreenState extends State<DriverRouteScreen> {
+  String? _routeFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -25,13 +37,24 @@ class DriverRouteScreen extends StatelessWidget {
         final driverId = auth.currentUser?.driverId;
         final assignedShop = repo.shopForDriver(driverId);
         final today = DateTime.now();
-        final deliveries = repo.deliveriesOnDateForDriver(today, driverId);
-        final cans = repo.cansDeliveredOnDateForDriver(today, driverId);
-        final acceptedOrders = repo.driverAcceptedOrders(driverId: driverId);
+        final deliveries = repo
+            .deliveriesOnDateForDriver(today, driverId)
+            .where((delivery) => _deliveryMatchesRoute(delivery, repo))
+            .toList();
+        final assignedCustomers = repo.customersForDriver(driverId);
+        final routes = _routesFor(assignedCustomers, repo);
+        final hasUnassigned = assignedCustomers.any(_isUnassignedRoute);
+        final acceptedOrders = repo
+            .driverAcceptedOrders(driverId: driverId)
+            .where((order) => _orderMatchesRoute(order, repo))
+            .toList();
         final acceptedCustomerIds = acceptedOrders
             .map((order) => order.customerId)
             .toSet();
-        final route = repo.todaysRouteCustomersForDriver(driverId);
+        final route = repo
+            .todaysRouteCustomersForDriver(driverId)
+            .where(_matchesRoute)
+            .toList();
         final pendingRoute = route
             .where(
               (c) =>
@@ -54,53 +77,21 @@ class DriverRouteScreen extends StatelessWidget {
                       : assignedShop == null
                       ? 'Driver is not linked to a water plant'
                       : '${assignedShop.name} customers only',
+                  trailing: _DriverNotificationButton(
+                    unreadCount: driverAlerts,
+                    onTap: () => _showNotifications(context),
+                  ),
                 ),
                 Expanded(
                   child: ListView(
                     children: [
-                      DriverHeroStats(
-                        deliveriesToday: deliveries.length,
-                        cansToday: cans,
-                        pendingOrders: acceptedOrders.length,
-                        pendingLabel: 'Tasks',
+                      DriverRouteFilter(
+                        routes: routes,
+                        selected: _routeFilter,
+                        showUnassigned: hasUnassigned,
+                        onSelected: (routeId) =>
+                            setState(() => _routeFilter = routeId),
                       ),
-                      if (driverAlerts > 0)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                          child: Material(
-                            color: const Color(0xFFFFF7ED),
-                            borderRadius: BorderRadius.circular(12),
-                            child: InkWell(
-                              onTap: () => context.go(AppRoutes.driverProfile),
-                              borderRadius: BorderRadius.circular(12),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 12,
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.notifications_active_rounded,
-                                      color: Color(0xFFEA580C),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        '$driverAlerts new alert(s) — tap Profile to view',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                    const Icon(Icons.chevron_right, size: 20),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
                       if (acceptedOrders.isNotEmpty) ...[
                         DriverSectionTitle(
                           title: 'Customer requests (${acceptedOrders.length})',
@@ -218,6 +209,237 @@ class DriverRouteScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  void _showNotifications(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (_) => const _DriverNotificationsSheet(),
+    );
+  }
+
+  List<DeliveryRoute> _routesFor(
+    List<Customer> customers,
+    WaterPlantRepository repo,
+  ) {
+    final routeIds = customers
+        .map((c) => c.routeId)
+        .whereType<String>()
+        .where((id) => id.trim().isNotEmpty)
+        .toSet();
+    return repo.deliveryRoutes
+        .where((route) => routeIds.contains(route.id))
+        .toList();
+  }
+
+  bool _orderMatchesRoute(CustomerOrder order, WaterPlantRepository repo) {
+    final customer = repo.customerById(order.customerId);
+    if (customer == null) return _routeFilter == null;
+    return _matchesRoute(customer);
+  }
+
+  bool _deliveryMatchesRoute(Delivery delivery, WaterPlantRepository repo) {
+    final customer = repo.customerById(delivery.customerId);
+    if (customer == null) return _routeFilter == null;
+    return _matchesRoute(customer);
+  }
+
+  bool _matchesRoute(Customer customer) {
+    if (_routeFilter == null) return true;
+    if (_routeFilter == driverUnassignedRouteFilter) {
+      return _isUnassignedRoute(customer);
+    }
+    return customer.routeId == _routeFilter;
+  }
+
+  bool _isUnassignedRoute(Customer customer) =>
+      customer.routeId == null || customer.routeId!.trim().isEmpty;
+}
+
+class _DriverNotificationButton extends StatelessWidget {
+  const _DriverNotificationButton({
+    required this.unreadCount,
+    required this.onTap,
+  });
+
+  final int unreadCount;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'Notifications',
+      onPressed: onTap,
+      style: IconButton.styleFrom(
+        backgroundColor: Colors.white.withValues(alpha: 0.14),
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      icon: Badge(
+        isLabelVisible: unreadCount > 0,
+        label: Text('$unreadCount'),
+        child: const Icon(Icons.notifications_rounded),
+      ),
+    );
+  }
+}
+
+class _DriverNotificationsSheet extends StatelessWidget {
+  const _DriverNotificationsSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<NotificationRepository>(
+      builder: (context, notificationRepo, _) {
+        final items = notificationRepo.forDriver();
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              14,
+              16,
+              MediaQuery.paddingOf(context).bottom + 16,
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.78,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: DriverColors.cardBorder,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Notifications',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: DriverColors.titleNavy,
+                          ),
+                        ),
+                      ),
+                      if (items.any((n) => !n.read))
+                        TextButton(
+                          onPressed: notificationRepo.markAllReadForDriver,
+                          child: Text(
+                            'Mark all read',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: DriverColors.accent,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  if (items.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      child: Text(
+                        'No driver notifications yet',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(
+                          color: DriverColors.labelGrey,
+                        ),
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: items.length,
+                        itemBuilder: (context, index) {
+                          final item = items[index];
+                          return _DriverNotificationTile(
+                            notification: item,
+                            onTap: () => notificationRepo.markRead(item.id),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _DriverNotificationTile extends StatelessWidget {
+  const _DriverNotificationTile({
+    required this.notification,
+    required this.onTap,
+  });
+
+  final AppNotification notification;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: notification.read ? Colors.white : const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(14),
+        child: ListTile(
+          onTap: onTap,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(
+              color: notification.read
+                  ? DriverColors.cardBorder
+                  : const Color(0xFFEA580C).withValues(alpha: 0.45),
+            ),
+          ),
+          leading: Icon(
+            notification.type == AppNotificationType.orderAccepted
+                ? Icons.assignment_turned_in_rounded
+                : Icons.local_shipping_rounded,
+            color: notification.read
+                ? DriverColors.accent
+                : const Color(0xFFEA580C),
+          ),
+          title: Text(
+            notification.title,
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: DriverColors.titleNavy,
+            ),
+          ),
+          subtitle: Text(
+            '${notification.body}\n${notification.createdAt.timeLabel}',
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              color: DriverColors.labelGrey,
+              height: 1.35,
+            ),
+          ),
+          isThreeLine: true,
+        ),
+      ),
     );
   }
 }

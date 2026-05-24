@@ -1,28 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class DriversColors {
-  static const Color screenBg = Color(0xFFF3F4F6);
-  static const Color titleNavy = Color(0xFF111827);
+  static const Color screenBg = AppColors.surface;
+  static const Color titleNavy = AppColors.textPrimary;
   static const Color labelGrey = Color(0xFF6B7280);
-  static const Color cardBorder = Color(0xFFE5E7EB);
-  static const Color accent = Color(0xFF1A73E8);
+  static const Color cardBorder = AppColors.cardBorder;
+  static const Color accent = AppColors.primary;
   static const Color warning = Color(0xFFD97706);
 
   static BoxDecoration get cardDecoration => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      );
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(color: cardBorder),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.05),
+        blurRadius: 8,
+        offset: const Offset(0, 2),
+      ),
+    ],
+  );
 }
 
 class DriversScaffold extends StatelessWidget {
@@ -37,7 +39,7 @@ class DriversScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: child,
+      child: PremiumResponsiveBody(maxWidth: 1180, child: child),
     );
   }
 }
@@ -50,34 +52,20 @@ class DriversHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(4, MediaQuery.paddingOf(context).top + 4, 8, 16),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: onBack,
+    return AdminPageHeader(
+      title: 'Drivers',
+      subtitle: 'Team access and delivery staff',
+      onBack: onBack,
+      trailing: TextButton.icon(
+        onPressed: onAdd,
+        icon: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
+        label: Text(
+          'Add',
+          style: GoogleFonts.poppins(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
           ),
-          Expanded(
-            child: Text(
-              'Drivers',
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          TextButton.icon(
-            onPressed: onAdd,
-            icon: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
-            label: Text(
-              'Add',
-              style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -162,25 +150,48 @@ class _AddDriverSheetState extends State<AddDriverSheet> {
                 ),
                 Text(
                   'Create login credentials for the driver app',
-                  style: GoogleFonts.poppins(fontSize: 12, color: DriversColors.labelGrey),
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: DriversColors.labelGrey,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 _field(_name, 'Full name', Icons.person_outline),
                 const SizedBox(height: 12),
-                _field(_phone, 'Phone', Icons.phone_outlined, keyboard: TextInputType.phone),
+                _field(
+                  _phone,
+                  'Phone',
+                  Icons.phone_outlined,
+                  keyboard: TextInputType.phone,
+                ),
                 const SizedBox(height: 12),
-                _field(_email, 'Login email', Icons.email_outlined, keyboard: TextInputType.emailAddress),
+                _field(
+                  _email,
+                  'Login email',
+                  Icons.email_outlined,
+                  keyboard: TextInputType.emailAddress,
+                ),
                 const SizedBox(height: 12),
-                _field(_password, 'Password (min 6)', Icons.lock_outline, obscure: true),
+                _field(
+                  _password,
+                  'Password (min 6)',
+                  Icons.lock_outline,
+                  obscure: true,
+                ),
                 const SizedBox(height: 20),
                 FilledButton(
                   onPressed: _submit,
                   style: FilledButton.styleFrom(
                     backgroundColor: DriversColors.accent,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  child: Text('Create driver', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                  child: Text(
+                    'Create driver',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                  ),
                 ),
               ],
             ),
@@ -203,7 +214,9 @@ class _AddDriverSheetState extends State<AddDriverSheet> {
       obscureText: obscure,
       validator: (v) {
         if (v == null || v.trim().isEmpty) return 'Required';
-        if (label.contains('Password') && v.length < 6) return 'Min 6 characters';
+        if (label.contains('Password') && v.length < 6) {
+          return 'Min 6 characters';
+        }
         if (label.contains('email') && !v.contains('@')) return 'Invalid email';
         return null;
       },

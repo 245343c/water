@@ -4,6 +4,7 @@ import 'package:sri_sai_ro_water/core/widgets/app_image.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/add_edit_customer_widgets.dart';
+import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/features/products/widgets/products_screen_widgets.dart';
 
 abstract final class AddProductColors {
@@ -20,7 +21,11 @@ class AddProductHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AddEditCustomerHeader(title: 'Add Product', onBack: onBack);
+    return AdminPageHeader(
+      title: 'Add Product',
+      subtitle: 'Catalog item and default rate',
+      onBack: onBack,
+    );
   }
 }
 
@@ -113,7 +118,10 @@ class AddProductLivePreview extends StatelessWidget {
                 ),
                 Text(
                   displaySize,
-                  style: GoogleFonts.poppins(fontSize: 12, color: AddProductColors.labelGrey),
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: AddProductColors.labelGrey,
+                  ),
                 ),
                 Text(
                   price != null
@@ -189,7 +197,11 @@ class AddProductPhotoSection extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _PhotoBtn(icon: Icons.photo_camera_outlined, label: 'Camera', onTap: onPickCamera),
+                    _PhotoBtn(
+                      icon: Icons.photo_camera_outlined,
+                      label: 'Camera',
+                      onTap: onPickCamera,
+                    ),
                     const SizedBox(height: 8),
                     _PhotoBtn(
                       icon: Icons.photo_library_outlined,
@@ -240,12 +252,18 @@ class _PhotoBtn extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
-            border: outlined ? Border.all(color: AddProductColors.fieldBorder) : null,
+            border: outlined
+                ? Border.all(color: AddProductColors.fieldBorder)
+                : null,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 16, color: outlined ? ProductsColors.statBlue : Colors.white),
+              Icon(
+                icon,
+                size: 16,
+                color: outlined ? ProductsColors.statBlue : Colors.white,
+              ),
               const SizedBox(width: 6),
               Text(
                 label,
@@ -346,7 +364,10 @@ class _TypeChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: selected ? accent : AddProductColors.fieldBorder, width: selected ? 2 : 1),
+            border: Border.all(
+              color: selected ? accent : AddProductColors.fieldBorder,
+              width: selected ? 2 : 1,
+            ),
           ),
           child: Column(
             children: [
@@ -385,11 +406,19 @@ class AddProductCanTypeSelector extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: _CanChip(label: 'Normal', selected: !isCool, onTap: () => onChanged(false)),
+            child: _CanChip(
+              label: 'Normal',
+              selected: !isCool,
+              onTap: () => onChanged(false),
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: _CanChip(label: 'Cool', selected: isCool, onTap: () => onChanged(true)),
+            child: _CanChip(
+              label: 'Cool',
+              selected: isCool,
+              onTap: () => onChanged(true),
+            ),
           ),
         ],
       ),
@@ -398,7 +427,11 @@ class AddProductCanTypeSelector extends StatelessWidget {
 }
 
 class _CanChip extends StatelessWidget {
-  const _CanChip({required this.label, required this.selected, required this.onTap});
+  const _CanChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   final String label;
   final bool selected;
@@ -417,7 +450,9 @@ class _CanChip extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: selected ? ProductsColors.statGreen : AddProductColors.fieldBorder,
+              color: selected
+                  ? ProductsColors.statGreen
+                  : AddProductColors.fieldBorder,
             ),
           ),
           child: Text(
@@ -458,7 +493,8 @@ class AddProductQuantityField extends StatelessWidget {
       hint: 'e.g. 1 L, 2 L, 20 L',
       icon: Icons.straighten_outlined,
       required: true,
-      validator: (v) => v == null || v.trim().isEmpty ? 'Size is required' : null,
+      validator: (v) =>
+          v == null || v.trim().isEmpty ? 'Size is required' : null,
     );
   }
 }

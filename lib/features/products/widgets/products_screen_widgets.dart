@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
 import 'package:sri_sai_ro_water/core/widgets/app_image.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/data/models/product_variant.dart';
@@ -11,16 +13,16 @@ import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class ProductsColors {
-  static const Color titleNavy = Color(0xFF1E3A8A);
+  static const Color titleNavy = AppColors.textPrimary;
   static const Color labelGrey = Color(0xFF6B7280);
   static const Color statBlue = Color(0xFF2563EB);
   static const Color statGreen = Color(0xFF16A34A);
   static const Color coolAccent = Color(0xFF0EA5E9);
-  static const Color cardBorder = Color(0xFFE5E7EB);
+  static const Color cardBorder = AppColors.cardBorder;
   static const Color bottleBg = Color(0xFFEFF6FF);
   static const Color canBg = Color(0xFFECFDF5);
   static const Color coolBg = Color(0xFFE0F2FE);
-  static const Color screenBg = Color(0xFFF3F4F6);
+  static const Color screenBg = AppColors.surface;
 }
 
 /// Product photo from local file path or remote URL.
@@ -68,7 +70,7 @@ class ProductsScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: child,
+      child: PremiumResponsiveBody(maxWidth: 1180, child: child),
     );
   }
 }
@@ -116,11 +118,11 @@ class ProductsCatalogStats extends StatelessWidget {
   }
 
   Widget _divider() => Container(
-        width: 1,
-        height: 36,
-        margin: const EdgeInsets.symmetric(horizontal: 6),
-        color: Colors.white.withValues(alpha: 0.28),
-      );
+    width: 1,
+    height: 36,
+    margin: const EdgeInsets.symmetric(horizontal: 6),
+    color: Colors.white.withValues(alpha: 0.28),
+  );
 
   Widget _stat(String value, String label) {
     return Expanded(
@@ -150,7 +152,11 @@ class ProductsCatalogStats extends StatelessWidget {
 // ─── Premium list row (catalog) ──────────────────────────────────────────────
 
 class ProductListTile extends StatelessWidget {
-  const ProductListTile({super.key, required this.product, required this.onTap});
+  const ProductListTile({
+    super.key,
+    required this.product,
+    required this.onTap,
+  });
 
   final Product product;
   final VoidCallback onTap;
@@ -196,11 +202,15 @@ class ProductListTile extends StatelessWidget {
                     width: 4,
                     decoration: BoxDecoration(
                       color: _accent,
-                      borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
+                      borderRadius: const BorderRadius.horizontal(
+                        left: Radius.circular(16),
+                      ),
                     ),
                   ),
                   ClipRRect(
-                    borderRadius: const BorderRadius.only(topRight: Radius.circular(4)),
+                    borderRadius: const BorderRadius.only(
+                      topRight: Radius.circular(4),
+                    ),
                     child: SizedBox(
                       width: 88,
                       child: ProductImagePreview(
@@ -255,9 +265,7 @@ class ProductListTile extends StatelessWidget {
                                     ),
                                   ),
                                   Text(
-                                    CurrencyUtils.format(
-                                      product.startingPrice,
-                                    ),
+                                    CurrencyUtils.format(product.startingPrice),
                                     style: GoogleFonts.poppins(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w800,
@@ -274,7 +282,11 @@ class ProductListTile extends StatelessWidget {
                                 ),
                               ),
                               const Spacer(),
-                              Icon(Icons.chevron_right_rounded, color: _accent, size: 22),
+                              Icon(
+                                Icons.chevron_right_rounded,
+                                color: _accent,
+                                size: 22,
+                              ),
                             ],
                           ),
                         ],
@@ -294,7 +306,12 @@ class ProductListTile extends StatelessWidget {
 // ─── Category filter chip ─────────────────────────────────────────────────────
 
 class ProductCategoryChip extends StatelessWidget {
-  const ProductCategoryChip({super.key, required this.label, required this.selected, required this.onTap});
+  const ProductCategoryChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -311,7 +328,9 @@ class ProductCategoryChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            border: selected ? null : Border.all(color: ProductsColors.cardBorder),
+            border: selected
+                ? null
+                : Border.all(color: ProductsColors.cardBorder),
           ),
           child: Text(
             label,
@@ -330,7 +349,11 @@ class ProductCategoryChip extends StatelessWidget {
 // ─── Product catalog card — image box + name + size + price ─────────────────
 
 class ProductCatalogCard extends StatelessWidget {
-  const ProductCatalogCard({super.key, required this.product, required this.onTap});
+  const ProductCatalogCard({
+    super.key,
+    required this.product,
+    required this.onTap,
+  });
 
   final Product product;
   final VoidCallback onTap;
@@ -378,7 +401,9 @@ class ProductCatalogCard extends StatelessWidget {
                 child: Container(
                   decoration: BoxDecoration(
                     color: _imageBg,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(15),
+                    ),
                   ),
                   child: ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
@@ -530,7 +555,7 @@ class _VariantIconTile extends StatelessWidget {
   final VoidCallback onTap;
 
   bool get _isBottle => product.category == ProductCategory.bottle;
-  bool get _isCool   => variant.isCool;
+  bool get _isCool => variant.isCool;
 
   Color get _accent {
     if (_isCool) return ProductsColors.coolAccent;
@@ -619,7 +644,10 @@ class _VariantIconTile extends StatelessWidget {
 
               // ── Price pill ───────────────────────────────────────────
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: _accent.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(20),
@@ -643,11 +671,15 @@ class _VariantIconTile extends StatelessWidget {
 
 // ─── Product icon (for section header) ───────────────────────────────────────
 
-
 // ─── Legacy ProductThumbnail (used by product detail screen) ──────────────────
 
 class ProductThumbnail extends StatelessWidget {
-  const ProductThumbnail({super.key, required this.product, this.size = 56, this.radius = 14});
+  const ProductThumbnail({
+    super.key,
+    required this.product,
+    this.size = 56,
+    this.radius = 14,
+  });
   final Product product;
   final double size;
   final double radius;
@@ -656,7 +688,9 @@ class ProductThumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     final isBottle = product.category == ProductCategory.bottle;
     final accentBg = isBottle ? ProductsColors.bottleBg : ProductsColors.canBg;
-    final accentColor = isBottle ? ProductsColors.statBlue : ProductsColors.statGreen;
+    final accentColor = isBottle
+        ? ProductsColors.statBlue
+        : ProductsColors.statGreen;
     final icon = isBottle ? Icons.water_drop : Icons.local_drink_outlined;
 
     return ClipRRect(
@@ -686,7 +720,8 @@ class _CategoryBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: (isBottle ? ProductsColors.statBlue : ProductsColors.statGreen).withValues(alpha: 0.1),
+        color: (isBottle ? ProductsColors.statBlue : ProductsColors.statGreen)
+            .withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
@@ -716,26 +751,13 @@ class ProductDetailHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(4, MediaQuery.paddingOf(context).top + 4, 8, 14),
-      child: Row(
+    return AdminPageHeader(
+      title: 'Product Details',
+      subtitle: 'Catalog item and pricing reference',
+      onBack: onBack,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Product Details',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
           if (onEdit != null)
             IconButton(
               icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 24),
@@ -747,9 +769,7 @@ class ProductDetailHeader extends StatelessWidget {
               icon: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 24),
               tooltip: 'Delete product',
               onPressed: onDelete,
-            )
-          else if (onEdit == null)
-            const SizedBox(width: 48),
+            ),
         ],
       ),
     );
@@ -764,7 +784,9 @@ class ProductDetailCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final repo = context.read<WaterPlantRepository>();
     final isBottle = product.category == ProductCategory.bottle;
-    final accent = isBottle ? ProductsColors.statBlue : ProductsColors.statGreen;
+    final accent = isBottle
+        ? ProductsColors.statBlue
+        : ProductsColors.statGreen;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
@@ -773,7 +795,11 @@ class ProductDetailCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: ProductsColors.cardBorder),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       padding: const EdgeInsets.all(16),
@@ -820,19 +846,29 @@ class ProductDetailCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(children: [
-                      Expanded(
-                        child: Text(
-                          product.name,
-                          style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700, color: ProductsColors.titleNavy),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            product.name,
+                            style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: ProductsColors.titleNavy,
+                            ),
+                          ),
                         ),
-                      ),
-                      _CategoryBadge(category: product.category),
-                    ]),
+                        _CategoryBadge(category: product.category),
+                      ],
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       product.description,
-                      style: GoogleFonts.poppins(fontSize: 12, color: ProductsColors.labelGrey, height: 1.4),
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: ProductsColors.labelGrey,
+                        height: 1.4,
+                      ),
                     ),
                   ],
                 ),
@@ -870,7 +906,11 @@ class ProductDetailCard extends StatelessWidget {
           const SizedBox(height: 14),
           Row(
             children: [
-              Icon(Icons.info_outline, size: 14, color: accent.withValues(alpha: 0.7)),
+              Icon(
+                Icons.info_outline,
+                size: 14,
+                color: accent.withValues(alpha: 0.7),
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(

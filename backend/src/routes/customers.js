@@ -42,7 +42,7 @@ router.get('/:id', protect, adminOrDriver, async (req, res) => {
 // POST /api/customers — create customer
 router.post('/', protect, adminOnly, async (req, res) => {
   try {
-    const { name, phone, email, address, place, billingMode, productPrices } = req.body;
+    const { name, phone, email, address, place, billingMode, productPrices, routeId, routeNote } = req.body;
     if (!name || !phone) {
       return res.status(400).json({ success: false, message: 'name and phone required' });
     }
@@ -56,6 +56,8 @@ router.post('/', protect, adminOnly, async (req, res) => {
       email: email || '',
       address: address || '',
       place: place || '',
+      routeId: routeId || null,
+      routeNote: routeNote || '',
       billingMode: billingMode || 'monthly_contract',
       productPrices: productPrices || [],
     });
@@ -136,7 +138,7 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
     const old = await Customer.findOne({ customerId: req.params.id, shopId: req.user.shopId }).lean();
     if (!old) return res.status(404).json({ success: false, message: 'Customer not found' });
 
-    const allowed = ['name', 'phone', 'email', 'address', 'place', 'billingMode', 'productPrices', 'status'];
+    const allowed = ['name', 'phone', 'email', 'address', 'place', 'billingMode', 'productPrices', 'status', 'routeId', 'routeNote'];
     const updates = {};
     allowed.forEach((k) => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
 

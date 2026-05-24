@@ -22,6 +22,8 @@ const customerSchema = new mongoose.Schema(
     email: { type: String, lowercase: true, trim: true, default: '' },
     address: { type: String, trim: true, default: '' },
     place: { type: String, trim: true, default: '' },
+    routeId: { type: String, default: null },
+    routeNote: { type: String, trim: true, default: '' },
     latitude: { type: Number, default: null },
     longitude: { type: Number, default: null },
     customerType: {
@@ -50,6 +52,7 @@ const customerSchema = new mongoose.Schema(
 customerSchema.index({ shopId: 1 });
 customerSchema.index({ shopId: 1, phone: 1 });
 customerSchema.index({ shopId: 1, name: 1 });
+customerSchema.index({ shopId: 1, routeId: 1 });
 customerSchema.index({ phoneLast10: 1, status: 1 });
 
 customerSchema.pre('save', function setPhoneLast10(next) {

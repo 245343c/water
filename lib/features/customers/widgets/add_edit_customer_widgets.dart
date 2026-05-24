@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class AddEditCustomerColors {
-  static const Color titleNavy = Color(0xFF111827);
+  static const Color titleNavy = AppColors.textPrimary;
   static const Color labelGrey = Color(0xFF6B7280);
-  static const Color fieldBorder = Color(0xFFE5E7EB);
+  static const Color fieldBorder = AppColors.cardBorder;
   static const Color fieldFill = Color(0xFFF9FAFB);
-  static const Color primaryBtn = Color(0xFF1A73E8);
+  static const Color primaryBtn = AppColors.primary;
 }
 
 class AddEditCustomerHeader extends StatelessWidget {
@@ -25,44 +27,20 @@ class AddEditCustomerHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(
-        4,
-        MediaQuery.paddingOf(context).top + 4,
-        4,
-        16,
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              title,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          if (onDelete != null)
-            IconButton(
+    return AdminPageHeader(
+      title: title,
+      subtitle: 'Customer account setup',
+      onBack: onBack,
+      trailing: onDelete == null
+          ? null
+          : IconButton(
               icon: const Icon(
-                Icons.delete_outline,
+                Icons.delete_outline_rounded,
                 color: Colors.white,
                 size: 22,
               ),
               onPressed: onDelete,
-            )
-          else
-            const SizedBox(width: 48),
-        ],
-      ),
+            ),
     );
   }
 }
@@ -461,7 +439,10 @@ class AddEditCustomerScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: ColoredBox(color: CustomersColors.screenBg, child: child),
+      child: ColoredBox(
+        color: CustomersColors.screenBg,
+        child: PremiumResponsiveBody(maxWidth: 1180, child: child),
+      ),
     );
   }
 }

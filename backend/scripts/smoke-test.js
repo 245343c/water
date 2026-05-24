@@ -148,6 +148,40 @@ async function main() {
     if (res.status !== 200 || !res.json.stats) throw new Error(JSON.stringify(res.json));
   });
 
+  let smokeRouteId;
+  await assert('GET /api/delivery-routes (admin)', async () => {
+    const res = await request('GET', '/api/delivery-routes', { token: adminToken });
+    if (res.status !== 200 || !Array.isArray(res.json.routes)) {
+      throw new Error(JSON.stringify(res.json));
+    }
+    if (res.json.routes.length === 0) throw new Error('Expected seeded delivery routes');
+    smokeRouteId = res.json.routes[0].routeId;
+  });
+
+  await assert('POST /api/delivery-routes (admin create)', async () => {
+    const res = await request('POST', '/api/delivery-routes', {
+      token: adminToken,
+      body: { name: `Smoke Route ${Date.now()}` },
+    });
+    if (res.status !== 201 || !res.json.route?.routeId) throw new Error(JSON.stringify(res.json));
+  });
+
+  await assert('POST /api/customers with routeId', async () => {
+    const res = await request('POST', '/api/customers', {
+      token: adminToken,
+      body: {
+        name: 'Route Test Customer',
+        phone: `9${String(Date.now()).slice(-9)}`,
+        address: 'Test address',
+        routeId: smokeRouteId,
+        routeNote: 'Smoke test route note',
+      },
+    });
+    if (res.status !== 201 || res.json.customer?.routeId !== smokeRouteId) {
+      throw new Error(JSON.stringify(res.json));
+    }
+  });
+
   await assert('GET /api/notifications (admin)', async () => {
     const res = await request('GET', '/api/notifications', { token: adminToken });
     if (res.status !== 200) throw new Error(JSON.stringify(res.json));

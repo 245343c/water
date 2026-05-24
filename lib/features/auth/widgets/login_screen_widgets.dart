@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 
 abstract final class LoginColors {
   static const Color brandNavy = Color(0xFF1E3A8A);
@@ -54,11 +55,7 @@ class _WelcomeCleanBackground extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFE8F2FC),
-            Color(0xFFF6FAFE),
-            Color(0xFFFFFFFF),
-          ],
+          colors: [Color(0xFFE8F2FC), Color(0xFFF6FAFE), Color(0xFFFFFFFF)],
           stops: [0.0, 0.42, 1.0],
         ),
       ),
@@ -117,11 +114,7 @@ class _WelcomeHeaderPainter extends CustomPainter {
     final gradient = LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: const [
-        Color(0xFF001F3F),
-        Color(0xFF1E3A8A),
-        Color(0xFF2563EB),
-      ],
+      colors: const [Color(0xFF001F3F), Color(0xFF1E3A8A), Color(0xFF2563EB)],
     );
     final path = Path()
       ..moveTo(0, 0)
@@ -227,7 +220,8 @@ class _StaffDeliveryScenePainter extends CustomPainter {
     );
 
     // Distant hills
-    final hill = Paint()..color = const Color(0xFF1E3A8A).withValues(alpha: 0.35);
+    final hill = Paint()
+      ..color = const Color(0xFF1E3A8A).withValues(alpha: 0.35);
     final hillPath = Path()
       ..moveTo(0, h * 0.38)
       ..quadraticBezierTo(w * 0.25, h * 0.32, w * 0.5, h * 0.36)
@@ -253,13 +247,22 @@ class _StaffDeliveryScenePainter extends CustomPainter {
       ..color = Colors.white.withValues(alpha: 0.85)
       ..strokeWidth = 2.5;
     for (var x = 0.0; x < w; x += 28) {
-      canvas.drawLine(Offset(x, roadY + h * 0.06), Offset(x + 14, roadY + h * 0.06), dash);
+      canvas.drawLine(
+        Offset(x, roadY + h * 0.06),
+        Offset(x + 14, roadY + h * 0.06),
+        dash,
+      );
     }
 
     _drawWaterPlant(canvas, Offset(w * 0.08, h * 0.28), w * 0.38, h * 0.38);
-    _drawDeliveryVan(canvas, Offset(w * 0.52, roadY - h * 0.14), w * 0.42, h * 0.18);
+    _drawDeliveryVan(
+      canvas,
+      Offset(w * 0.52, roadY - h * 0.14),
+      w * 0.42,
+      h * 0.18,
+    );
 
-  // Water cans beside van
+    // Water cans beside van
     _drawWaterCan(canvas, Offset(w * 0.88, roadY - h * 0.08), 22, false);
     _drawWaterCan(canvas, Offset(w * 0.82, roadY - h * 0.06), 18, true);
     _drawWaterCan(canvas, Offset(w * 0.76, roadY - h * 0.04), 16, false);
@@ -308,7 +311,12 @@ class _StaffDeliveryScenePainter extends CustomPainter {
     // Tank cap
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTWH(tankRect.left + 8, tankRect.top - 8, tankRect.width - 16, 12),
+        Rect.fromLTWH(
+          tankRect.left + 8,
+          tankRect.top - 8,
+          tankRect.width - 16,
+          12,
+        ),
         const Radius.circular(4),
       ),
       roof,
@@ -359,7 +367,12 @@ class _StaffDeliveryScenePainter extends CustomPainter {
     // Cabin
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTWH(origin.dx + vw * 0.58, origin.dy + vh * 0.15, vw * 0.38, vh * 0.5),
+        Rect.fromLTWH(
+          origin.dx + vw * 0.58,
+          origin.dy + vh * 0.15,
+          vw * 0.38,
+          vh * 0.5,
+        ),
         const Radius.circular(6),
       ),
       cabin,
@@ -367,23 +380,57 @@ class _StaffDeliveryScenePainter extends CustomPainter {
     // Windshield
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTWH(origin.dx + vw * 0.62, origin.dy + vh * 0.22, vw * 0.28, vh * 0.22),
+        Rect.fromLTWH(
+          origin.dx + vw * 0.62,
+          origin.dy + vh * 0.22,
+          vw * 0.28,
+          vh * 0.22,
+        ),
         const Radius.circular(4),
       ),
       Paint()..color = const Color(0xFFBAE6FD),
     );
     // Wheels
-    canvas.drawCircle(Offset(origin.dx + vw * 0.22, origin.dy + vh * 0.82), vh * 0.12, wheel);
-    canvas.drawCircle(Offset(origin.dx + vw * 0.78, origin.dy + vh * 0.82), vh * 0.12, wheel);
-    canvas.drawCircle(Offset(origin.dx + vw * 0.22, origin.dy + vh * 0.82), vh * 0.06,
-        Paint()..color = const Color(0xFF94A3B8));
-    canvas.drawCircle(Offset(origin.dx + vw * 0.78, origin.dy + vh * 0.82), vh * 0.06,
-        Paint()..color = const Color(0xFF94A3B8));
+    canvas.drawCircle(
+      Offset(origin.dx + vw * 0.22, origin.dy + vh * 0.82),
+      vh * 0.12,
+      wheel,
+    );
+    canvas.drawCircle(
+      Offset(origin.dx + vw * 0.78, origin.dy + vh * 0.82),
+      vh * 0.12,
+      wheel,
+    );
+    canvas.drawCircle(
+      Offset(origin.dx + vw * 0.22, origin.dy + vh * 0.82),
+      vh * 0.06,
+      Paint()..color = const Color(0xFF94A3B8),
+    );
+    canvas.drawCircle(
+      Offset(origin.dx + vw * 0.78, origin.dy + vh * 0.82),
+      vh * 0.06,
+      Paint()..color = const Color(0xFF94A3B8),
+    );
 
     // Cans loaded on van
-    _drawWaterCan(canvas, Offset(origin.dx + vw * 0.12, origin.dy + vh * 0.05), 14, false);
-    _drawWaterCan(canvas, Offset(origin.dx + vw * 0.28, origin.dy + vh * 0.02), 14, true);
-    _drawWaterCan(canvas, Offset(origin.dx + vw * 0.44, origin.dy + vh * 0.05), 14, false);
+    _drawWaterCan(
+      canvas,
+      Offset(origin.dx + vw * 0.12, origin.dy + vh * 0.05),
+      14,
+      false,
+    );
+    _drawWaterCan(
+      canvas,
+      Offset(origin.dx + vw * 0.28, origin.dy + vh * 0.02),
+      14,
+      true,
+    );
+    _drawWaterCan(
+      canvas,
+      Offset(origin.dx + vw * 0.44, origin.dy + vh * 0.05),
+      14,
+      false,
+    );
   }
 
   void _drawWaterCan(Canvas canvas, Offset c, double radius, bool cool) {
@@ -417,7 +464,14 @@ class _StaffDeliveryScenePainter extends CustomPainter {
     }
   }
 
-  void _drawWaves(Canvas canvas, double w, double h, double yFactor, Color color, double alpha) {
+  void _drawWaves(
+    Canvas canvas,
+    double w,
+    double h,
+    double yFactor,
+    Color color,
+    double alpha,
+  ) {
     final paint = Paint()
       ..color = color.withValues(alpha: alpha)
       ..style = PaintingStyle.fill;
@@ -552,7 +606,11 @@ class LoginBrandHeader extends StatelessWidget {
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Icon(Icons.water_drop, size: 13, color: LoginColors.brandBlue),
+                  child: Icon(
+                    Icons.water_drop,
+                    size: 13,
+                    color: LoginColors.brandBlue,
+                  ),
                 ),
                 Expanded(
                   child: Container(
@@ -603,7 +661,9 @@ class LoginFormCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: LoginColors.fieldBorder.withValues(alpha: 0.85)),
+        border: Border.all(
+          color: LoginColors.fieldBorder.withValues(alpha: 0.85),
+        ),
         boxShadow: [
           BoxShadow(
             color: LoginColors.brandNavy.withValues(alpha: 0.07),
@@ -659,7 +719,10 @@ class LoginTextField extends StatelessWidget {
                 color: const Color(0xFF111827),
               ),
               children: const [
-                TextSpan(text: ' *', style: TextStyle(color: LoginColors.requiredRed)),
+                TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: LoginColors.requiredRed),
+                ),
               ],
             ),
           ),
@@ -678,14 +741,20 @@ class LoginTextField extends StatelessWidget {
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: GoogleFonts.poppins(fontSize: 14, color: LoginColors.labelGrey),
+              hintStyle: GoogleFonts.poppins(
+                fontSize: 14,
+                color: LoginColors.labelGrey,
+              ),
               filled: true,
               fillColor: Colors.white,
               prefixIcon: icon != null
                   ? Icon(icon, size: 20, color: LoginColors.brandBlue)
                   : null,
               suffixIcon: suffix,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 14,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(color: LoginColors.fieldBorder),
@@ -696,7 +765,10 @@ class LoginTextField extends StatelessWidget {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: LoginColors.primaryBtn, width: 1.5),
+                borderSide: const BorderSide(
+                  color: LoginColors.primaryBtn,
+                  width: 1.5,
+                ),
               ),
               errorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -732,7 +804,11 @@ class LoginDemoBox extends StatelessWidget {
               color: LoginColors.brandBlue.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.info_outline, size: 16, color: LoginColors.brandBlue),
+            child: const Icon(
+              Icons.info_outline,
+              size: 16,
+              color: LoginColors.brandBlue,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -788,7 +864,10 @@ class LoginSignInButton extends StatelessWidget {
                     child: SizedBox(
                       width: 22,
                       height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     ),
                   )
                 : Row(
@@ -804,7 +883,11 @@ class LoginSignInButton extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 22),
+                      const Icon(
+                        Icons.arrow_forward_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
                     ],
                   ),
           ),
@@ -824,11 +907,18 @@ class LoginSecureNote extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.lock_outline, size: 14, color: LoginColors.brandBlue.withValues(alpha: 0.75)),
+          Icon(
+            Icons.lock_outline,
+            size: 14,
+            color: LoginColors.brandBlue.withValues(alpha: 0.75),
+          ),
           const SizedBox(width: 6),
           Text(
             'Secured sign-in',
-            style: GoogleFonts.poppins(fontSize: 12, color: LoginColors.labelGrey),
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: LoginColors.labelGrey,
+            ),
           ),
         ],
       ),
@@ -850,7 +940,10 @@ class LoginFooterLink extends StatelessWidget {
         children: [
           Text(
             'New here? ',
-            style: GoogleFonts.poppins(fontSize: 13, color: LoginColors.labelGrey),
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: LoginColors.labelGrey,
+            ),
           ),
           GestureDetector(
             onTap: onCreateAccount,
@@ -889,14 +982,19 @@ class LoginPremiumScaffold extends StatelessWidget {
         statusBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: isWelcome ? const Color(0xFFF6FAFE) : LoginColors.pageBg,
+        backgroundColor: isWelcome
+            ? const Color(0xFFF6FAFE)
+            : LoginColors.pageBg,
         body: Stack(
           fit: StackFit.expand,
           children: [
             LoginPremiumBackground(variant: backgroundVariant),
             SafeArea(
               bottom: false,
-              child: child,
+              child: PremiumResponsiveBody(
+                maxWidth: isWelcome ? 920 : 720,
+                child: child,
+              ),
             ),
           ],
         ),
@@ -916,10 +1014,7 @@ class LoginHeroSection extends StatelessWidget {
       clipBehavior: Clip.none,
       children: const [
         LoginBrandHeader(),
-        Positioned(
-          top: 0,
-          child: LoginLogoBadge(),
-        ),
+        Positioned(top: 0, child: LoginLogoBadge()),
       ],
     );
   }
@@ -940,10 +1035,7 @@ class WelcomeHeroSection extends StatelessWidget {
           subtitle: 'Order fresh RO water at home\nor sign in to run your shop',
           compact: true,
         ),
-        Positioned(
-          top: 4,
-          child: LoginLogoBadge(),
-        ),
+        Positioned(top: 4, child: LoginLogoBadge()),
       ],
     );
   }
