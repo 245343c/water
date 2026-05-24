@@ -1,9 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
+import 'package:sri_sai_ro_water/core/widgets/app_image.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 
 abstract final class DashboardColors {
@@ -142,7 +141,7 @@ class DashboardHeader extends StatelessWidget {
                   ),
                   child: ClipOval(
                     child: adminImagePath != null
-                        ? Image.file(File(adminImagePath!), fit: BoxFit.cover)
+                        ? AppImage(path: adminImagePath, width: 66, height: 66)
                         : const Icon(
                             Icons.person_rounded,
                             color: Colors.white,

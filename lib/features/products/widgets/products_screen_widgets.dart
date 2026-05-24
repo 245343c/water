@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/widgets/app_image.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
-import 'package:sri_sai_ro_water/core/services/product_image_service.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/data/models/product_variant.dart';
@@ -19,6 +19,38 @@ abstract final class ProductsColors {
   static const Color canBg = Color(0xFFECFDF5);
   static const Color coolBg = Color(0xFFE0F2FE);
   static const Color screenBg = Color(0xFFF3F4F6);
+}
+
+/// Product photo from local file path or remote URL.
+class ProductImagePreview extends StatelessWidget {
+  const ProductImagePreview({
+    super.key,
+    required this.path,
+    required this.fallback,
+    this.width,
+    this.height,
+    this.fit = BoxFit.cover,
+  });
+
+  final String? path;
+  final Widget fallback;
+  final double? width;
+  final double? height;
+  final BoxFit fit;
+
+  @override
+  Widget build(BuildContext context) {
+    if (path == null || path!.isEmpty) {
+      return SizedBox(width: width, height: height, child: fallback);
+    }
+    return AppImage(
+      path: path,
+      width: width,
+      height: height,
+      fit: fit,
+      placeholder: SizedBox(width: width, height: height, child: fallback),
+    );
+  }
 }
 
 // ─── Scaffold ────────────────────────────────────────────────────────────────
@@ -128,8 +160,11 @@ class ProductListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final file = ProductImageService.fileForPath(product.localImagePath);
     final icon = _isBottle ? Icons.water_drop_rounded : Icons.local_drink_rounded;
+    final placeholder = ColoredBox(
+      color: _isBottle ? ProductsColors.bottleBg : ProductsColors.canBg,
+      child: Center(child: Icon(icon, size: 36, color: _accent)),
+    );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
@@ -166,14 +201,10 @@ class ProductListTile extends StatelessWidget {
                     borderRadius: const BorderRadius.only(topRight: Radius.circular(4)),
                     child: SizedBox(
                       width: 88,
-                      child: file != null
-                          ? Image.file(file, fit: BoxFit.cover)
-                          : ColoredBox(
-                              color: _isBottle ? ProductsColors.bottleBg : ProductsColors.canBg,
-                              child: Center(
-                                child: Icon(icon, size: 36, color: _accent),
-                              ),
-                            ),
+                      child: ProductImagePreview(
+                        path: product.localImagePath,
+                        fallback: placeholder,
+                      ),
                     ),
                   ),
                   Expanded(
@@ -312,8 +343,10 @@ class ProductCatalogCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final file = ProductImageService.fileForPath(product.localImagePath);
     final icon = _isBottle ? Icons.water_drop_rounded : Icons.local_drink_rounded;
+    final placeholder = Center(
+      child: Icon(icon, size: 44, color: _accent.withValues(alpha: 0.85)),
+    );
 
     return Material(
       color: Colors.white,
@@ -347,11 +380,11 @@ class ProductCatalogCard extends StatelessWidget {
                   ),
                   child: ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
-                    child: file != null
-                        ? Image.file(file, fit: BoxFit.cover, width: double.infinity, height: 110)
-                        : Center(
-                            child: Icon(icon, size: 44, color: _accent.withValues(alpha: 0.85)),
-                          ),
+                    child: ProductImagePreview(
+                      path: product.localImagePath,
+                      height: 110,
+                      fallback: placeholder,
+                    ),
                   ),
                 ),
               ),
@@ -517,8 +550,6 @@ class _VariantIconTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final file = ProductImageService.fileForPath(product.localImagePath);
-
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(14),
@@ -551,9 +582,14 @@ class _VariantIconTile extends StatelessWidget {
                   color: _bgColor,
                   shape: BoxShape.circle,
                 ),
-                child: file != null && _isBottle
+                child: product.hasPhoto && _isBottle
                     ? ClipOval(
-                        child: Image.file(file, fit: BoxFit.cover),
+                        child: ProductImagePreview(
+                          path: product.localImagePath,
+                          width: 58,
+                          height: 58,
+                          fallback: Icon(_icon, color: _accent, size: 30),
+                        ),
                       )
                     : Icon(_icon, color: _accent, size: 30),
               ),
@@ -616,7 +652,6 @@ class ProductThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final file = ProductImageService.fileForPath(product.localImagePath);
     final isBottle = product.category == ProductCategory.bottle;
     final accentBg = isBottle ? ProductsColors.bottleBg : ProductsColors.canBg;
     final accentColor = isBottle ? ProductsColors.statBlue : ProductsColors.statGreen;
@@ -624,13 +659,14 @@ class ProductThumbnail extends StatelessWidget {
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
-      child: Container(
+      child: ProductImagePreview(
+        path: product.localImagePath,
         width: size,
         height: size,
-        color: accentBg,
-        child: file != null
-            ? Image.file(file, fit: BoxFit.cover)
-            : Icon(icon, color: accentColor, size: size * 0.5),
+        fallback: ColoredBox(
+          color: accentBg,
+          child: Icon(icon, color: accentColor, size: size * 0.5),
+        ),
       ),
     );
   }
@@ -669,9 +705,11 @@ class ProductDetailHeader extends StatelessWidget {
   const ProductDetailHeader({
     super.key,
     required this.onBack,
+    this.onEdit,
     this.onDelete,
   });
   final VoidCallback onBack;
+  final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
   @override
@@ -696,13 +734,19 @@ class ProductDetailHeader extends StatelessWidget {
               ),
             ),
           ),
+          if (onEdit != null)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 24),
+              tooltip: 'Edit product',
+              onPressed: onEdit,
+            ),
           if (onDelete != null)
             IconButton(
               icon: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 24),
               tooltip: 'Delete product',
               onPressed: onDelete,
             )
-          else
+          else if (onEdit == null)
             const SizedBox(width: 48),
         ],
       ),

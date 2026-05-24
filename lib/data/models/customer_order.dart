@@ -15,6 +15,8 @@ class CustomerOrder {
     this.respondedAt,
     this.driverAcceptedAt,
     this.deliveryStartedAt,
+    this.assignedDriverId,
+    this.assignedDriverName,
   }) : createdAt = createdAt ?? DateTime.now();
 
   final String id;
@@ -30,6 +32,8 @@ class CustomerOrder {
   DateTime? respondedAt;
   DateTime? driverAcceptedAt;
   DateTime? deliveryStartedAt;
+  String? assignedDriverId;
+  String? assignedDriverName;
 
   int get totalCans => normalQty + coolQty;
 
@@ -46,7 +50,9 @@ class CustomerOrder {
 
   bool get canCustomerCancel => status == OrderStatus.pending;
 
-  bool get isDriverAssigned => driverAcceptedAt != null;
+  bool get isDriverAssigned =>
+      driverAcceptedAt != null || assignedDriverId != null;
 
-  bool get isOutForDelivery => deliveryStartedAt != null;
+  bool get isOutForDelivery =>
+      status == OrderStatus.outForDelivery || deliveryStartedAt != null;
 }

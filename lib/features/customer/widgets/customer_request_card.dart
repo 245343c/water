@@ -31,6 +31,9 @@ class CustomerRequestCard extends StatelessWidget {
     return switch (order.status) {
       OrderStatus.pending => _RequestState.pending,
       OrderStatus.accepted => _RequestState.accepted,
+      OrderStatus.assigned => _RequestState.driverAssigned,
+      OrderStatus.outForDelivery => _RequestState.outForDelivery,
+      OrderStatus.delivered => _RequestState.delivered,
       OrderStatus.rejected => _RequestState.rejected,
       OrderStatus.cancelled => _RequestState.cancelled,
     };
@@ -275,6 +278,12 @@ class CustomerRequestCard extends StatelessWidget {
       OrderStatus.pending => 'Waiting for $shopName to confirm your request.',
       OrderStatus.accepted =>
         order.adminResponse ?? 'Confirmed. Waiting for driver assignment.',
+      OrderStatus.assigned =>
+        order.assignedDriverName != null
+            ? 'Assigned to ${order.assignedDriverName}. Driver will deliver soon.'
+            : 'Driver assigned. Delivery coming soon.',
+      OrderStatus.outForDelivery => 'Driver is on the way with your water.',
+      OrderStatus.delivered => 'Your order was delivered.',
       OrderStatus.rejected =>
         order.adminResponse == null || order.adminResponse!.trim().isEmpty
             ? '$shopName declined this request.'

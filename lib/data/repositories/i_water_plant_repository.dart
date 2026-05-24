@@ -19,6 +19,7 @@ import 'package:sri_sai_ro_water/data/models/payment_method.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/data/models/promotion.dart';
+import 'package:sri_sai_ro_water/data/models/reports_summary.dart';
 import 'package:sri_sai_ro_water/data/models/shop.dart';
 import 'package:sri_sai_ro_water/core/utils/payment_allocation.dart';
 
@@ -154,13 +155,33 @@ abstract class IWaterPlantRepository extends ChangeNotifier {
     String? imageSourcePath,
   });
   Future<void> deleteProduct(String id);
+  Future<Product> updateProduct({
+    required String id,
+    required String name,
+    String? description,
+    required ProductCategory category,
+    required String variantLabel,
+    required double price,
+    bool isCool = false,
+    String? imageSourcePath,
+  });
   List<Product> bottleCatalogForCustomer(Customer customer);
+
+  // Orders — admin
+  Future<void> assignDriverToOrder({
+    required String orderId,
+    required String driverId,
+    String? driverName,
+  });
 
   // Promotions
   List<Promotion> get promotions;
 
   // Stats / Dashboard
   DashboardStats dashboardStats(DateTime month);
+  Future<DashboardStats> fetchDashboardStats(DateTime month);
+  Future<ReportsSummary> fetchReportsSummary(DateTime start, DateTime end);
+  Future<void> refreshMonthlyBills(DateTime month);
   List<DashboardActionItem> dashboardActionItems({int limit = 5});
   MonthlyStats monthlyStatsForCustomer(String customerId, DateTime month);
   double previousBalanceForMonth(String customerId, DateTime month);

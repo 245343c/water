@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/data/models/reports_summary.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/reports/widgets/reports_screen_widgets.dart';
 
@@ -15,11 +16,25 @@ class _ReportsScreenState extends State<ReportsScreen> {
   late DateTime _start;
   late DateTime _end;
   ReportsPeriodPreset _preset = ReportsPeriodPreset.thisMonth;
+  ReportsSummary? _summary;
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
     _applyPreset(ReportsPeriodPreset.thisMonth, notify: false);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSummary());
+  }
+
+  Future<void> _loadSummary() async {
+    setState(() => _loading = true);
+    final repo = context.read<WaterPlantRepository>();
+    final summary = await repo.fetchReportsSummary(_start, _end);
+    if (!mounted) return;
+    setState(() {
+      _summary = summary;
+      _loading = false;
+    });
   }
 
   void _applyPreset(ReportsPeriodPreset preset, {bool notify = true}) {
@@ -48,6 +63,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _start = start;
         _end = end;
       });
+      _loadSummary();
     } else {
       _preset = preset;
       _start = start;
@@ -68,6 +84,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _start = picked.start;
         _end = picked.end;
       });
+      await _loadSummary();
     }
   }
 
@@ -75,21 +92,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget build(BuildContext context) {
     return Consumer<WaterPlantRepository>(
       builder: (context, repo, _) {
-        final deliveries = repo.deliveriesInRange(_start, _end);
-        final daily = repo.dailyCanTotals(_start, _end);
-        final cans = deliveries.fold<int>(0, (s, d) => s + d.normalQty + d.coolQty);
-        final normalCans = deliveries.fold<int>(0, (s, d) => s + d.normalQty);
-        final coolCans = deliveries.fold<int>(0, (s, d) => s + d.coolQty);
-        final sales = deliveries.fold<double>(0, (s, d) => s + d.totalAmount);
-        final collected = repo.paymentsTotalInRange(_start, _end);
-        final activeCustomers = repo.activeCustomersInRange(_start, _end);
-        var pending = 0.0;
-        for (final c in repo.customers) {
-          pending += repo.customerBalance(c.id).clamp(0.0, double.infinity);
-        }
-        final daysInRange = _end.difference(_start).inDays + 1;
-        final avgCansPerDay = daysInRange > 0 ? cans / daysInRange : 0.0;
-        final chartBuckets = reportsChartBuckets(daily, _start, _end);
+        final summary = _summary;
+        final chartBuckets = summary == null
+            ? <ReportsChartBucket>[]
+            : reportsChartBuckets(summary.dailyBuckets, _start, _end);
 
         return Scaffold(
           backgroundColor: ReportsColors.screenBg,
@@ -98,46 +104,50 @@ class _ReportsScreenState extends State<ReportsScreen> {
               children: [
                 ReportsHeader(onBack: () => context.pop()),
                 Expanded(
-                  child: ListView(
-                    children: [
-                      ReportsPeriodChips(
-                        selected: _preset,
-                        onSelect: (p) {
-                          if (p == ReportsPeriodPreset.custom) {
-                            _pickRange();
-                          } else {
-                            _applyPreset(p);
-                          }
-                        },
-                      ),
-                      ReportsDateRangeBar(
-                        start: _start,
-                        end: _end,
-                        onTap: _pickRange,
-                      ),
-                      ReportsHeroSummaryCard(
-                        sales: sales,
-                        collected: collected,
-                        cans: cans,
-                      ),
-                      ReportsKpiGrid(
-                        totalCans: cans,
-                        normalCans: normalCans,
-                        coolCans: coolCans,
-                        totalSales: sales,
-                        collected: collected,
-                        activeCustomers: activeCustomers,
-                        pendingAmount: pending,
-                      ),
-                      ReportsInsightStrip(
-                        deliveryCount: deliveries.length,
-                        avgCansPerDay: avgCansPerDay,
-                        collectionRate: sales > 0 ? (collected / sales).clamp(0.0, 1.0) : 0,
-                      ),
-                      ReportsCansOverviewCard(buckets: chartBuckets),
-                      const SizedBox(height: 24),
-                    ],
-                  ),
+                  child: _loading && summary == null
+                      ? const Center(child: CircularProgressIndicator())
+                      : ListView(
+                          children: [
+                            ReportsPeriodChips(
+                              selected: _preset,
+                              onSelect: (p) {
+                                if (p == ReportsPeriodPreset.custom) {
+                                  _pickRange();
+                                } else {
+                                  _applyPreset(p);
+                                }
+                              },
+                            ),
+                            ReportsDateRangeBar(
+                              start: _start,
+                              end: _end,
+                              onTap: _pickRange,
+                            ),
+                            if (summary != null) ...[
+                              ReportsHeroSummaryCard(
+                                sales: summary.totalSales,
+                                collected: summary.collected,
+                                cans: summary.totalCans,
+                              ),
+                              ReportsKpiGrid(
+                                totalCans: summary.totalCans,
+                                normalCans: summary.normalCans,
+                                coolCans: summary.coolCans,
+                                totalSales: summary.totalSales,
+                                collected: summary.collected,
+                                activeCustomers: summary.activeCustomers,
+                                pendingAmount: summary.pendingAmount,
+                              ),
+                              ReportsInsightStrip(
+                                deliveryCount: summary.totalDeliveries,
+                                avgCansPerDay: summary.avgCansPerDay,
+                                collectionRate: summary.collectionRate,
+                              ),
+                              ReportsCansOverviewCard(buckets: chartBuckets),
+                            ],
+                            const SizedBox(height: 24),
+                          ],
+                        ),
                 ),
               ],
             ),

@@ -26,6 +26,7 @@ import 'package:sri_sai_ro_water/features/orders/orders_screen.dart';
 import 'package:sri_sai_ro_water/features/payments/payment_history_screen.dart';
 import 'package:sri_sai_ro_water/features/payments/record_payment_screen.dart';
 import 'package:sri_sai_ro_water/features/products/add_product_screen.dart';
+import 'package:sri_sai_ro_water/features/products/edit_product_screen.dart';
 import 'package:sri_sai_ro_water/features/products/product_detail_screen.dart';
 import 'package:sri_sai_ro_water/features/products/products_screen.dart';
 import 'package:sri_sai_ro_water/features/reports/reports_screen.dart';
@@ -361,6 +362,12 @@ GoRouter createAppRouter(AuthRepository auth, WaterPlantRepository plant) {
         path: '/products/add',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const AddProductScreen(),
+      ),
+      GoRoute(
+        path: '/products/:id/edit',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) =>
+            EditProductScreen(productId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/products/:id',

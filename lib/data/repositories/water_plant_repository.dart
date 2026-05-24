@@ -21,6 +21,7 @@ import 'package:sri_sai_ro_water/data/models/payment_method.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/data/models/product_variant.dart';
+import 'package:sri_sai_ro_water/data/models/reports_summary.dart';
 import 'package:sri_sai_ro_water/data/models/promotion.dart';
 import 'package:sri_sai_ro_water/data/models/customer_shop_billing.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
@@ -75,9 +76,13 @@ class WaterPlantRepository extends IWaterPlantRepository {
   /// Local path to the admin's profile photo (null = not set).
   String? adminImagePath;
 
-  /// Cached dashboard stats from API (current month).
+  /// Cached dashboard stats from API keyed by month.
   DashboardStats? _apiDashboardStats;
   DateTime? _apiDashboardStatsMonth;
+
+  /// Bill totals from API: key `$customerId-$year-$month`.
+  final Map<String, ({double total, double paid, double balance, int normal, int cool})>
+      _billTotalsCache = {};
 
   void updateAdminImage(String? path) {
     adminImagePath = path;
@@ -435,7 +440,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
   }
 
   Delivery? deliveryForOrder(CustomerOrder order) {
-    if (order.status != OrderStatus.accepted) return null;
+    if (!order.status.isOpenDelivery) return null;
     final start = order.respondedAt ?? order.createdAt;
     final matches =
         _deliveries
@@ -597,6 +602,32 @@ class WaterPlantRepository extends IWaterPlantRepository {
   }
 
   MonthlyStats monthlyStatsForCustomer(String customerId, DateTime month) {
+    final clientStats = _monthlyStatsFromDeliveries(customerId, month);
+    final key = '$customerId-${month.year}-${month.month}';
+    final bill = _billTotalsCache[key];
+    if (bill == null) return clientStats;
+
+    final quantities = Map<String, int>.from(clientStats.quantitiesByLabel);
+    if (bill.normal > 0 && !quantities.containsKey('Normal Can')) {
+      quantities['Normal Can'] = bill.normal;
+    }
+    if (bill.cool > 0 && !quantities.containsKey('Cool Can')) {
+      quantities['Cool Can'] = bill.cool;
+    }
+
+    return MonthlyStats(
+      normalCans: bill.normal > 0 ? bill.normal : clientStats.normalCans,
+      coolCans: bill.cool > 0 ? bill.cool : clientStats.coolCans,
+      bottleUnits: clientStats.bottleUnits,
+      bottlesByLabel: clientStats.bottlesByLabel,
+      quantitiesByLabel: quantities,
+      totalAmount: bill.total > 0 ? bill.total : clientStats.totalAmount,
+      paidAmount: bill.paid,
+      balance: bill.balance,
+    );
+  }
+
+  MonthlyStats _monthlyStatsFromDeliveries(String customerId, DateTime month) {
     final monthDeliveries = deliveriesForCustomer(customerId, month: month);
     final normalCans = monthDeliveries.fold<int>(0, (s, d) => s + d.normalQty);
     final coolCans = monthDeliveries.fold<int>(0, (s, d) => s + d.coolQty);
@@ -627,6 +658,150 @@ class WaterPlantRepository extends IWaterPlantRepository {
 
   double previousBalanceForMonth(String customerId, DateTime month) =>
       pendingBeforeMonth(customerLedger(customerId), month);
+
+  Future<DashboardStats> fetchDashboardStats(DateTime month) async {
+    try {
+      final statsData = await _apiService.getDashboardStats(
+        month: month.month,
+        year: month.year,
+      );
+      final s = statsData['stats'] as Map<String, dynamic>? ?? {};
+      final stats = DashboardStats(
+        totalDeliveries: (s['totalDeliveries'] as num?)?.toInt() ?? 0,
+        totalCans: ((s['totalNormalCans'] as num?)?.toInt() ?? 0) +
+            ((s['totalCoolCans'] as num?)?.toInt() ?? 0),
+        totalSales: (s['totalSales'] as num?)?.toDouble() ?? 0,
+        activeCustomers: (s['activeCustomers'] as num?)?.toInt() ?? 0,
+        paidThisMonth: (s['cashCollected'] as num?)?.toDouble() ?? 0,
+        pendingAmount: (s['totalPendingAmount'] as num?)?.toDouble() ?? 0,
+      );
+      _apiDashboardStats = stats;
+      _apiDashboardStatsMonth = DateTime(month.year, month.month);
+      notifyListeners();
+      return stats;
+    } catch (e) {
+      debugPrint('fetchDashboardStats error: $e');
+      return dashboardStats(month);
+    }
+  }
+
+  Future<void> refreshMonthlyBills(DateTime month) async {
+    try {
+      final data = await _apiService.listBills(
+        month: month.month,
+        year: month.year,
+      );
+      for (final b in (data['bills'] as List<dynamic>? ?? [])) {
+        final map = b as Map<String, dynamic>;
+        final customerId = map['customerId'] as String? ?? '';
+        if (customerId.isEmpty) continue;
+        final m = (map['month'] as num?)?.toInt() ?? month.month;
+        final y = (map['year'] as num?)?.toInt() ?? month.year;
+        final key = '$customerId-$y-$m';
+        _billTotalsCache[key] = (
+          total: (map['currentMonthAmount'] as num?)?.toDouble() ?? 0,
+          paid: (map['cashCollectedAmount'] as num?)?.toDouble() ?? 0,
+          balance: (map['finalPendingAmount'] as num?)?.toDouble() ?? 0,
+          normal: (map['totalNormalCans'] as num?)?.toInt() ?? 0,
+          cool: (map['totalCoolCans'] as num?)?.toInt() ?? 0,
+        );
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('refreshMonthlyBills error: $e');
+    }
+  }
+
+  Future<ReportsSummary> fetchReportsSummary(DateTime start, DateTime end) async {
+    final sameMonth = start.year == end.year && start.month == end.month;
+  final clientFallback = () {
+      final deliveries = deliveriesInRange(start, end);
+      final daily = dailyCanTotals(start, end);
+      final cans = deliveries.fold<int>(0, (s, d) => s + d.normalQty + d.coolQty);
+      final normalCans = deliveries.fold<int>(0, (s, d) => s + d.normalQty);
+      final coolCans = deliveries.fold<int>(0, (s, d) => s + d.coolQty);
+      final sales = deliveries.fold<double>(0, (s, d) => s + d.totalAmount);
+      final collected = paymentsTotalInRange(start, end);
+      var pending = 0.0;
+      for (final c in _customers) {
+        pending += customerBalance(c.id).clamp(0.0, double.infinity);
+      }
+      return ReportsSummary(
+        totalDeliveries: deliveries.length,
+        totalCans: cans,
+        normalCans: normalCans,
+        coolCans: coolCans,
+        totalSales: sales,
+        collected: collected,
+        activeCustomers: activeCustomersInRange(start, end),
+        pendingAmount: pending,
+        fromApi: false,
+        dailyBuckets: daily,
+      );
+    };
+
+    if (!sameMonth) return clientFallback();
+
+    try {
+      final month = start.month;
+      final year = start.year;
+      final results = await Future.wait([
+        _apiService.getMonthlyReport(month: month, year: year),
+        _apiService.getDashboardStats(month: month, year: year),
+        _apiService.getPendingReport(),
+      ]);
+      final monthly = results[0];
+      final dash = results[1];
+      final pendingReport = results[2];
+
+      final dailyList = monthly['daily'] as List<dynamic>? ?? [];
+      final buckets = <DateTime, ({int normal, int cool})>{};
+      var totalDeliveries = 0;
+      var totalSales = 0.0;
+
+      for (final row in dailyList) {
+        final map = row as Map<String, dynamic>;
+        final dayStr = map['_id'] as String?;
+        if (dayStr == null) continue;
+        final day = DateTime.parse(dayStr);
+        final dayOnly = DateTime(day.year, day.month, day.day);
+        final rangeStart = DateTime(start.year, start.month, start.day);
+        final rangeEnd = DateTime(end.year, end.month, end.day);
+        if (dayOnly.isBefore(rangeStart) || dayOnly.isAfter(rangeEnd)) continue;
+        final count = (map['totalDeliveries'] as num?)?.toInt() ?? 0;
+        final amount = (map['totalAmount'] as num?)?.toDouble() ?? 0;
+        totalDeliveries += count;
+        totalSales += amount;
+        buckets[DateTime(day.year, day.month, day.day)] = (normal: count, cool: 0);
+      }
+
+      final s = dash['stats'] as Map<String, dynamic>? ?? {};
+      final normalCans = (s['totalNormalCans'] as num?)?.toInt() ?? 0;
+      final coolCans = (s['totalCoolCans'] as num?)?.toInt() ?? 0;
+
+      return ReportsSummary(
+        totalDeliveries: totalDeliveries > 0
+            ? totalDeliveries
+            : (s['totalDeliveries'] as num?)?.toInt() ?? 0,
+        totalCans: normalCans + coolCans,
+        normalCans: normalCans,
+        coolCans: coolCans,
+        totalSales: totalSales > 0
+            ? totalSales
+            : (s['totalSales'] as num?)?.toDouble() ?? 0,
+        collected: (s['cashCollected'] as num?)?.toDouble() ?? 0,
+        activeCustomers: (s['activeCustomers'] as num?)?.toInt() ?? 0,
+        pendingAmount: (pendingReport['totalPending'] as num?)?.toDouble() ??
+            (s['totalPendingAmount'] as num?)?.toDouble() ??
+            0,
+        fromApi: true,
+        dailyBuckets: buckets.isNotEmpty ? buckets : dailyCanTotals(start, end),
+      );
+    } catch (e) {
+      debugPrint('fetchReportsSummary error: $e');
+      return clientFallback();
+    }
+  }
 
   DashboardStats dashboardStats(DateTime month) {
     if (_apiDashboardStats != null &&
@@ -1227,12 +1402,32 @@ class WaterPlantRepository extends IWaterPlantRepository {
     notifyListeners();
   }
 
+  Future<void> assignDriverToOrder({
+    required String orderId,
+    required String driverId,
+    String? driverName,
+  }) async {
+    final data = await _apiService.assignDriver(
+      orderId,
+      driverId,
+      driverName ?? driverById(driverId)?.name,
+    );
+    final updated = _orderFromJson(data['order'] as Map<String, dynamic>);
+    final index = _orders.indexWhere((o) => o.id == orderId);
+    if (index >= 0) {
+      _orders[index] = updated;
+    } else {
+      _orders.add(updated);
+    }
+    notifyListeners();
+  }
+
   Future<void> driverAcceptOrder({
     required String orderId,
     required String driverId,
   }) async {
     final order = orderById(orderId);
-    if (order == null || order.status != OrderStatus.accepted) return;
+    if (order == null || !order.status.isOpenDelivery) return;
     if (order.driverAcceptedAt != null) return;
     final shop = shopForDriver(driverId);
     if (shop == null || shopIdForCustomer(order.customerId) != shop.id) {
@@ -1253,7 +1448,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
     required String driverId,
   }) async {
     final order = orderById(orderId);
-    if (order == null || order.status != OrderStatus.accepted) return;
+    if (order == null || !order.status.isOpenDelivery) return;
     final shop = shopForDriver(driverId);
     if (shop == null || shopIdForCustomer(order.customerId) != shop.id) {
       throw StateError('This request belongs to another water plant');
@@ -1350,13 +1545,11 @@ class WaterPlantRepository extends IWaterPlantRepository {
     ).fold<int>(0, (s, d) => s + d.normalQty + d.coolQty);
   }
 
-  /// Accepted by admin, not yet delivered today — shown to driver only.
+  /// Open delivery tasks for driver — accepted/assigned/out for delivery, not delivered today.
   List<CustomerOrder> driverAcceptedOrders({String? driverId}) {
     var list = _orders
         .where(
-          (o) =>
-              o.status == OrderStatus.accepted &&
-              !hasDeliveryToday(o.customerId),
+          (o) => o.status.isOpenDelivery && !hasDeliveryToday(o.customerId),
         )
         .toList();
     if (driverId != null) {
@@ -1648,6 +1841,55 @@ class WaterPlantRepository extends IWaterPlantRepository {
     return product;
   }
 
+  Future<Product> updateProduct({
+    required String id,
+    required String name,
+    String? description,
+    required ProductCategory category,
+    required String variantLabel,
+    required double price,
+    bool isCool = false,
+    String? imageSourcePath,
+  }) async {
+    String? imageUrl;
+    if (imageSourcePath != null && imageSourcePath.isNotEmpty) {
+      final file = File(imageSourcePath);
+      if (await file.exists()) {
+        final upload = await _apiService.uploadImage(file);
+        imageUrl = upload['url'] as String?;
+      }
+    }
+
+    final existing = productById(id);
+    final variantId = existing?.variants.isNotEmpty == true
+        ? existing!.variants.first.id
+        : _uuid.v4();
+
+    final data = await _apiService.updateProduct(id, {
+      'name': name.trim(),
+      if (description != null) 'description': description.trim(),
+      'category': category.name,
+      'variants': [
+        {
+          'variantId': variantId,
+          'label': variantLabel.trim(),
+          'price': price,
+          'isCool': isCool,
+        },
+      ],
+      if (imageUrl != null) 'imageUrl': imageUrl,
+    });
+    final saved = _productFromJson(data['product'] as Map<String, dynamic>);
+    final index = _products.indexWhere((p) => p.id == id);
+    if (index >= 0) {
+      _products[index] = saved;
+    } else {
+      _products.insert(0, saved);
+    }
+    notifyListeners();
+    return saved;
+  }
+
   String _defaultProductDescription(
     ProductCategory category,
     String label, {
@@ -1819,23 +2061,10 @@ class WaterPlantRepository extends IWaterPlantRepository {
         _syncShopFromSettings();
         final now = DateTime.now();
         try {
-          final statsData = await _apiService.getDashboardStats(
-            month: now.month,
-            year: now.year,
-          );
-          final s = statsData['stats'] as Map<String, dynamic>? ?? {};
-          _apiDashboardStats = DashboardStats(
-            totalDeliveries: (s['totalDeliveries'] as num?)?.toInt() ?? 0,
-            totalCans: ((s['totalNormalCans'] as num?)?.toInt() ?? 0) +
-                ((s['totalCoolCans'] as num?)?.toInt() ?? 0),
-            totalSales: (s['totalSales'] as num?)?.toDouble() ?? 0,
-            activeCustomers: (s['activeCustomers'] as num?)?.toInt() ?? 0,
-            paidThisMonth: (s['cashCollected'] as num?)?.toDouble() ?? 0,
-            pendingAmount: (s['totalPendingAmount'] as num?)?.toDouble() ?? 0,
-          );
-          _apiDashboardStatsMonth = DateTime(now.year, now.month);
+          await fetchDashboardStats(now);
+          await refreshMonthlyBills(now);
         } catch (e) {
-          debugPrint('getDashboardStats error: $e');
+          debugPrint('Admin stats/bills load error: $e');
         }
       }
 
@@ -1947,6 +2176,7 @@ class WaterPlantRepository extends IWaterPlantRepository {
       category: category,
       variants: variants,
       isActive: map['isActive'] as bool? ?? true,
+      localImagePath: map['imageUrl'] as String?,
     );
   }
 
@@ -1978,20 +2208,11 @@ class WaterPlantRepository extends IWaterPlantRepository {
   }
 
   CustomerOrder _orderFromJson(Map<String, dynamic> map) {
-    final statusStr = map['orderStatus'] as String? ?? 'pending';
-    final status = switch (statusStr) {
-      'accepted' || 'assigned' || 'out_for_delivery' || 'delivered' =>
-        OrderStatus.accepted,
-      'rejected' => OrderStatus.rejected,
-      'cancelled' => OrderStatus.cancelled,
-      _ => OrderStatus.pending,
-    };
+    final status = OrderStatus.fromApi(map['orderStatus'] as String?);
 
     DateTime? driverAcceptedAt;
     if (map['driverAcceptedAt'] != null) {
       driverAcceptedAt = DateTime.parse(map['driverAcceptedAt'] as String);
-    } else if (map['assignedAt'] != null) {
-      driverAcceptedAt = DateTime.parse(map['assignedAt'] as String);
     }
 
     DateTime? deliveryStartedAt;
@@ -2019,6 +2240,8 @@ class WaterPlantRepository extends IWaterPlantRepository {
           : null,
       driverAcceptedAt: driverAcceptedAt,
       deliveryStartedAt: deliveryStartedAt,
+      assignedDriverId: map['assignedDriverId'] as String?,
+      assignedDriverName: map['assignedDriverName'] as String?,
     );
   }
 

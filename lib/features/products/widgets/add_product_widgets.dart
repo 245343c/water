@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:sri_sai_ro_water/core/services/product_image_service.dart';
+import 'package:sri_sai_ro_water/core/widgets/app_image.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/add_edit_customer_widgets.dart';
@@ -50,11 +50,18 @@ class AddProductLivePreview extends StatelessWidget {
         ? ProductsColors.coolAccent
         : (isBottle ? ProductsColors.statBlue : ProductsColors.statGreen);
     final price = double.tryParse(priceText.replaceAll(',', '').trim());
-    final file = ProductImageService.fileForPath(imagePath);
     final displayName = name.trim().isEmpty ? 'Product name' : name.trim();
     final displaySize = sizeLabel.trim().isEmpty
         ? (isBottle ? 'Size' : (isCool ? 'Cool can' : 'Normal can'))
         : sizeLabel.trim();
+    final placeholder = ColoredBox(
+      color: accent.withValues(alpha: 0.1),
+      child: Icon(
+        isBottle ? Icons.water_drop_rounded : Icons.local_drink_rounded,
+        color: accent,
+        size: 32,
+      ),
+    );
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -75,16 +82,10 @@ class AddProductLivePreview extends StatelessWidget {
             child: SizedBox(
               width: 64,
               height: 64,
-              child: file != null
-                  ? Image.file(file, fit: BoxFit.cover)
-                  : ColoredBox(
-                      color: accent.withValues(alpha: 0.1),
-                      child: Icon(
-                        isBottle ? Icons.water_drop_rounded : Icons.local_drink_rounded,
-                        color: accent,
-                        size: 32,
-                      ),
-                    ),
+              child: AppImage(
+                path: imagePath,
+                placeholder: placeholder,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -149,8 +150,6 @@ class AddProductPhotoSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final file = ProductImageService.fileForPath(imagePath);
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Column(
@@ -170,20 +169,19 @@ class AddProductPhotoSection extends StatelessWidget {
             children: [
               GestureDetector(
                 onTap: onPickCamera,
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: ProductsColors.bottleBg,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AddProductColors.fieldBorder),
-                    image: file != null
-                        ? DecorationImage(image: FileImage(file), fit: BoxFit.cover)
-                        : null,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: SizedBox(
+                    width: 72,
+                    height: 72,
+                    child: AppImage(
+                      path: imagePath,
+                      placeholder: const ColoredBox(
+                        color: ProductsColors.bottleBg,
+                        child: Icon(Icons.add_a_photo_outlined, color: ProductsColors.statBlue),
+                      ),
+                    ),
                   ),
-                  child: file == null
-                      ? const Icon(Icons.add_a_photo_outlined, color: ProductsColors.statBlue)
-                      : null,
                 ),
               ),
               const SizedBox(width: 12),
@@ -202,7 +200,7 @@ class AddProductPhotoSection extends StatelessWidget {
                   ],
                 ),
               ),
-              if (file != null)
+              if (imagePath != null)
                 IconButton(
                   onPressed: onRemove,
                   icon: const Icon(Icons.close_rounded, size: 20),

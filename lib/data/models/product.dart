@@ -1,3 +1,4 @@
+import 'package:sri_sai_ro_water/core/widgets/app_image.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/data/models/product_variant.dart';
 
@@ -18,9 +19,17 @@ class Product {
   final ProductCategory category;
   final List<ProductVariant> variants;
   final bool isActive;
+  /// Local file path or remote URL after upload.
   final String? localImagePath;
 
-  bool get hasPhoto => localImagePath != null && localImagePath!.isNotEmpty;
+  /// Remote image URL from API (`imageUrl` field).
+  String? get imageUrl =>
+      AppImage.isNetworkPath(localImagePath) ? localImagePath : null;
+
+  String? get displayImagePath => localImagePath;
+
+  bool get hasPhoto =>
+      localImagePath != null && localImagePath!.isNotEmpty;
 
   Product copyWith({
     String? name,

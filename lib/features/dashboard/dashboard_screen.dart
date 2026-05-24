@@ -163,7 +163,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
     );
-    if (picked != null) setState(() => _month = picked);
+    if (picked != null && picked != _month) {
+      setState(() => _month = picked);
+      if (!mounted) return;
+      final repo = context.read<WaterPlantRepository>();
+      await repo.fetchDashboardStats(picked);
+      await repo.refreshMonthlyBills(picked);
+    }
   }
 
   void _showCustomerPicker(BuildContext context, WaterPlantRepository repo) {

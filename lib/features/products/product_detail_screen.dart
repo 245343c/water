@@ -77,6 +77,7 @@ class ProductDetailScreen extends StatelessWidget {
               children: [
                 ProductDetailHeader(
                   onBack: () => context.pop(),
+                  onEdit: () => context.push('/products/$productId/edit'),
                   onDelete: () => _confirmDelete(context, repo),
                 ),
                 Expanded(

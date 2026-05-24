@@ -50,8 +50,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
         .where(
           (o) => switch (_filter) {
             OrderListFilter.pending => o.status == OrderStatus.pending,
-            OrderListFilter.accepted => o.status == OrderStatus.accepted,
-            OrderListFilter.rejected => o.status == OrderStatus.rejected,
+            OrderListFilter.accepted =>
+              o.status.isOpenDelivery || o.status == OrderStatus.delivered,
+            OrderListFilter.rejected =>
+              o.status == OrderStatus.rejected ||
+              o.status == OrderStatus.cancelled,
             OrderListFilter.all => true,
           },
         )
@@ -76,6 +79,20 @@ class _OrdersScreenState extends State<OrdersScreen> {
       customerPhone: customer.phone,
       shopName: shopName,
       isMonthlyCustomer: customer.isMonthlyContract,
+      drivers: repo.drivers.where((d) => d.active).toList(),
+      onAssignDriver: (driverId) async {
+        await repo.assignDriverToOrder(orderId: order.id, driverId: driverId);
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Driver assigned for ${customer.name}',
+              style: GoogleFonts.poppins(),
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      },
       onAccept: () async {
         await context.read<OrderWorkflowService>().acceptOrder(orderId: order.id);
         if (!context.mounted) return;

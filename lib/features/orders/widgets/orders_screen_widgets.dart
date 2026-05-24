@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
+import 'package:sri_sai_ro_water/data/models/driver.dart';
 import 'package:sri_sai_ro_water/data/models/order_status.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
@@ -398,6 +399,21 @@ _StatusStyle _statusStyle(OrderStatus status) {
       text: Color(0xFF166534),
       border: Color(0xFF86EFAC),
     ),
+    OrderStatus.assigned => const _StatusStyle(
+      bg: Color(0xFFEFF6FF),
+      text: Color(0xFF1D4ED8),
+      border: Color(0xFF93C5FD),
+    ),
+    OrderStatus.outForDelivery => const _StatusStyle(
+      bg: Color(0xFFE0F2FE),
+      text: Color(0xFF0369A1),
+      border: Color(0xFF7DD3FC),
+    ),
+    OrderStatus.delivered => const _StatusStyle(
+      bg: Color(0xFFF0FDF4),
+      text: Color(0xFF15803D),
+      border: Color(0xFF4ADE80),
+    ),
     OrderStatus.rejected => const _StatusStyle(
       bg: Color(0xFFFEF2F2),
       text: Color(0xFF991B1B),
@@ -437,6 +453,8 @@ Future<void> showOrderRespondSheet({
   required bool isMonthlyCustomer,
   required VoidCallback onAccept,
   required void Function(String reason) onReject,
+  List<Driver> drivers = const [],
+  Future<void> Function(String driverId)? onAssignDriver,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -451,6 +469,8 @@ Future<void> showOrderRespondSheet({
       customerPhone: customerPhone,
       shopName: shopName,
       isMonthlyCustomer: isMonthlyCustomer,
+      drivers: drivers,
+      onAssignDriver: onAssignDriver,
       onAccept: () {
         Navigator.pop(ctx);
         onAccept();
@@ -472,6 +492,8 @@ class _OrderRespondSheet extends StatefulWidget {
     required this.isMonthlyCustomer,
     required this.onAccept,
     required this.onReject,
+    this.drivers = const [],
+    this.onAssignDriver,
   });
 
   final CustomerOrder order;
@@ -481,6 +503,8 @@ class _OrderRespondSheet extends StatefulWidget {
   final bool isMonthlyCustomer;
   final VoidCallback onAccept;
   final void Function(String reason) onReject;
+  final List<Driver> drivers;
+  final Future<void> Function(String driverId)? onAssignDriver;
 
   @override
   State<_OrderRespondSheet> createState() => _OrderRespondSheetState();
@@ -497,6 +521,15 @@ class _OrderRespondSheetState extends State<_OrderRespondSheet> {
 
   String? _selectedReason;
   final _customReason = TextEditingController();
+  String? _selectedDriverId;
+  bool _assigning = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDriverId = widget.order.assignedDriverId ??
+        (widget.drivers.length == 1 ? widget.drivers.first.id : null);
+  }
 
   @override
   void dispose() {
@@ -544,6 +577,9 @@ class _OrderRespondSheetState extends State<_OrderRespondSheet> {
             ),
           ),
           const SizedBox(height: 16),
+          _DetailRow(label: 'Status', value: order.status.label),
+          if (order.assignedDriverName != null && order.assignedDriverName!.isNotEmpty)
+            _DetailRow(label: 'Driver', value: order.assignedDriverName!),
           _DetailRow(label: 'Customer', value: widget.customerName),
           _DetailRow(label: 'Phone', value: widget.customerPhone),
           _DetailRow(label: 'Plant', value: widget.shopName),
@@ -557,6 +593,65 @@ class _OrderRespondSheetState extends State<_OrderRespondSheet> {
             _DetailRow(label: 'Customer note', value: order.customerNote!),
           if (order.adminResponse != null && order.adminResponse!.isNotEmpty)
             _DetailRow(label: 'Your response', value: order.adminResponse!),
+          if (!isPending && order.status.isOpenDelivery && widget.drivers.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              'Assign driver',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: CustomersColors.titleNavy,
+              ),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _selectedDriverId,
+              decoration: InputDecoration(
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              items: widget.drivers
+                  .where((d) => d.active)
+                  .map(
+                    (d) => DropdownMenuItem(
+                      value: d.id,
+                      child: Text(d.name, style: GoogleFonts.poppins(fontSize: 13)),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedDriverId = v),
+            ),
+            const SizedBox(height: 10),
+            FilledButton.icon(
+              onPressed: _assigning || _selectedDriverId == null || widget.onAssignDriver == null
+                  ? null
+                  : () async {
+                      setState(() => _assigning = true);
+                      try {
+                        await widget.onAssignDriver!(_selectedDriverId!);
+                        if (context.mounted) Navigator.pop(context);
+                      } finally {
+                        if (mounted) setState(() => _assigning = false);
+                      }
+                    },
+              icon: _assigning
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.local_shipping_outlined, size: 20),
+              label: Text(
+                _assigning ? 'Assigning…' : 'Assign driver',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: CustomersColors.addButton,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
           if (isPending) ...[
             const SizedBox(height: 20),
             Text(
