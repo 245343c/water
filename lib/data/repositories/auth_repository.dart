@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/foundation.dart';
@@ -15,37 +17,9 @@ class _StoredAccount {
   String password;
 }
 
-class _PendingPasswordReset {
-  _PendingPasswordReset({
-    required this.email,
-    required this.otp,
-    required this.expiresAt,
-    required this.attemptsLeft,
-  });
-
-  final String email;
-  final String otp;
-  final DateTime expiresAt;
-  int attemptsLeft;
-}
-
-/// Mock authentication until backend is connected.
+/// Firebase-backed authentication for admins, drivers, and customers.
 class AuthRepository extends ChangeNotifier {
   AuthRepository() {
-    _accounts.add(
-      _StoredAccount(
-        user: const AppUser(
-          id: 'user-driver-1',
-          ownerName: 'Rajesh Kumar',
-          email: 'driver@srisai.com',
-          phone: '+91 91234 56780',
-          businessName: 'Sri Sai RO Water Plant',
-          role: AppRole.driver,
-          driverId: 'driver-1',
-        ),
-        password: 'driver123',
-      ),
-    );
     _restoreFirebaseSession();
   }
 
@@ -55,11 +29,6 @@ class AuthRepository extends ChangeNotifier {
   AppUser? _currentUser;
   AppUser? get currentUser => _currentUser;
   bool get isAuthenticated => _currentUser != null;
-
-  List<AppUser> get driverAccounts => _accounts
-      .where((a) => a.user.role == AppRole.driver)
-      .map((a) => a.user)
-      .toList();
 
   Future<String?> login({
     required String email,
@@ -85,28 +54,10 @@ class AuthRepository extends ChangeNotifier {
       notifyListeners();
       return null;
     } on firebase_auth.FirebaseAuthException catch (e) {
-      final localError = _loginMockDriver(normalized, password);
-      if (localError == null) return null;
       return _loginAuthErrorMessage(e);
     } catch (_) {
-      final localError = _loginMockDriver(normalized, password);
-      if (localError == null) return null;
       return 'Could not sign in. Please try again';
     }
-  }
-
-  String? _loginMockDriver(String normalizedLoginEmail, String password) {
-    for (final account in _accounts) {
-      final phoneLoginEmail = _staffLoginEmail(account.user.phone);
-      if ((account.user.email.toLowerCase() == normalizedLoginEmail ||
-              phoneLoginEmail == normalizedLoginEmail) &&
-          account.password == password) {
-        _currentUser = account.user;
-        notifyListeners();
-        return null;
-      }
-    }
-    return 'Invalid login ID or password';
   }
 
   String _staffLoginEmail(String value) {
@@ -121,13 +72,14 @@ class AuthRepository extends ChangeNotifier {
     final user = await _appUserForFirebaseUser(
       firebase_auth.FirebaseAuth.instance.currentUser,
     );
-    if (user == null || user.role == AppRole.customer) return;
+    if (user == null) return;
     _currentUser = user;
     notifyListeners();
   }
 
   Future<AppUser?> _appUserForFirebaseUser(firebase_auth.User? user) async {
     if (user == null) return null;
+    if (user.isAnonymous) return null;
     final doc = await FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
@@ -414,23 +366,115 @@ class AuthRepository extends ChangeNotifier {
   Future<void> logout() async {
     await firebase_auth.FirebaseAuth.instance.signOut();
     _currentUser = null;
-    _pendingCustomerOtp = null;
+    _clearPendingCustomerOtp();
     notifyListeners();
   }
 
   _PendingCustomerOtp? _pendingCustomerOtp;
 
-  /// Mock OTP — returns code for demo UI (Firebase phone auth later).
-  String? requestCustomerOtp(String phone) {
+  firebase_auth.ConfirmationResult? _webPhoneConfirmation;
+  firebase_auth.PhoneAuthCredential? _autoVerifiedPhoneCredential;
+
+  /// Sends a Firebase SMS verification code to an Indian mobile number.
+  Future<String?> requestCustomerOtp(String phone) async {
     final digits = phone.replaceAll(RegExp(r'\D'), '');
-    if (digits.length < 10) return null;
-    const demoOtp = '123456';
-    _pendingCustomerOtp = _PendingCustomerOtp(
-      phone: digits,
-      otp: demoOtp,
-      expiresAt: DateTime.now().add(const Duration(minutes: 10)),
-    );
-    return demoOtp;
+    if (digits.length != 10) return 'Enter a valid 10-digit mobile number';
+    final phoneNumber = '+91$digits';
+    _clearPendingCustomerOtp();
+
+    try {
+      await firebase_auth.FirebaseAuth.instance.signOut();
+      if (kIsWeb) {
+        _webPhoneConfirmation = await firebase_auth.FirebaseAuth.instance
+            .signInWithPhoneNumber(phoneNumber);
+        _pendingCustomerOtp = _PendingCustomerOtp(
+          phone: digits,
+          expiresAt: DateTime.now().add(const Duration(minutes: 10)),
+        );
+        return null;
+      }
+
+      final result = Completer<String?>();
+      await firebase_auth.FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: phoneNumber,
+        verificationCompleted: (credential) {
+          _autoVerifiedPhoneCredential = credential;
+          _pendingCustomerOtp ??= _PendingCustomerOtp(
+            phone: digits,
+            expiresAt: DateTime.now().add(const Duration(minutes: 10)),
+          );
+          if (!result.isCompleted) result.complete(null);
+        },
+        verificationFailed: (error) {
+          if (!result.isCompleted) {
+            result.complete(_phoneAuthErrorMessage(error));
+          }
+        },
+        codeSent: (verificationId, _) {
+          _pendingCustomerOtp = _PendingCustomerOtp(
+            phone: digits,
+            verificationId: verificationId,
+            expiresAt: DateTime.now().add(const Duration(minutes: 10)),
+          );
+          if (!result.isCompleted) result.complete(null);
+        },
+        codeAutoRetrievalTimeout: (verificationId) {
+          final pending = _pendingCustomerOtp;
+          if (pending != null && pending.verificationId == null) {
+            _pendingCustomerOtp = _PendingCustomerOtp(
+              phone: digits,
+              verificationId: verificationId,
+              expiresAt: pending.expiresAt,
+            );
+          }
+        },
+      );
+      return result.future;
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      return _phoneAuthErrorMessage(e);
+    } catch (_) {
+      return 'Could not send OTP. Please try again';
+    }
+  }
+
+  String _phoneAuthErrorMessage(firebase_auth.FirebaseAuthException e) {
+    switch (e.code) {
+      case 'operation-not-allowed':
+      case 'admin-restricted-operation':
+        return 'Enable Phone sign-in in Firebase Authentication';
+      case 'invalid-phone-number':
+        return 'Enter a valid 10-digit mobile number';
+      case 'too-many-requests':
+      case 'quota-exceeded':
+        return 'OTP limit reached. Please try again later';
+      case 'network-request-failed':
+        return 'Network error. Check your connection and try again';
+      default:
+        return e.message ?? 'Could not send OTP';
+    }
+  }
+
+  Future<firebase_auth.UserCredential> _confirmCustomerOtp(String otp) {
+    if (kIsWeb) {
+      final confirmation = _webPhoneConfirmation;
+      if (confirmation == null) {
+        throw StateError('Send OTP to your phone first');
+      }
+      return confirmation.confirm(otp);
+    }
+    final pending = _pendingCustomerOtp;
+    final credential = _autoVerifiedPhoneCredential ??
+        firebase_auth.PhoneAuthProvider.credential(
+          verificationId: pending?.verificationId ?? '',
+          smsCode: otp,
+        );
+    return firebase_auth.FirebaseAuth.instance.signInWithCredential(credential);
+  }
+
+  void _clearPendingCustomerOtp() {
+    _pendingCustomerOtp = null;
+    _webPhoneConfirmation = null;
+    _autoVerifiedPhoneCredential = null;
   }
 
   /// Returns error message or null on success.
@@ -447,38 +491,10 @@ class AuthRepository extends ChangeNotifier {
       _pendingCustomerOtp = null;
       return 'OTP expired. Request again';
     }
-    if (otp.trim() != pending.otp) {
-      return 'Invalid OTP';
-    }
-    _pendingCustomerOtp = null;
-
     try {
-      await firebase_auth.FirebaseAuth.instance.signOut();
-      final credential =
-          await firebase_auth.FirebaseAuth.instance.signInAnonymously();
+      final credential = await _confirmCustomerOtp(otp.trim());
       final firebaseUser = credential.user;
       if (firebaseUser == null) return 'Could not create customer session';
-
-      final db = FirebaseFirestore.instance;
-      final now = FieldValue.serverTimestamp();
-      await db.collection('users').doc(firebaseUser.uid).set({
-        'role': 'customer',
-        'name': 'Customer',
-        'email': '',
-        'phone': digits,
-        'normalizedPhone': digits,
-        'businessName': '',
-        'customerProfileComplete': false,
-        'active': true,
-        'createdAt': now,
-        'updatedAt': now,
-      }, SetOptions(merge: true));
-      await db.collection('appCustomers').doc(firebaseUser.uid).set({
-        'phone': digits,
-        'normalizedPhone': digits,
-        'createdAt': now,
-        'updatedAt': now,
-      }, SetOptions(merge: true));
 
       final user = AppUser(
         id: firebaseUser.uid,
@@ -489,17 +505,16 @@ class AuthRepository extends ChangeNotifier {
         role: AppRole.customer,
         customerProfileComplete: false,
       );
+      _accounts.removeWhere((a) => a.user.id == user.id);
       _accounts.add(_StoredAccount(user: user, password: ''));
       _currentUser = user;
+      _clearPendingCustomerOtp();
       notifyListeners();
       return null;
     } on firebase_auth.FirebaseAuthException catch (e) {
-      if (e.code == 'operation-not-allowed') {
-        return 'Enable Anonymous sign-in in Firebase Authentication';
-      }
-      return e.message ?? 'Could not verify OTP';
-    } on FirebaseException catch (e) {
-      return e.message ?? 'Could not save customer session';
+      if (e.code == 'invalid-verification-code') return 'Invalid OTP';
+      if (e.code == 'session-expired') return 'OTP expired. Request again';
+      return _phoneAuthErrorMessage(e);
     } catch (_) {
       return 'Could not verify OTP. Please try again';
     }
@@ -536,87 +551,36 @@ class AuthRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  _PendingPasswordReset? _pendingReset;
-  static const _otpLifetime = Duration(minutes: 10);
-  static const _maxOtpAttempts = 5;
-
-  String? requestPasswordReset(String email) {
+  Future<String?> requestPasswordReset(String email) async {
     final normalized = email.trim().toLowerCase();
     if (normalized.isEmpty || !normalized.contains('@')) {
       return 'Enter a valid email address';
     }
 
-    final exists = _accounts.any((a) => a.user.email.toLowerCase() == normalized);
-    if (exists) {
-      final otp = _generateOtp();
-      _pendingReset = _PendingPasswordReset(
+    try {
+      await firebase_auth.FirebaseAuth.instance.sendPasswordResetEmail(
         email: normalized,
-        otp: otp,
-        expiresAt: DateTime.now().add(_otpLifetime),
-        attemptsLeft: _maxOtpAttempts,
       );
-      return otp;
+      return null;
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      if (e.code == 'invalid-email') return 'Enter a valid email address';
+      if (e.code == 'network-request-failed') {
+        return 'Network error. Check your connection and try again';
+      }
+      // Avoid exposing whether an email address is registered.
+      return null;
     }
-    return null;
-  }
-
-  String? resetPasswordWithOtp({
-    required String email,
-    required String otp,
-    required String newPassword,
-  }) {
-    final normalized = email.trim().toLowerCase();
-    final pending = _pendingReset;
-
-    if (pending == null || pending.email != normalized) {
-      return 'Request a new reset code first';
-    }
-    if (DateTime.now().isAfter(pending.expiresAt)) {
-      _pendingReset = null;
-      return 'Code expired. Request a new one';
-    }
-    if (pending.attemptsLeft <= 0) {
-      _pendingReset = null;
-      return 'Too many attempts. Request a new code';
-    }
-
-    if (otp.trim() != pending.otp) {
-      pending.attemptsLeft--;
-      return 'Invalid code. ${pending.attemptsLeft} attempts left';
-    }
-
-    if (newPassword.length < 6) {
-      return 'Password must be at least 6 characters';
-    }
-
-    final index = _accounts.indexWhere((a) => a.user.email.toLowerCase() == normalized);
-    if (index < 0) {
-      _pendingReset = null;
-      return 'Account not found';
-    }
-
-    _accounts[index].password = newPassword;
-    _pendingReset = null;
-    notifyListeners();
-    return null;
-  }
-
-  void cancelPasswordReset() => _pendingReset = null;
-
-  String _generateOtp() {
-    final n = DateTime.now().millisecondsSinceEpoch % 1000000;
-    return n.toString().padLeft(6, '0');
   }
 }
 
 class _PendingCustomerOtp {
   _PendingCustomerOtp({
     required this.phone,
-    required this.otp,
     required this.expiresAt,
+    this.verificationId,
   });
 
   final String phone;
-  final String otp;
   final DateTime expiresAt;
+  final String? verificationId;
 }

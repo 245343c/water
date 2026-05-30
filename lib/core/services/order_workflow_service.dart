@@ -18,15 +18,15 @@ class OrderWorkflowService {
   final NotificationRepository _notifications;
   final PushNotificationService _push;
 
-  CustomerOrder? acceptOrder({
+  Future<CustomerOrder?> acceptOrder({
     required String orderId,
     String adminResponse = 'Request confirmed. Driver will deliver soon.',
-  }) {
+  }) async {
     final existing = _plant.orderById(orderId);
     if (existing == null || existing.status != OrderStatus.pending) {
       return existing;
     }
-    _plant.respondToOrder(
+    await _plant.respondToOrderInFirestore(
       orderId,
       OrderStatus.accepted,
       adminResponse: adminResponse,
@@ -62,10 +62,14 @@ class OrderWorkflowService {
     return order;
   }
 
-  void rejectOrder({required String orderId, required String reason}) {
+  Future<void> rejectOrder({required String orderId, required String reason}) async {
     final existing = _plant.orderById(orderId);
     if (existing == null || existing.status != OrderStatus.pending) return;
-    _plant.respondToOrder(orderId, OrderStatus.rejected, adminResponse: reason);
+    await _plant.respondToOrderInFirestore(
+      orderId,
+      OrderStatus.rejected,
+      adminResponse: reason,
+    );
     final order = _plant.orderById(orderId);
     if (order == null) return;
 

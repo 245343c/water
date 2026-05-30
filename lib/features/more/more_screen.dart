@@ -64,12 +64,6 @@ class MoreScreen extends StatelessWidget {
                         monthCollected: monthCollected,
                         onTap: () => context.push(AppRoutes.reports),
                       ),
-                      MoreMenuTile(
-                        icon: Icons.workspace_premium_rounded,
-                        title: 'Subscription',
-                        subtitle: 'Admin plan, trial, renewal',
-                        onTap: () => context.push(AppRoutes.subscription),
-                      ),
                       const MoreSectionTitle(title: 'Team'),
                       MoreMenuTile(
                         icon: Icons.local_shipping_rounded,

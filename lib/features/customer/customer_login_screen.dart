@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -22,7 +23,6 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
   final _otpController = TextEditingController();
   bool _otpSent = false;
   bool _loading = false;
-  String? _demoOtp;
 
   @override
   void dispose() {
@@ -33,26 +33,25 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
 
   Future<void> _sendOtp() async {
     final phone = _phoneController.text.trim();
-    if (phone.replaceAll(RegExp(r'\D'), '').length < 10) {
+    if (phone.replaceAll(RegExp(r'\D'), '').length != 10) {
       _snack('Enter a valid 10-digit mobile number');
       return;
     }
 
     setState(() => _loading = true);
-    final otp = context.read<AuthRepository>().requestCustomerOtp(phone);
+    final error = await context.read<AuthRepository>().requestCustomerOtp(phone);
     if (!mounted) return;
 
     setState(() {
       _loading = false;
-      _otpSent = otp != null;
-      _demoOtp = otp;
+      _otpSent = error == null;
     });
 
-    if (otp == null) {
-      _snack('Could not send OTP');
+    if (error != null) {
+      _snack(error);
       return;
     }
-    _snack('OTP sent (demo: $otp)');
+    _snack('OTP sent. Check your mobile.');
   }
 
   Future<void> _verify() async {
@@ -60,23 +59,45 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
     final repo = context.read<WaterPlantRepository>();
 
     setState(() => _loading = true);
-    final error = await auth.verifyCustomerOtp(
-      phone: _phoneController.text,
-      otp: _otpController.text,
-    );
-    if (!mounted) return;
+    String? error;
+    try {
+      error = await auth.verifyCustomerOtp(
+        phone: _phoneController.text,
+        otp: _otpController.text,
+      );
+    } on FirebaseException catch (e) {
+      error = 'OTP sign-in failed: ${e.message ?? e.code}';
+    } catch (_) {
+      error = 'OTP sign-in failed. Please try again';
+    }
 
     setState(() => _loading = false);
+    if (!mounted) return;
     if (error != null) {
       _snack(error);
       return;
     }
 
     final user = auth.currentUser!;
-    await repo.linkContractCustomerOnLoginFromFirestore(
-      userId: user.id,
-      phone: user.phone,
-    );
+    setState(() => _loading = true);
+    try {
+      await repo.linkContractCustomerOnLoginFromFirestore(
+        userId: user.id,
+        phone: user.phone,
+      );
+    } on FirebaseException catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      _snack('Customer link failed: ${e.message ?? e.code}');
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      _snack('Customer link failed. Please try again');
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _loading = false);
 
     final isContract = repo.isMonthlyContractAppUser(
       user.id,
@@ -211,7 +232,6 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
                               child: _LoginCard(
                                 otpSent: _otpSent,
                                 loading: _loading,
-                                demoOtp: _demoOtp,
                                 phoneController: _phoneController,
                                 otpController: _otpController,
                                 onSendOtp: _sendOtp,
@@ -237,7 +257,6 @@ class _LoginCard extends StatelessWidget {
   const _LoginCard({
     required this.otpSent,
     required this.loading,
-    required this.demoOtp,
     required this.phoneController,
     required this.otpController,
     required this.onSendOtp,
@@ -246,7 +265,6 @@ class _LoginCard extends StatelessWidget {
 
   final bool otpSent;
   final bool loading;
-  final String? demoOtp;
   final TextEditingController phoneController;
   final TextEditingController otpController;
   final VoidCallback onSendOtp;
@@ -290,17 +308,6 @@ class _LoginCard extends StatelessWidget {
             icon: Icons.sms_outlined,
             keyboardType: TextInputType.number,
           ),
-          if (demoOtp != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              'Demo OTP: $demoOtp',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: CustomerColors.accent,
-              ),
-            ),
-          ],
         ],
         const SizedBox(height: 20),
         CustomerPrimaryButton(

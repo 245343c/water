@@ -398,39 +398,6 @@ class AuthTrustNote extends StatelessWidget {
   }
 }
 
-class AuthDemoHint extends StatelessWidget {
-  const AuthDemoHint({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFBFDBFE)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.info_outline, size: 18, color: Color(0xFF2563EB)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Admin accounts now use Firebase sign in.',
-              style: GoogleFonts.poppins(
-                fontSize: 11,
-                height: 1.35,
-                color: Color(0xFF1D4ED8),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class AuthInfoBanner extends StatelessWidget {
   const AuthInfoBanner({
     super.key,
@@ -482,54 +449,3 @@ class AuthInfoBanner extends StatelessWidget {
 }
 
 enum BannerTint { blue, green, orange }
-
-class AuthOtpDisplayCard extends StatelessWidget {
-  const AuthOtpDisplayCard({super.key, required this.otp});
-
-  final String otp;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AuthColors.fieldBorder),
-      ),
-      child: Column(
-        children: [
-          Text(
-            'Verification code (demo)',
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AuthColors.labelGrey,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            otp,
-            style: GoogleFonts.poppins(
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 6,
-              color: AuthColors.titleNavy,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'In production this is sent to email only',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
-              fontSize: 10,
-              height: 1.35,
-              color: AuthColors.labelGrey,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

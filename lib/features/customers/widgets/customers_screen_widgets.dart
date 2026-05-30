@@ -5,7 +5,7 @@ import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
 import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/data/models/delivery_route.dart';
 
-/// Customers screen theme (matches mockup).
+/// Customers screen theme.
 abstract final class CustomersColors {
   static const Color headerTop = AppColors.headerTop;
   static const Color headerBottom = AppColors.headerBottom;
@@ -21,7 +21,7 @@ abstract final class CustomersColors {
   static const Color screenBg = AppColors.surface;
   static const Color cardBorder = AppColors.cardBorder;
 
-  /// Solid avatar backgrounds with white initials (mockup).
+  /// Solid avatar backgrounds with white initials.
   static const List<Color> avatarBgs = [
     Color(0xFF3B82F6),
     Color(0xFF10B981),

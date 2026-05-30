@@ -44,7 +44,10 @@ class CustomerOrdersScreen extends StatelessWidget {
       ),
     );
     if (ok != true) return;
-    repo.cancelPendingAppOrder(orderId: order.id, appUserId: user.id);
+    await repo.cancelPendingAppOrderInFirebase(
+      orderId: order.id,
+      appUserId: user.id,
+    );
   }
 
   @override

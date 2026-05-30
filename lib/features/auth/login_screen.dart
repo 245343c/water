@@ -308,7 +308,6 @@ class _LoginFormPanel extends StatelessWidget {
                 ),
               ),
             ),
-            const LoginDemoBox(),
             LoginSignInButton(loading: loading, onPressed: onSubmit),
             const SizedBox(height: 8),
             const LoginSecureNote(),

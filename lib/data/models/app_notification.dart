@@ -8,7 +8,7 @@ enum AppNotificationType {
   paymentReceived,
 }
 
-/// In-app + push notification payload (mock until backend FCM).
+/// In-app and device notification payload.
 class AppNotification {
   AppNotification({
     required this.id,

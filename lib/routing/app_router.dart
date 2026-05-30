@@ -6,7 +6,6 @@ import 'package:sri_sai_ro_water/features/admin/drivers_screen.dart';
 import 'package:sri_sai_ro_water/features/auth/forgot_password_screen.dart';
 import 'package:sri_sai_ro_water/features/auth/login_screen.dart';
 import 'package:sri_sai_ro_water/features/auth/register_screen.dart';
-import 'package:sri_sai_ro_water/features/auth/reset_password_screen.dart';
 import 'package:sri_sai_ro_water/features/bills/monthly_bill_screen.dart';
 import 'package:sri_sai_ro_water/features/bills/monthly_summary_screen.dart';
 import 'package:sri_sai_ro_water/features/customers/add_edit_customer_screen.dart';
@@ -38,7 +37,6 @@ import 'package:sri_sai_ro_water/features/customer/customer_shop_screen.dart';
 import 'package:sri_sai_ro_water/features/shell/customer_shell.dart';
 import 'package:sri_sai_ro_water/features/shell/driver_shell.dart';
 import 'package:sri_sai_ro_water/features/shell/main_shell.dart';
-import 'package:sri_sai_ro_water/features/subscription/subscription_screen.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/routing/route_guard.dart';
 
@@ -60,7 +58,6 @@ class AppRoutes {
   static const login = '/login';
   static const register = '/register';
   static const forgotPassword = '/forgot-password';
-  static const resetPassword = '/reset-password';
   static const dashboard = '/';
   static const customers = '/customers';
   static const orders = '/orders';
@@ -68,7 +65,6 @@ class AppRoutes {
   static const more = '/more';
   static const reports = '/reports';
   static const drivers = '/drivers';
-  static const subscription = '/subscription';
 
   static const driverRoute = '/driver/route';
 
@@ -178,13 +174,6 @@ GoRouter createAppRouter(AuthRepository auth, WaterPlantRepository plant) {
       GoRoute(
         path: AppRoutes.forgotPassword,
         builder: (context, state) => const ForgotPasswordScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.resetPassword,
-        builder: (context, state) {
-          final email = state.uri.queryParameters['email'] ?? '';
-          return ResetPasswordScreen(email: Uri.decodeComponent(email));
-        },
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -377,11 +366,6 @@ GoRouter createAppRouter(AuthRepository auth, WaterPlantRepository plant) {
         path: AppRoutes.drivers,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const DriversScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.subscription,
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const SubscriptionScreen(),
       ),
     ],
   );

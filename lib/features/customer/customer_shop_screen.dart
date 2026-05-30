@@ -206,7 +206,7 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
       final editingOrderId = widget.orderId;
       final CustomerOrder order;
       if (editingOrderId != null) {
-        repo.updatePendingAppOrder(
+        await repo.updatePendingAppOrderInFirebase(
           orderId: editingOrderId,
           appUserId: user.id,
           normalQty: normalTotal,
@@ -216,7 +216,7 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
         );
         order = repo.orderById(editingOrderId)!;
       } else {
-        order = repo.placeAppOrder(
+        order = await repo.placeAppOrderInFirebase(
           shopId: widget.shopId,
           appUserId: user.id,
           normalQty: normalTotal,

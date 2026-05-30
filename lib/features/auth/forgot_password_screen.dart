@@ -18,7 +18,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _emailController = TextEditingController();
   bool _loading = false;
   bool _sent = false;
-  String? _demoOtp;
 
   @override
   void dispose() {
@@ -30,27 +29,27 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
 
-    final auth = context.read<AuthRepository>();
-    final demoOtp = auth.requestPasswordReset(_emailController.text);
+    final error = await context
+        .read<AuthRepository>()
+        .requestPasswordReset(_emailController.text);
 
     if (!mounted) return;
     setState(() {
       _loading = false;
-      _sent = true;
-      _demoOtp = demoOtp;
+      _sent = error == null;
     });
-  }
-
-  void _continueToReset() {
-    final email = Uri.encodeComponent(_emailController.text.trim());
-    context.push('${AppRoutes.resetPassword}?email=$email');
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error), behavior: SnackBarBehavior.floating),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return AuthScreenLayout(
       title: 'Reset password',
-      subtitle: 'We’ll send a code to your email',
+      subtitle: 'We will send a reset link to your email',
       onBack: () => context.pop(),
       child: Form(
         key: _formKey,
@@ -81,10 +80,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               const AuthInfoBanner(
                 tint: BannerTint.orange,
                 message:
-                    'For security we never confirm whether an email exists. Codes expire in 10 minutes.',
+                    'For security we never confirm whether an email exists.',
               ),
               AuthPrimaryButton(
-                label: 'Send reset code',
+                label: 'Send reset link',
                 loading: _loading,
                 onPressed: _sendCode,
               ),
@@ -92,12 +91,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               const AuthInfoBanner(
                 tint: BannerTint.green,
                 message:
-                    'If this email is registered, a reset code has been sent. Check your inbox and spam folder.',
+                    'If this email is registered, a password reset link has been sent. Check your inbox and spam folder.',
               ),
-              if (_demoOtp != null) AuthOtpDisplayCard(otp: _demoOtp!),
               AuthPrimaryButton(
-                label: 'Enter code & new password',
-                onPressed: _continueToReset,
+                label: 'Back to sign in',
+                onPressed: () => context.go(AppRoutes.login),
               ),
               Center(
                 child: TextButton(

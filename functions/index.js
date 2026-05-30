@@ -135,6 +135,82 @@ function deliveryPayload(deliveryId, data) {
   };
 }
 
+function orderPayload(orderId, data) {
+  const createdAt = data.createdAt && data.createdAt.toDate
+    ? data.createdAt.toDate()
+    : data.createdAt;
+  const respondedAt = data.respondedAt && data.respondedAt.toDate
+    ? data.respondedAt.toDate()
+    : data.respondedAt;
+  const driverAcceptedAt = data.driverAcceptedAt && data.driverAcceptedAt.toDate
+    ? data.driverAcceptedAt.toDate()
+    : data.driverAcceptedAt;
+  const deliveryStartedAt = data.deliveryStartedAt && data.deliveryStartedAt.toDate
+    ? data.deliveryStartedAt.toDate()
+    : data.deliveryStartedAt;
+  return {
+    id: orderId,
+    customerId: data.customerId || "",
+    shopId: data.shopId || "",
+    placedByAppUserId: data.placedByAppUserId || "",
+    normalQty: data.normalQty || 0,
+    coolQty: data.coolQty || 0,
+    status: data.status || "pending",
+    customerNote: data.customerNote || "",
+    adminResponse: data.adminResponse || "",
+    createdAt: createdAt instanceof Date ? createdAt.toISOString() : "",
+    respondedAt: respondedAt instanceof Date ? respondedAt.toISOString() : "",
+    driverAcceptedAt: driverAcceptedAt instanceof Date
+      ? driverAcceptedAt.toISOString()
+      : "",
+    deliveryStartedAt: deliveryStartedAt instanceof Date
+      ? deliveryStartedAt.toISOString()
+      : "",
+  };
+}
+
+function customerPayload(customerId, data) {
+  return {
+    id: customerId,
+    name: data.name || "",
+    phone: data.phone || "",
+    email: data.email || "",
+    place: data.place || "",
+    routeId: data.routeId || null,
+    address: data.address || "",
+    paymentFrequency: data.paymentFrequency || "Monthly",
+    billingMode: data.billingMode || "monthlyContract",
+    productPrices: data.productPrices || [],
+    appUserId: data.appUserId || null,
+  };
+}
+
+function shopPayload(shopId, data) {
+  const trialEndsAt = data.trialEndsAt && data.trialEndsAt.toDate
+    ? data.trialEndsAt.toDate()
+    : data.trialEndsAt;
+  return {
+    id: shopId,
+    name: data.name || "",
+    address: data.address || "",
+    phone: data.phone || "",
+    email: data.email || "",
+    place: data.place || "",
+    latitude: data.latitude || null,
+    longitude: data.longitude || null,
+    subscriptionStatus: data.subscriptionStatus || "trial",
+    trialEndsAt: trialEndsAt instanceof Date ? trialEndsAt.toISOString() : "",
+    isListed: data.isListed !== false,
+    homeDeliveryAvailable: data.homeDeliveryAvailable === true,
+    normalPrice: data.normalPrice || 20,
+    coolPrice: data.coolPrice || 30,
+    coverImageUrl: data.coverImageUrl || null,
+    tagline: data.tagline || "",
+    rating: data.rating || 4.5,
+    reviewCount: data.reviewCount || 0,
+  };
+}
+
 function cleanAmount(value) {
   const amount = Number(value);
   if (!Number.isFinite(amount) || amount <= 0) {
@@ -235,6 +311,148 @@ function deliveryTotals(lines) {
     },
     { normalQty: 0, coolQty: 0, bottleQty: 0, totalAmount: 0 },
   );
+}
+
+function deliveryCansSummary(totals) {
+  const parts = [];
+  if (totals.normalQty > 0) parts.push(`${totals.normalQty} Normal`);
+  if (totals.coolQty > 0) parts.push(`${totals.coolQty} Cool`);
+  return parts.length > 0 ? parts.join(" · ") : "Delivery recorded";
+}
+
+async function resolveDriverName(shopId, driverId, fallbackName) {
+  const fallback = String(fallbackName || "").trim();
+  if (!driverId) return fallback || "Staff";
+  const driverSnap = await db
+    .collection("shops")
+    .doc(shopId)
+    .collection("drivers")
+    .doc(driverId)
+    .get();
+  return driverSnap.data()?.name || fallback || "Driver";
+}
+
+function appendDeliveryNotifications({
+  batch,
+  shopId,
+  customerId,
+  customerName,
+  deliveryId,
+  driverId,
+  driverName,
+  summary,
+  amount,
+  now,
+}) {
+  const notificationsRef = db
+    .collection("shops")
+    .doc(shopId)
+    .collection("notifications");
+  const roundedAmount = Math.round(amount);
+
+  batch.set(notificationsRef.doc(), {
+    shopId,
+    type: "deliveryRecorded",
+    audience: "admin",
+    title: "Delivery recorded",
+    body: `${driverName} delivered ${summary} to ${customerName}. Bill ₹${roundedAmount} updated.`,
+    customerId,
+    deliveryId,
+    driverId: driverId || null,
+    driverName: driverName || null,
+    read: false,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  batch.set(notificationsRef.doc(), {
+    shopId,
+    type: "deliveryRecorded",
+    audience: "customer",
+    title: "Water delivered today",
+    body: `${summary} delivered to your address. Amount ₹${roundedAmount} added to your account.`,
+    customerId,
+    deliveryId,
+    driverId: driverId || null,
+    driverName: driverName || null,
+    read: false,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+async function customerLinksForUid(uid) {
+  const linksSnap = await db
+    .collection("customerShopLinks")
+    .where("uid", "==", uid)
+    .where("active", "==", true)
+    .get();
+  return linksSnap.docs.map((doc) => doc.data());
+}
+
+async function customerPortalLinks(uid) {
+  const links = [];
+  for (const link of await customerLinksForUid(uid)) {
+    const shopId = link.shopId;
+    const customerId = link.customerId;
+    if (!shopId || !customerId) continue;
+
+    const shopRef = db.collection("shops").doc(shopId);
+    const [shopSnap, customerSnap, deliveriesSnap, paymentsSnap, ordersSnap] =
+      await Promise.all([
+        shopRef.get(),
+        shopRef.collection("customers").doc(customerId).get(),
+        shopRef
+          .collection("deliveries")
+          .where("customerId", "==", customerId)
+          .get(),
+        shopRef
+          .collection("payments")
+          .where("customerId", "==", customerId)
+          .get(),
+        shopRef
+          .collection("orders")
+          .where("customerId", "==", customerId)
+          .get(),
+      ]);
+
+    const shop = shopSnap.data();
+    const customer = customerSnap.data();
+    if (!shop || !customer || customer.active === false) continue;
+    links.push({
+      shop: shopPayload(shopSnap.id, shop),
+      customer: customerPayload(customerSnap.id, customer),
+      deliveries: deliveriesSnap.docs.map((doc) =>
+        deliveryPayload(doc.id, doc.data()),
+      ),
+      payments: paymentsSnap.docs.map((doc) =>
+        paymentPayload(doc.id, doc.data()),
+      ),
+      orders: ordersSnap.docs.map((doc) => orderPayload(doc.id, doc.data())),
+    });
+  }
+  return links;
+}
+
+async function requireCustomer(auth) {
+  if (!auth) {
+    throw new HttpsError("unauthenticated", "Sign in as customer first.");
+  }
+  const userSnap = await db.collection("users").doc(auth.uid).get();
+  const user = userSnap.data();
+  if (!user || user.role !== "customer") {
+    throw new HttpsError("permission-denied", "Customer access required.");
+  }
+  return { uid: auth.uid, user };
+}
+
+async function requireLinkedCustomer(uid, shopId, customerId) {
+  const links = await customerLinksForUid(uid);
+  const linked = links.some((link) =>
+    link.shopId === shopId && link.customerId === customerId);
+  if (!linked) {
+    throw new HttpsError("permission-denied", "Customer is not linked to this shop.");
+  }
 }
 
 function mapAuthError(error) {
@@ -555,6 +773,45 @@ exports.recordCustomerPayment = onCall(callableOptions, async (request) => {
 
 exports.recordCustomerDelivery = onCall(callableOptions, async (request) => {
   const staffCtx = await requireShopStaff(request.auth, { allowDriver: true });
+  if (request.data.action === "updateOrderProgress") {
+    if (staffCtx.role !== "driver") {
+      throw new HttpsError("permission-denied", "Driver access required.");
+    }
+    const orderId = cleanText(request.data.orderId, "Order id");
+    const progress = cleanText(request.data.progress, "Progress");
+    if (!["accepted", "started"].includes(progress)) {
+      throw new HttpsError("invalid-argument", "Unsupported delivery progress.");
+    }
+    const orderRef = db
+      .collection("shops")
+      .doc(staffCtx.shopId)
+      .collection("orders")
+      .doc(orderId);
+    const orderSnap = await orderRef.get();
+    const order = orderSnap.data();
+    if (!order || order.status !== "accepted") {
+      throw new HttpsError("failed-precondition", "Accepted request not found.");
+    }
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const updates = {
+      driverId: staffCtx.driverId,
+      driverAcceptedAt: now,
+      updatedAt: now,
+    };
+    if (progress === "started") {
+      updates.deliveryStartedAt = now;
+    }
+    await orderRef.set(updates, { merge: true });
+    return orderPayload(orderId, {
+      ...order,
+      driverId: staffCtx.driverId,
+      driverAcceptedAt: new Date(),
+      deliveryStartedAt: progress === "started"
+        ? new Date()
+        : order.deliveryStartedAt,
+    });
+  }
+
   const customerId = cleanText(request.data.customerId, "Customer id");
   const date = cleanDate(request.data.date, "Delivery date");
   const lines = cleanDeliveryLines(request.data.lines);
@@ -595,8 +852,18 @@ exports.recordCustomerDelivery = onCall(callableOptions, async (request) => {
     createdBy: staffCtx.uid,
   };
 
+  const driverId = staffCtx.role === "driver"
+    ? staffCtx.driverId
+    : (request.data.driverId || null);
+  const driverName = await resolveDriverName(
+    staffCtx.shopId,
+    driverId,
+    request.data.driverName,
+  );
+  const summary = deliveryCansSummary(totals);
+
   const batch = db.batch();
-  batch.set(deliveryRef, delivery);
+  batch.set(deliveryRef, { ...delivery, driverId });
   batch.set(
     monthlySummary.ref,
     {
@@ -609,10 +876,224 @@ exports.recordCustomerDelivery = onCall(callableOptions, async (request) => {
     },
     { merge: true },
   );
+  appendDeliveryNotifications({
+    batch,
+    shopId: staffCtx.shopId,
+    customerId,
+    customerName: customer.name || "Customer",
+    deliveryId: deliveryRef.id,
+    driverId,
+    driverName,
+    summary,
+    amount: totals.totalAmount,
+    now,
+  });
   await batch.commit();
 
   return deliveryPayload(deliveryRef.id, {
     ...delivery,
+    driverId,
     createdAt: new Date(),
   });
+});
+
+exports.linkCustomerByPhone = onCall(callableOptions, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in as customer first.");
+  }
+
+  const userRef = db.collection("users").doc(request.auth.uid);
+  const userSnap = await userRef.get();
+  const user = userSnap.data();
+  const action = String(request.data.action || "link");
+  if (action !== "link" && action !== "refresh") {
+    const customerCtx = await requireCustomer(request.auth);
+    const shopId = cleanText(request.data.shopId, "Shop id");
+    const customerId = cleanText(request.data.customerId, "Customer id");
+    await requireLinkedCustomer(customerCtx.uid, shopId, customerId);
+    const orderRef = request.data.orderId
+      ? db.collection("shops").doc(shopId).collection("orders").doc(request.data.orderId)
+      : db.collection("shops").doc(shopId).collection("orders").doc();
+    const now = admin.firestore.FieldValue.serverTimestamp();
+
+    if (action === "createOrder") {
+      const normalQty = Math.max(0, Number(request.data.normalQty) || 0);
+      const coolQty = Math.max(0, Number(request.data.coolQty) || 0);
+      const customerNote = String(request.data.customerNote || "").trim();
+      if (normalQty + coolQty <= 0 && !customerNote) {
+        throw new HttpsError("invalid-argument", "Add at least one item.");
+      }
+      await orderRef.set({
+        shopId,
+        customerId,
+        placedByAppUserId: customerCtx.uid,
+        normalQty,
+        coolQty,
+        status: "pending",
+        customerNote,
+        createdAt: now,
+        updatedAt: now,
+      });
+    } else {
+      const orderSnap = await orderRef.get();
+      const order = orderSnap.data();
+      if (!order || order.placedByAppUserId !== customerCtx.uid ||
+          order.status !== "pending") {
+        throw new HttpsError("failed-precondition", "Only pending requests can be changed.");
+      }
+      if (action === "cancelOrder") {
+        await orderRef.set({
+          status: "cancelled",
+          adminResponse: "Cancelled by customer",
+          respondedAt: now,
+          updatedAt: now,
+        }, { merge: true });
+      } else if (action === "updateOrder") {
+        const normalQty = Math.max(0, Number(request.data.normalQty) || 0);
+        const coolQty = Math.max(0, Number(request.data.coolQty) || 0);
+        const customerNote = String(request.data.customerNote || "").trim();
+        if (normalQty + coolQty <= 0 && !customerNote) {
+          throw new HttpsError("invalid-argument", "Add at least one item.");
+        }
+        await orderRef.set({
+          normalQty,
+          coolQty,
+          customerNote,
+          updatedAt: now,
+        }, { merge: true });
+      } else {
+        throw new HttpsError("invalid-argument", "Unsupported customer action.");
+      }
+    }
+    return { links: await customerPortalLinks(customerCtx.uid) };
+  }
+
+  if (action === "refresh") {
+    const customerCtx = await requireCustomer(request.auth);
+    return { links: await customerPortalLinks(customerCtx.uid) };
+  }
+
+  if (user && user.role && user.role !== "customer") {
+    throw new HttpsError("permission-denied", "Customer access required.");
+  }
+
+  const requestedPhone = normalizePhone(request.data.phone);
+  if (requestedPhone.length !== 10) {
+    throw new HttpsError("invalid-argument", "Enter a valid 10-digit mobile number.");
+  }
+  const savedPhone = user ? normalizePhone(user.normalizedPhone || user.phone) : "";
+  if (savedPhone && requestedPhone !== savedPhone) {
+    throw new HttpsError("permission-denied", "Mobile number mismatch.");
+  }
+  const authPhone = requestedPhone;
+
+  const matches = [];
+  const customerSnaps = await db
+    .collectionGroup("customers")
+    .where("normalizedPhone", "==", authPhone)
+    .get();
+  const now = admin.firestore.FieldValue.serverTimestamp();
+
+  for (const customerSnap of customerSnaps.docs) {
+    const customer = customerSnap.data();
+    if (!customer || customer.active === false) continue;
+    const shopRef = customerSnap.ref.parent.parent;
+    if (!shopRef) continue;
+
+    const shopSnap = await shopRef.get();
+    const shop = shopSnap.data();
+    if (!shop) continue;
+
+    const customerId = customerSnap.id;
+    const shopId = shopSnap.id;
+    await db
+      .collection("customerShopLinks")
+      .doc(`${request.auth.uid}_${shopId}_${customerId}`)
+      .set({
+        uid: request.auth.uid,
+        shopId,
+        customerId,
+        normalizedPhone: authPhone,
+        active: true,
+        createdAt: now,
+        updatedAt: now,
+      }, { merge: true });
+
+    matches.push({
+      shop: shopPayload(shopId, shop),
+      customer: customerPayload(customerId, customer),
+    });
+  }
+
+  await userRef.set({
+    role: "customer",
+    name: matches[0]?.customer?.name || "Customer",
+    email: user?.email || "",
+    phone: authPhone,
+    normalizedPhone: authPhone,
+    businessName: "",
+    customerProfileComplete: matches.length > 0,
+    active: true,
+    createdAt: user?.createdAt || now,
+    updatedAt: now,
+  }, { merge: true });
+
+  await db.collection("appCustomers").doc(request.auth.uid).set({
+    phone: authPhone,
+    normalizedPhone: authPhone,
+    createdAt: now,
+    updatedAt: now,
+  }, { merge: true });
+
+  if (matches.length === 0) {
+    return { matches: [] };
+  }
+
+  const first = matches[0];
+  await db.collection("appCustomers").doc(request.auth.uid).set({
+    name: first.customer.name,
+    phone: authPhone,
+    normalizedPhone: authPhone,
+    address: first.customer.address,
+    email: first.customer.email,
+    place: first.customer.place,
+    linkedCrmCustomerId: first.customer.id,
+    onboardingComplete: true,
+    updatedAt: now,
+  }, { merge: true });
+  await userRef.set({
+    name: first.customer.name,
+    customerProfileComplete: true,
+    updatedAt: now,
+  }, { merge: true });
+
+  return {
+    matches,
+    links: await customerPortalLinks(request.auth.uid),
+    profile: {
+      name: first.customer.name,
+      phone: authPhone,
+      address: first.customer.address,
+      email: first.customer.email,
+      place: first.customer.place,
+      linkedCrmCustomerId: first.customer.id,
+      latitude: first.shop.latitude || null,
+      longitude: first.shop.longitude || null,
+      onboardingComplete: true,
+    },
+  };
+});
+
+exports.getCustomerPortalData = onCall(callableOptions, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in as customer first.");
+  }
+
+  const userSnap = await db.collection("users").doc(request.auth.uid).get();
+  const user = userSnap.data();
+  if (!user || user.role !== "customer") {
+    throw new HttpsError("permission-denied", "Customer access required.");
+  }
+
+  return { links: await customerPortalLinks(request.auth.uid) };
 });

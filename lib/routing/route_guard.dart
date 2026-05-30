@@ -6,8 +6,7 @@ import 'package:sri_sai_ro_water/routing/app_router.dart';
 bool isAuthRoute(String location) =>
     location == AppRoutes.login ||
     location == AppRoutes.register ||
-    location == AppRoutes.forgotPassword ||
-    location.startsWith(AppRoutes.resetPassword);
+    location == AppRoutes.forgotPassword;
 
 bool isPublicEntryRoute(String location) =>
     location == AppRoutes.welcome ||
@@ -45,7 +44,6 @@ bool isAdminOnlyRoute(String location) {
       location.startsWith('/notifications') ||
       location.startsWith('/settings') ||
       location.startsWith('/drivers') ||
-      location.startsWith('/subscription') ||
       location.startsWith('/products')) {
     return true;
   }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +7,7 @@ import 'package:sri_sai_ro_water/core/services/delivery_recording_service.dart';
 import 'package:sri_sai_ro_water/core/services/order_workflow_service.dart';
 import 'package:sri_sai_ro_water/core/services/push_notification_service.dart';
 import 'package:sri_sai_ro_water/core/theme/app_theme.dart';
+import 'package:sri_sai_ro_water/data/models/app_user.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
@@ -56,7 +59,12 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
     final userId = user?.id;
     if (_lastLoadedUserId == userId) return;
     _lastLoadedUserId = userId;
-    _repository.loadFirebaseDataForUser(user);
+    unawaited(_syncDataForUser(user));
+  }
+
+  Future<void> _syncDataForUser(AppUser? user) async {
+    await _repository.loadFirebaseDataForUser(user);
+    await _notifications.syncForUser(user, _repository);
   }
 
   @override

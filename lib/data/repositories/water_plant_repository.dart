@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
@@ -35,11 +37,8 @@ import 'package:sri_sai_ro_water/core/utils/payment_allocation.dart';
 import 'package:uuid/uuid.dart';
 
 class WaterPlantRepository extends ChangeNotifier {
-  WaterPlantRepository({bool seedDemoData = false}) {
+  WaterPlantRepository() {
     _seedReferenceData();
-    if (seedDemoData) {
-      _seedDemoData();
-    }
   }
 
   static const _uuid = Uuid();
@@ -56,7 +55,7 @@ class WaterPlantRepository extends ChangeNotifier {
   /// CRM customer id → marketplace shop id (multi-shop bulk billing).
   final Map<String, String> _customerShopIds = {};
 
-  /// Driver id -> shop id. Mock uses one shop today, but this is Firebase-ready.
+  /// Driver id -> shop id for tenant-scoped access.
   final Map<String, String> _driverShopIds = {};
   final Map<String, CustomerAppProfile> _customerProfiles = {};
   final Map<String, String> _routeNotes = {};
@@ -73,6 +72,16 @@ class WaterPlantRepository extends ChangeNotifier {
   String? _loadedFirebaseLedgerShopId;
   bool _loadingFirebaseData = false;
   String? _loadedFirebaseUserId;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _ledgerDeliveriesSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _ledgerPaymentsSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _ledgerOrdersSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _customerLedgerSub;
+  final List<StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>
+      _customerLedgerItemSubs = [];
+  Timer? _customerLedgerReloadTimer;
+  Timer? _customerPortalRefreshTimer;
+  String? _watchedLedgerShopId;
+  String? _watchedCustomerLedgerUserId;
 
   bool get isFirebaseLoading => _loadingFirebaseData;
 
@@ -387,45 +396,31 @@ class WaterPlantRepository extends ChangeNotifier {
     final digits = normalizePhone(phone);
     if (digits.length < 10) return;
 
-    final snapshot = await FirebaseFirestore.instance
-        .collectionGroup('customers')
-        .where('normalizedPhone', isEqualTo: digits)
-        .get();
-    if (snapshot.docs.isEmpty) return;
-
-    final db = FirebaseFirestore.instance;
     Customer? firstCustomer;
     Shop? firstShop;
+    final result = await FirebaseFunctions.instance
+        .httpsCallable('linkCustomerByPhone')
+        .call({'phone': digits});
+    final data = result.data is Map ? Map<String, dynamic>.from(result.data) : {};
+    final matches = data['matches'] is List ? data['matches'] as List : const [];
 
-    for (final doc in snapshot.docs) {
-      if (doc.data()['active'] == false) continue;
-      final shopRef = doc.reference.parent.parent;
-      if (shopRef == null) continue;
+    for (final item in matches.whereType<Map>()) {
+      final shopData = item['shop'];
+      final customerData = item['customer'];
+      if (shopData is! Map || customerData is! Map) continue;
+      final shopMap = Map<String, dynamic>.from(shopData);
+      final customerMap = Map<String, dynamic>.from(customerData);
+      final shopId = shopMap['id'] as String? ?? '';
+      final customerId = customerMap['id'] as String? ?? '';
+      if (shopId.isEmpty || customerId.isEmpty) continue;
 
-      final shopDoc = await shopRef.get();
-      final shopData = shopDoc.data();
-      if (shopData == null) continue;
-
-      final shop = _shopFromFirestore(shopDoc.id, shopData);
-      final customer = _customerFromFirestore(doc);
+      final shop = _shopFromFirestore(shopId, shopMap);
+      final customer = _customerFromFirestoreMap(customerId, customerMap);
       _upsertShop(shop);
       _upsertCustomer(customer, shop.id);
 
       firstCustomer ??= customer;
       firstShop ??= shop;
-
-      await db
-          .collection('customerShopLinks')
-          .doc('${userId}_${shop.id}_${customer.id}')
-          .set({
-            'uid': userId,
-            'shopId': shop.id,
-            'customerId': customer.id,
-            'normalizedPhone': digits,
-            'active': true,
-            'createdAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
     }
 
     if (firstCustomer == null) return;
@@ -446,401 +441,19 @@ class WaterPlantRepository extends ChangeNotifier {
         onboardingComplete: true,
       ),
     );
-    await db.collection('appCustomers').doc(userId).set({
-      'name': firstCustomer.name,
-      'phone': digits,
-      'normalizedPhone': digits,
-      'address': firstCustomer.address,
-      'email': firstCustomer.email,
-      'place': firstCustomer.place,
-      'linkedCrmCustomerId': firstCustomer.id,
-      'onboardingComplete': true,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-    await db.collection('users').doc(userId).set({
-      'name': firstCustomer.name,
-      'customerProfileComplete': true,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
   }
 
   void _seedReferenceData() {
     settings = BusinessSettings(
-      businessName: 'Sri Sai RO Water Plant',
-      address: 'Main Road, Rajahmundry, Andhra Pradesh - 533101',
-      shopLatitude: 16.9902,
-      shopLongitude: 81.7780,
-      phone: '+91 98765 43210',
-      email: 'info@srisairowater.com',
-      normalPrice: 20,
-      coolPrice: 30,
-      homeDeliveryAvailable: true,
+      businessName: 'Water plant',
+      address: '',
+      phone: '',
+      normalPrice: 0,
+      coolPrice: 0,
     );
 
-    _syncShopFromSettings();
-    _seedMarketplaceShops();
     _seedProducts();
-    _seedPromotions();
-    if (_deliveryRoutes.isEmpty) {
-      _deliveryRoutes.addAll(const [
-        DeliveryRoute(id: 'route-1', name: 'Route 1'),
-        DeliveryRoute(id: 'route-2', name: 'Route 2'),
-        DeliveryRoute(id: 'route-3', name: 'Route 3'),
-      ]);
-    }
   }
-
-  void _seedDemoData() {
-    _seedReferenceData();
-
-    _drivers.addAll([
-      const Driver(
-        id: 'driver-1',
-        name: 'Rajesh Kumar',
-        phone: '+91 91234 56780',
-        email: 'driver@srisai.com',
-      ),
-    ]);
-    _linkDriverToShop('driver-1', defaultShopId);
-
-    final abi = Customer(
-      id: 'c1',
-      name: 'Abi',
-      phone: '9632580741',
-      billingMode: CustomerBillingMode.monthlyContract,
-      email: 'abi@email.com',
-      place: 'Hyderabad, Telangana',
-      routeId: 'route-1',
-      address: 'Hyderabad, Telangana',
-      productPrices: [
-        const CustomerProductPrice(
-          productId: CustomerPricingKeys.canProductId,
-          variantId: CustomerPricingKeys.normalVariantId,
-          unitPrice: 18,
-        ),
-        const CustomerProductPrice(
-          productId: CustomerPricingKeys.canProductId,
-          variantId: CustomerPricingKeys.coolVariantId,
-          unitPrice: 28,
-        ),
-      ],
-    );
-    final ramesh = Customer(
-      id: 'c2',
-      name: 'Ramesh Kumar',
-      phone: '98850 12345',
-      billingMode: CustomerBillingMode.monthlyContract,
-      email: 'ramesh.kumar@email.com',
-      place: 'Gandhi Nagar, Rajahmundry',
-      routeId: 'route-1',
-      address: 'Door No: 12-5-8, Gandhi Nagar',
-    );
-    final lakshmi = Customer(
-      id: 'c3',
-      name: 'Lakshmi Devi',
-      phone: '98765 43210',
-      billingMode: CustomerBillingMode.monthlyContract,
-      place: 'RTC Colony, Rajahmundry',
-      routeId: 'route-2',
-      address: 'Plot 45, RTC Colony',
-    );
-    final suresh = Customer(
-      id: 'c4',
-      name: 'Suresh Babu',
-      phone: '91234 56789',
-      billingMode: CustomerBillingMode.monthlyContract,
-      place: 'Danavaipeta, Rajahmundry',
-      routeId: 'route-3',
-      address: 'Flat 302, Sai Residency',
-    );
-
-    _customers.addAll([abi, ramesh, lakshmi, suresh]);
-    for (final customer in [abi, ramesh, lakshmi, suresh]) {
-      _linkCustomerToShop(customer.id, defaultShopId);
-    }
-    _seedAbiMultiShopAccounts(abi);
-
-    final now = DateTime.now();
-    final thisMonth = DateTime(now.year, now.month);
-
-    void addCans(
-      String customerId,
-      int day,
-      int normal,
-      int cool, {
-      int hour = 10,
-    }) {
-      _deliveries.add(
-        Delivery.fromLegacyCans(
-          id: _uuid.v4(),
-          customerId: customerId,
-          date: DateTime(thisMonth.year, thisMonth.month, day, hour),
-          normalQty: normal,
-          coolQty: cool,
-          normalUnitPrice: settings.normalPrice,
-          coolUnitPrice: settings.coolPrice,
-        ),
-      );
-    }
-
-    void addCansInMonth(
-      String customerId,
-      DateTime month,
-      int day,
-      int normal,
-      int cool,
-    ) {
-      _deliveries.add(
-        Delivery.fromLegacyCans(
-          id: _uuid.v4(),
-          customerId: customerId,
-          date: DateTime(month.year, month.month, day, 10),
-          normalQty: normal,
-          coolQty: cool,
-          normalUnitPrice: settings.normalPrice,
-          coolUnitPrice: settings.coolPrice,
-        ),
-      );
-    }
-
-    // Current month
-    addCans('c1', 5, 2, 3);
-    addCans('c1', 12, 1, 2);
-    addCans('c2', 8, 3, 1);
-    addCans('c2', 18, 2, 0);
-    addCans('c3', 10, 0, 4);
-    addCans('c4', 15, 4, 2);
-    addCans('c4', 22, 2, 1);
-
-    // Previous months (mixed paid / pending)
-    final prev1 = DateTime(thisMonth.year, thisMonth.month - 1);
-    final prev2 = DateTime(thisMonth.year, thisMonth.month - 2);
-    addCansInMonth('c1', prev1, 10, 2, 2);
-    addCansInMonth('c2', prev1, 14, 3, 1);
-    addCansInMonth('c4', prev1, 20, 2, 3);
-    addCansInMonth('c1', prev2, 8, 1, 1);
-    addCansInMonth('c3', prev2, 16, 2, 2);
-
-    _payments.addAll([
-      Payment(
-        id: _uuid.v4(),
-        customerId: 'c2',
-        date: DateTime(thisMonth.year, thisMonth.month, 6),
-        amount: 2000,
-        method: PaymentMethod.upi,
-      ),
-      Payment(
-        id: _uuid.v4(),
-        customerId: 'c4',
-        date: DateTime(thisMonth.year, thisMonth.month, 12),
-        amount: 500,
-        method: PaymentMethod.cash,
-        notes: 'Partial payment',
-      ),
-      Payment(
-        id: _uuid.v4(),
-        customerId: 'c1',
-        date: DateTime(prev1.year, prev1.month, 25),
-        amount: 1500,
-        method: PaymentMethod.upi,
-      ),
-    ]);
-
-    _seedDriverDemoData(now, thisMonth);
-  }
-
-  /// Bulk demo user (Abi) buys from 4 shops — separate CRM + deliveries per shop.
-  void _seedAbiMultiShopAccounts(Customer abiTemplate) {
-    final pairs = [
-      ('c1-shop2', 'shop-2', 22.0, 32.0),
-      ('c1-shop3', 'shop-3', 19.0, 29.0),
-      ('c1-shop4', 'shop-4', 20.0, 30.0),
-    ];
-
-    final now = DateTime.now();
-    final thisMonth = DateTime(now.year, now.month);
-    final prev1 = DateTime(thisMonth.year, thisMonth.month - 1);
-
-    void addCansShop(
-      String customerId,
-      String shopId,
-      DateTime month,
-      int day,
-      int normal,
-      int cool,
-    ) {
-      final shop = shopById(shopId);
-      if (shop == null) return;
-      _deliveries.add(
-        Delivery.fromLegacyCans(
-          id: _uuid.v4(),
-          customerId: customerId,
-          date: DateTime(month.year, month.month, day, 10),
-          normalQty: normal,
-          coolQty: cool,
-          normalUnitPrice: shop.normalPrice,
-          coolUnitPrice: shop.coolPrice,
-        ),
-      );
-    }
-
-    for (final (id, shopId, _, _) in pairs) {
-      if (_customers.any((c) => c.id == id)) continue;
-      _linkCustomerToShop(id, shopId);
-      _customers.add(
-        Customer(
-          id: id,
-          name: abiTemplate.name,
-          phone: abiTemplate.phone,
-          billingMode: CustomerBillingMode.monthlyContract,
-          email: abiTemplate.email,
-          place: abiTemplate.place,
-          routeId: abiTemplate.routeId,
-          address: abiTemplate.address,
-          productPrices: abiTemplate.productPrices,
-        ),
-      );
-      // Current month — different cadence per shop
-      addCansShop(id, shopId, thisMonth, 3 + id.hashCode % 5, 2, 1);
-      addCansShop(id, shopId, thisMonth, 10 + id.hashCode % 4, 3, 2);
-      addCansShop(id, shopId, thisMonth, 18 + id.hashCode % 3, 1, 0);
-      // Previous month
-      addCansShop(id, shopId, prev1, 8, 4, 2);
-      addCansShop(id, shopId, prev1, 20, 2, 1);
-    }
-
-    // Partial payment at one shop; prev month paid at main shop already seeded
-    _payments.add(
-      Payment(
-        id: _uuid.v4(),
-        customerId: 'c1-shop2',
-        date: DateTime(thisMonth.year, thisMonth.month, 8),
-        amount: 400,
-        method: PaymentMethod.upi,
-        notes: 'Partial — Aqua Pure',
-      ),
-    );
-    _payments.add(
-      Payment(
-        id: _uuid.v4(),
-        customerId: 'c1-shop4',
-        date: DateTime(prev1.year, prev1.month, 28),
-        amount: 900,
-        method: PaymentMethod.cash,
-        notes: 'Crystal Clear — full month',
-      ),
-    );
-  }
-
-  void _seedDriverDemoData(DateTime now, DateTime thisMonth) {
-    _customers.addAll([
-      Customer(
-        id: 'c5',
-        name: 'Priya Sharma',
-        phone: '99887 76655',
-        email: 'priya@email.com',
-        place: 'Korukonda Road',
-        routeId: 'route-1',
-        address: 'H.No 8-2-120, Korukonda Road',
-      ),
-      Customer(
-        id: 'c6',
-        name: 'Venkatesh Reddy',
-        phone: '98480 11223',
-        place: 'Morampudi',
-        routeId: 'route-2',
-        address: 'Near Temple, Morampudi',
-      ),
-      Customer(
-        id: 'c7',
-        name: 'Anitha Stores',
-        phone: '95501 33445',
-        email: 'anitha.stores@email.com',
-        place: 'Main Road',
-        routeId: 'route-3',
-        address: 'Shop 12, Main Road Complex',
-      ),
-    ]);
-    for (final customerId in ['c5', 'c6', 'c7']) {
-      _linkCustomerToShop(customerId, defaultShopId);
-    }
-
-    _routeNotes.addAll({
-      'c2': 'Weekly route — usually 3 normal + 1 cool',
-      'c3': 'Apartment — ask security for entry',
-      'c5': 'New customer — confirm cans every visit',
-      'c6': 'Call 5 min before arrival',
-      'c7': 'Shop — back entrance for cans',
-    });
-
-    _todaysRouteIds = ['c2', 'c3', 'c5', 'c6', 'c7'];
-
-    final today = DateTime(now.year, now.month, now.day, 9, 30);
-    _deliveries.add(
-      Delivery.fromLegacyCans(
-        id: _uuid.v4(),
-        customerId: 'c2',
-        date: today,
-        normalQty: 2,
-        coolQty: 0,
-        normalUnitPrice: settings.normalPrice,
-        coolUnitPrice: settings.coolPrice,
-        driverId: 'driver-1',
-      ),
-    );
-
-    _orders.addAll([
-      CustomerOrder(
-        id: 'ord-1',
-        customerId: 'c3',
-        normalQty: 2,
-        coolQty: 2,
-        status: OrderStatus.accepted,
-        customerNote: 'Deliver before 12 noon',
-        createdAt: now.subtract(const Duration(hours: 3)),
-      ),
-      CustomerOrder(
-        id: 'ord-2',
-        customerId: 'c5',
-        normalQty: 1,
-        coolQty: 1,
-        status: OrderStatus.pending,
-        customerNote: 'First order this week',
-        createdAt: now.subtract(const Duration(hours: 1)),
-      ),
-      CustomerOrder(
-        id: 'ord-3',
-        customerId: 'c6',
-        normalQty: 4,
-        coolQty: 0,
-        status: OrderStatus.accepted,
-        createdAt: now.subtract(const Duration(minutes: 45)),
-      ),
-      CustomerOrder(
-        id: 'ord-4',
-        customerId: 'c7',
-        normalQty: 6,
-        coolQty: 2,
-        status: OrderStatus.accepted,
-        customerNote: 'Shop opens 8 AM',
-        createdAt: now.subtract(const Duration(minutes: 20)),
-      ),
-    ]);
-  }
-
-  List<Customer> get todaysRouteCustomers {
-    return _todaysRouteIds.map(customerById).whereType<Customer>().toList();
-  }
-
-  List<Customer> todaysRouteCustomersForDriver(String? driverId) {
-    final shop = shopForDriver(driverId);
-    if (shop == null) return const [];
-    return todaysRouteCustomers
-        .where((c) => shopIdForCustomer(c.id) == shop.id)
-        .toList();
-  }
-
-  String? routeNoteForCustomer(String customerId) => _routeNotes[customerId];
 
   bool hasDeliveryToday(String customerId) {
     final today = DateTime.now();
@@ -1394,15 +1007,28 @@ class WaterPlantRepository extends ChangeNotifier {
   }
 
   Future<void> loadFirebaseDataForUser(AppUser? user) async {
-    if (user == null || user.role == AppRole.customer) {
+    if (user == null) {
       _loadedFirebaseUserId = null;
+      await stopFirebaseWatches();
       clearOperationalData();
+      return;
+    }
+    if (user.role == AppRole.customer) {
+      _loadedFirebaseUserId = user.id;
+      await stopFirebaseWatches();
+      await refreshCustomerPortal(user.phone);
+      _customerPortalRefreshTimer = Timer.periodic(
+        const Duration(seconds: 12),
+        (_) => _refreshCustomerPortalQuietly(user.phone),
+      );
+      notifyListeners();
       return;
     }
     if (_loadedFirebaseUserId == user.id && !_loadingFirebaseData) return;
 
     _loadedFirebaseUserId = user.id;
     _loadingFirebaseData = true;
+    await stopFirebaseWatches();
     clearOperationalData(notify: false);
     notifyListeners();
 
@@ -1415,10 +1041,240 @@ class WaterPlantRepository extends ChangeNotifier {
       } else if (user.role == AppRole.driver && user.driverId != null) {
         await loadDriverForCurrentUserFromFirestore(user.driverId!);
       }
+      await startLedgerWatchForCurrentShop();
     } finally {
       _loadingFirebaseData = false;
       notifyListeners();
     }
+  }
+
+  Future<String?> firebaseShopIdForCurrentUser() => _currentAdminShopId();
+
+  Future<List<String>> linkedCustomerIdsForAppUser(String? userId) async {
+    if (userId == null) return const [];
+    final snapshot = await FirebaseFirestore.instance
+        .collection('customerShopLinks')
+        .where('uid', isEqualTo: userId)
+        .where('active', isEqualTo: true)
+        .get();
+    return snapshot.docs
+        .map((doc) => doc.data()['customerId'] as String?)
+        .whereType<String>()
+        .toList();
+  }
+
+  Future<void> loadLedgerForLinkedCustomersFromFirestore(String userId) async {
+    final phone = firebase_auth.FirebaseAuth.instance.currentUser?.phoneNumber;
+    if (phone == null) return;
+    await refreshCustomerPortal(phone);
+  }
+
+  Future<void> refreshCustomerPortal(String phone) async {
+    final result = await FirebaseFunctions.instance
+        .httpsCallable('linkCustomerByPhone')
+        .call({'action': 'refresh', 'phone': normalizePhone(phone)});
+    _applyCustomerPortalData(result.data);
+  }
+
+  Future<void> _refreshCustomerPortalQuietly(String phone) async {
+    try {
+      await refreshCustomerPortal(phone);
+    } catch (_) {
+      // Keep the last good customer snapshot during a temporary network error.
+    }
+  }
+
+  void _applyCustomerPortalData(Object? value) {
+    final data = value is Map ? Map<String, dynamic>.from(value) : {};
+    final links = data['links'] is List ? data['links'] as List : const [];
+    _deliveries.clear();
+    _payments.clear();
+    _orders.clear();
+
+    for (final item in links.whereType<Map>()) {
+      final shopData = item['shop'];
+      final customerData = item['customer'];
+      if (shopData is! Map || customerData is! Map) continue;
+      final shopMap = Map<String, dynamic>.from(shopData);
+      final customerMap = Map<String, dynamic>.from(customerData);
+      final shopId = shopMap['id'] as String? ?? '';
+      final customerId = customerMap['id'] as String? ?? '';
+      if (shopId.isEmpty || customerId.isEmpty) continue;
+
+      _upsertShop(_shopFromFirestore(shopId, shopMap));
+      _upsertCustomer(_customerFromFirestoreMap(customerId, customerMap), shopId);
+      final deliveries =
+          item['deliveries'] is List ? item['deliveries'] as List : const [];
+      final payments = item['payments'] is List ? item['payments'] as List : const [];
+      final orders = item['orders'] is List ? item['orders'] as List : const [];
+      _deliveries.addAll(deliveries.map(_deliveryFromCallable));
+      _payments.addAll(payments.map(_paymentFromCallable));
+      _orders.addAll(orders.map(_orderFromCallable));
+    }
+    _deliveries.sort((a, b) => b.date.compareTo(a.date));
+    _payments.sort((a, b) => b.date.compareTo(a.date));
+    _orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    notifyListeners();
+  }
+
+  Future<void> startLedgerWatchForCurrentShop() async {
+    final shopId = await _currentAdminShopId();
+    if (shopId == null) return;
+    if (_watchedLedgerShopId == shopId &&
+        _ledgerDeliveriesSub != null &&
+        _ledgerPaymentsSub != null &&
+        _ledgerOrdersSub != null) {
+      return;
+    }
+
+    await _ledgerDeliveriesSub?.cancel();
+    await _ledgerPaymentsSub?.cancel();
+    await _ledgerOrdersSub?.cancel();
+    _watchedLedgerShopId = shopId;
+    _ledgerDeliveriesSub = FirebaseFirestore.instance
+        .collection('shops')
+        .doc(shopId)
+        .collection('deliveries')
+        .orderBy('date', descending: true)
+        .snapshots()
+        .listen(_applyShopDeliverySnapshot);
+    _ledgerPaymentsSub = FirebaseFirestore.instance
+        .collection('shops')
+        .doc(shopId)
+        .collection('payments')
+        .orderBy('date', descending: true)
+        .snapshots()
+        .listen(_applyShopPaymentSnapshot);
+    _ledgerOrdersSub = FirebaseFirestore.instance
+        .collection('shops')
+        .doc(shopId)
+        .collection('orders')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .listen(_applyShopOrderSnapshot);
+  }
+
+  Future<void> startCustomerLedgerWatch(String userId) async {
+    if (_watchedCustomerLedgerUserId == userId && _customerLedgerSub != null) {
+      return;
+    }
+
+    await _customerLedgerSub?.cancel();
+    await _cancelCustomerLedgerItemSubs();
+    _watchedCustomerLedgerUserId = userId;
+    _customerLedgerSub = FirebaseFirestore.instance
+        .collection('customerShopLinks')
+        .where('uid', isEqualTo: userId)
+        .where('active', isEqualTo: true)
+        .snapshots()
+        .listen((_) async {
+      await loadLedgerForLinkedCustomersFromFirestore(userId);
+      await _restartCustomerLedgerItemWatches(userId);
+    });
+    await _restartCustomerLedgerItemWatches(userId);
+  }
+
+  Future<void> _restartCustomerLedgerItemWatches(String userId) async {
+    await _cancelCustomerLedgerItemSubs();
+    final links = await FirebaseFirestore.instance
+        .collection('customerShopLinks')
+        .where('uid', isEqualTo: userId)
+        .where('active', isEqualTo: true)
+        .get();
+
+    for (final link in links.docs) {
+      final data = link.data();
+      final shopId = data['shopId'] as String?;
+      final customerId = data['customerId'] as String?;
+      if (shopId == null || customerId == null) continue;
+      final shopRef = FirebaseFirestore.instance.collection('shops').doc(shopId);
+      _customerLedgerItemSubs.add(
+        shopRef
+            .collection('deliveries')
+            .where('customerId', isEqualTo: customerId)
+            .snapshots()
+            .listen((_) => _scheduleCustomerLedgerReload(userId)),
+      );
+      _customerLedgerItemSubs.add(
+        shopRef
+            .collection('payments')
+            .where('customerId', isEqualTo: customerId)
+            .snapshots()
+            .listen((_) => _scheduleCustomerLedgerReload(userId)),
+      );
+    }
+  }
+
+  void _scheduleCustomerLedgerReload(String userId) {
+    _customerLedgerReloadTimer?.cancel();
+    _customerLedgerReloadTimer = Timer(const Duration(milliseconds: 250), () {
+      loadLedgerForLinkedCustomersFromFirestore(userId);
+    });
+  }
+
+  Future<void> _cancelCustomerLedgerItemSubs() async {
+    for (final sub in _customerLedgerItemSubs) {
+      await sub.cancel();
+    }
+    _customerLedgerItemSubs.clear();
+  }
+
+  void _applyShopDeliverySnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final shopId = _watchedLedgerShopId;
+    if (shopId == null) return;
+
+    _deliveries.removeWhere((d) => shopIdForCustomer(d.customerId) == shopId);
+    _deliveries.addAll(snapshot.docs.map(_deliveryFromFirestore));
+    _deliveries.sort((a, b) => b.date.compareTo(a.date));
+    notifyListeners();
+  }
+
+  void _applyShopPaymentSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final shopId = _watchedLedgerShopId;
+    if (shopId == null) return;
+
+    _payments.removeWhere((p) => shopIdForCustomer(p.customerId) == shopId);
+    _payments.addAll(snapshot.docs.map(_paymentFromFirestore));
+    _payments.sort((a, b) => b.date.compareTo(a.date));
+    notifyListeners();
+  }
+
+  void _applyShopOrderSnapshot(QuerySnapshot<Map<String, dynamic>> snapshot) {
+    final shopId = _watchedLedgerShopId;
+    if (shopId == null) return;
+
+    _orders.removeWhere((o) => o.shopId == shopId);
+    _orders.addAll(snapshot.docs.map(_orderFromFirestore));
+    _orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    notifyListeners();
+  }
+
+  Future<void> stopFirebaseWatches() async {
+    _customerLedgerReloadTimer?.cancel();
+    _customerLedgerReloadTimer = null;
+    await _ledgerDeliveriesSub?.cancel();
+    _ledgerDeliveriesSub = null;
+    await _ledgerPaymentsSub?.cancel();
+    _ledgerPaymentsSub = null;
+    await _ledgerOrdersSub?.cancel();
+    _ledgerOrdersSub = null;
+    _watchedLedgerShopId = null;
+    await _customerLedgerSub?.cancel();
+    _customerLedgerSub = null;
+    await _cancelCustomerLedgerItemSubs();
+    _watchedCustomerLedgerUserId = null;
+    _customerPortalRefreshTimer?.cancel();
+    _customerPortalRefreshTimer = null;
+  }
+
+  @override
+  void dispose() {
+    stopFirebaseWatches();
+    super.dispose();
   }
 
   void clearOperationalData({bool notify = true}) {
@@ -1476,12 +1332,15 @@ class WaterPlantRepository extends ChangeNotifier {
     final results = await Future.wait([
       shopRef.collection('deliveries').orderBy('date', descending: true).get(),
       shopRef.collection('payments').orderBy('date', descending: true).get(),
+      shopRef.collection('orders').orderBy('createdAt', descending: true).get(),
     ]);
 
     final deliverySnapshot =
         results[0] as QuerySnapshot<Map<String, dynamic>>;
     final paymentSnapshot =
         results[1] as QuerySnapshot<Map<String, dynamic>>;
+    final orderSnapshot =
+        results[2] as QuerySnapshot<Map<String, dynamic>>;
 
     _deliveries
       ..clear()
@@ -1489,6 +1348,9 @@ class WaterPlantRepository extends ChangeNotifier {
     _payments
       ..clear()
       ..addAll(paymentSnapshot.docs.map(_paymentFromFirestore));
+    _orders
+      ..clear()
+      ..addAll(orderSnapshot.docs.map(_orderFromFirestore));
     _loadedFirebaseLedgerShopId = shopId;
     notifyListeners();
   }
@@ -1595,10 +1457,13 @@ class WaterPlantRepository extends ChangeNotifier {
   Customer _customerFromFirestore(
     QueryDocumentSnapshot<Map<String, dynamic>> doc,
   ) {
-    final data = doc.data();
+    return _customerFromFirestoreMap(doc.id, doc.data());
+  }
+
+  Customer _customerFromFirestoreMap(String id, Map<String, dynamic> data) {
     final createdAt = data['createdAt'];
     return Customer(
-      id: doc.id,
+      id: id,
       name: data['name'] as String? ?? '',
       phone: data['phone'] as String? ?? '',
       email: data['email'] as String? ?? '',
@@ -1796,6 +1661,44 @@ class WaterPlantRepository extends ChangeNotifier {
     );
   }
 
+  CustomerOrder _orderFromFirestore(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    return _orderFromMap(doc.id, doc.data());
+  }
+
+  CustomerOrder _orderFromCallable(Object? value) {
+    final data = value is Map
+        ? Map<String, dynamic>.from(value)
+        : <String, dynamic>{};
+    return _orderFromMap(data['id'] as String? ?? _uuid.v4(), data);
+  }
+
+  CustomerOrder _orderFromMap(String id, Map<String, dynamic> data) {
+    return CustomerOrder(
+      id: id,
+      customerId: data['customerId'] as String? ?? '',
+      shopId: data['shopId'] as String?,
+      placedByAppUserId: data['placedByAppUserId'] as String?,
+      normalQty: (data['normalQty'] as num?)?.toInt() ?? 0,
+      coolQty: (data['coolQty'] as num?)?.toInt() ?? 0,
+      status: _orderStatusFromString(data['status'] as String?),
+      customerNote: data['customerNote'] as String?,
+      adminResponse: data['adminResponse'] as String?,
+      createdAt: _dateTimeFromFirestore(data['createdAt']),
+      respondedAt: _dateTimeFromFirestore(data['respondedAt']),
+      driverAcceptedAt: _dateTimeFromFirestore(data['driverAcceptedAt']),
+      deliveryStartedAt: _dateTimeFromFirestore(data['deliveryStartedAt']),
+    );
+  }
+
+  OrderStatus _orderStatusFromString(String? value) {
+    return OrderStatus.values.firstWhere(
+      (status) => status.name == value,
+      orElse: () => OrderStatus.pending,
+    );
+  }
+
   PaymentMethod _paymentMethodFromString(String? value) {
     return PaymentMethod.values.firstWhere(
       (method) => method.name == value,
@@ -1804,9 +1707,9 @@ class WaterPlantRepository extends ChangeNotifier {
   }
 
   DateTime? _dateTimeFromFirestore(Object? value) {
-    if (value is Timestamp) return value.toDate();
-    if (value is DateTime) return value;
-    if (value is String) return DateTime.tryParse(value);
+    if (value is Timestamp) return value.toDate().toLocal();
+    if (value is DateTime) return value.toLocal();
+    if (value is String) return DateTime.tryParse(value)?.toLocal();
     return null;
   }
 
@@ -1916,6 +1819,37 @@ class WaterPlantRepository extends ChangeNotifier {
     return order;
   }
 
+  Future<CustomerOrder> placeAppOrderInFirebase({
+    required String shopId,
+    required String appUserId,
+    required int normalQty,
+    required int coolQty,
+    String? customerNote,
+    String? productSummary,
+  }) async {
+    final draft = placeAppOrder(
+      shopId: shopId,
+      appUserId: appUserId,
+      normalQty: normalQty,
+      coolQty: coolQty,
+      customerNote: customerNote,
+      productSummary: productSummary,
+    );
+    final result = await FirebaseFunctions.instance
+        .httpsCallable('linkCustomerByPhone')
+        .call({
+          'action': 'createOrder',
+          'shopId': shopId,
+          'customerId': draft.customerId,
+          'normalQty': normalQty,
+          'coolQty': coolQty,
+          'customerNote': draft.customerNote ?? '',
+        });
+    _orders.removeWhere((order) => order.id == draft.id);
+    _applyCustomerPortalData(result.data);
+    return ordersForAppUser(appUserId).first;
+  }
+
   String _linkedCrmCustomerIdForOrder({
     required String appUserId,
     required CustomerAppProfile profile,
@@ -1976,6 +1910,52 @@ class WaterPlantRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> respondToOrderInFirestore(
+    String orderId,
+    OrderStatus status, {
+    String? adminResponse,
+  }) async {
+    final order = orderById(orderId);
+    if (order == null || order.shopId == null) return;
+    await FirebaseFirestore.instance
+        .collection('shops')
+        .doc(order.shopId)
+        .collection('orders')
+        .doc(orderId)
+        .set({
+          'status': status.name,
+          'adminResponse': adminResponse ?? '',
+          'respondedAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+    respondToOrder(orderId, status, adminResponse: adminResponse);
+  }
+
+  Future<void> updatePendingAppOrderInFirebase({
+    required String orderId,
+    required String appUserId,
+    required int normalQty,
+    required int coolQty,
+    String? customerNote,
+    String? productSummary,
+  }) async {
+    final order = orderById(orderId);
+    if (order == null || order.shopId == null) return;
+    final note = _mergeOrderNotes(customerNote, productSummary);
+    final result = await FirebaseFunctions.instance
+        .httpsCallable('linkCustomerByPhone')
+        .call({
+          'action': 'updateOrder',
+          'shopId': order.shopId,
+          'customerId': order.customerId,
+          'orderId': order.id,
+          'normalQty': normalQty,
+          'coolQty': coolQty,
+          'customerNote': note ?? '',
+        });
+    _applyCustomerPortalData(result.data);
+  }
+
   void cancelPendingAppOrder({
     required String orderId,
     required String appUserId,
@@ -1992,28 +1972,66 @@ class WaterPlantRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  void driverAcceptOrder({required String orderId, required String driverId}) {
+  Future<void> cancelPendingAppOrderInFirebase({
+    required String orderId,
+    required String appUserId,
+  }) async {
+    final order = orderById(orderId);
+    if (order == null || order.shopId == null) return;
+    final result = await FirebaseFunctions.instance
+        .httpsCallable('linkCustomerByPhone')
+        .call({
+          'action': 'cancelOrder',
+          'shopId': order.shopId,
+          'customerId': order.customerId,
+          'orderId': order.id,
+        });
+    _applyCustomerPortalData(result.data);
+  }
+
+  Future<void> driverAcceptOrder({
+    required String orderId,
+    required String driverId,
+  }) async {
     final order = orderById(orderId);
     if (order == null || order.status != OrderStatus.accepted) return;
     if (order.driverAcceptedAt != null) return;
     final shop = shopForDriver(driverId);
-    if (shop == null || shopIdForCustomer(order.customerId) != shop.id) {
+    if (shop == null ||
+        (order.shopId != shop.id &&
+            shopIdForCustomer(order.customerId) != shop.id)) {
       throw StateError('This request belongs to another water plant');
     }
+    await FirebaseFunctions.instance
+        .httpsCallable('recordCustomerDelivery')
+        .call({
+          'action': 'updateOrderProgress',
+          'orderId': orderId,
+          'progress': 'accepted',
+        });
     order.driverAcceptedAt = DateTime.now();
     notifyListeners();
   }
 
-  void driverStartDelivery({
+  Future<void> driverStartDelivery({
     required String orderId,
     required String driverId,
-  }) {
+  }) async {
     final order = orderById(orderId);
     if (order == null || order.status != OrderStatus.accepted) return;
     final shop = shopForDriver(driverId);
-    if (shop == null || shopIdForCustomer(order.customerId) != shop.id) {
+    if (shop == null ||
+        (order.shopId != shop.id &&
+            shopIdForCustomer(order.customerId) != shop.id)) {
       throw StateError('This request belongs to another water plant');
     }
+    await FirebaseFunctions.instance
+        .httpsCallable('recordCustomerDelivery')
+        .call({
+          'action': 'updateOrderProgress',
+          'orderId': orderId,
+          'progress': 'started',
+        });
     order.driverAcceptedAt ??= DateTime.now();
     order.deliveryStartedAt ??= DateTime.now();
     notifyListeners();
@@ -2289,7 +2307,7 @@ class WaterPlantRepository extends ChangeNotifier {
         .where(
           (o) =>
               o.status == OrderStatus.accepted &&
-              !hasDeliveryToday(o.customerId),
+              deliveryForOrder(o) == null,
         )
         .toList();
     if (driverId != null) {
@@ -2297,7 +2315,11 @@ class WaterPlantRepository extends ChangeNotifier {
       list = shop == null
           ? <CustomerOrder>[]
           : list
-                .where((o) => shopIdForCustomer(o.customerId) == shop.id)
+                .where(
+                  (o) =>
+                      o.shopId == shop.id ||
+                      shopIdForCustomer(o.customerId) == shop.id,
+                )
                 .toList();
     }
     return list..sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -2347,6 +2369,7 @@ class WaterPlantRepository extends ChangeNotifier {
     int coolQty = 0,
     List<BottleDeliveryInput> bottles = const [],
     String? driverId,
+    String? driverName,
   }) async {
     final shopId = await _shopIdForCustomerOrCurrent(customerId);
     if (shopId == null) {
@@ -2374,9 +2397,11 @@ class WaterPlantRepository extends ChangeNotifier {
         .httpsCallable('recordCustomerDelivery')
         .call({
           'customerId': customerId,
-          'date': date.toIso8601String(),
+          'date': date.toUtc().toIso8601String(),
           'lines': deliveryDraft.lines.map(_deliveryLineToMap).toList(),
           'driverId': driverId,
+          if (driverName != null && driverName.isNotEmpty)
+            'driverName': driverName,
         });
     final delivery = _deliveryFromCallable(result.data);
     _upsertDelivery(delivery);
@@ -2510,7 +2535,7 @@ class WaterPlantRepository extends ChangeNotifier {
           'customerId': customerId,
           'amount': amount,
           'method': method.name,
-          'date': date.toIso8601String(),
+          'date': date.toUtc().toIso8601String(),
           'notes': notes ?? '',
         });
     final payment = _paymentFromCallable(result.data);
@@ -2538,144 +2563,7 @@ class WaterPlantRepository extends ChangeNotifier {
     }
   }
 
-  void _seedMarketplaceShops() {
-    if (_shops.length > 1) return;
-    _shops.addAll([
-      const Shop(
-        id: 'shop-2',
-        name: 'Aqua Pure RO Center',
-        address: 'MG Road, Rajahmundry, Andhra Pradesh',
-        place: 'MG Road',
-        phone: '+91 91234 00001',
-        latitude: 16.9850,
-        longitude: 81.7820,
-        subscriptionStatus: ShopSubscriptionStatus.active,
-        homeDeliveryAvailable: true,
-        normalPrice: 22,
-        coolPrice: 32,
-        tagline: 'Mineral-filtered · TDS tested daily',
-        rating: 4.7,
-        reviewCount: 128,
-      ),
-      const Shop(
-        id: 'shop-3',
-        name: 'Blue Drop Water Plant',
-        address: 'Kakinada Highway, Rajahmundry',
-        place: 'Kakinada Highway',
-        phone: '+91 91234 00002',
-        latitude: 16.9950,
-        longitude: 81.7700,
-        subscriptionStatus: ShopSubscriptionStatus.active,
-        homeDeliveryAvailable: true,
-        normalPrice: 19,
-        coolPrice: 29,
-        tagline: 'Budget-friendly · Same-day delivery',
-        rating: 4.4,
-        reviewCount: 89,
-      ),
-      const Shop(
-        id: 'shop-4',
-        name: 'Crystal Clear Water Co.',
-        address: 'Godavari Nagar, Rajahmundry',
-        place: 'Godavari Nagar',
-        phone: '+91 91234 00003',
-        latitude: 16.9780,
-        longitude: 81.7850,
-        subscriptionStatus: ShopSubscriptionStatus.active,
-        homeDeliveryAvailable: true,
-        normalPrice: 20,
-        coolPrice: 30,
-        tagline: 'ISO certified · Free monthly can service',
-        rating: 4.9,
-        reviewCount: 214,
-      ),
-      const Shop(
-        id: 'shop-5',
-        name: 'Neer Amrit Water Plant',
-        address: 'Danavaipeta, Rajahmundry',
-        place: 'Danavaipeta',
-        phone: '+91 91234 00004',
-        latitude: 16.9830,
-        longitude: 81.7760,
-        subscriptionStatus: ShopSubscriptionStatus.active,
-        homeDeliveryAvailable: true,
-        normalPrice: 18,
-        coolPrice: 28,
-        tagline: 'Pure water · Affordable monthly plans',
-        rating: 4.6,
-        reviewCount: 73,
-      ),
-    ]);
-  }
-
   List<Promotion> get promotions => List.unmodifiable(_promotions);
-
-  void _seedPromotions() {
-    if (_promotions.isNotEmpty) return;
-    final now = DateTime.now();
-    _promotions.addAll([
-      Promotion(
-        id: 'promo-1',
-        shopId: defaultShopId,
-        shopName: settings.businessName,
-        headline: '🎉 Summer Special — Free Cool Can!',
-        body:
-            'Order 10 normal cans this month and get 1 cool can absolutely free. Valid till end of June.',
-        mediaType: PromotionMediaType.image,
-        badge: 'FREE CAN',
-        ctaLabel: 'Claim offer',
-        createdAt: now.subtract(const Duration(hours: 2)),
-      ),
-      Promotion(
-        id: 'promo-2',
-        shopId: 'shop-2',
-        shopName: 'Aqua Pure RO Center',
-        headline: '💧 New Customer Offer',
-        body:
-            'First-time customers get 2 cans free on their first order. Use code AQUAFIRST at checkout.',
-        mediaType: PromotionMediaType.image,
-        badge: 'NEW',
-        ctaLabel: 'Order now',
-        createdAt: now.subtract(const Duration(hours: 5)),
-      ),
-      Promotion(
-        id: 'promo-3',
-        shopId: 'shop-4',
-        shopName: 'Crystal Clear Water Co.',
-        headline: '🏆 ISO Certified — Best Quality',
-        body:
-            'TDS level tested daily. Our water meets the highest purity standards. Monthly plans starting ₹180.',
-        mediaType: PromotionMediaType.video,
-        badge: 'QUALITY',
-        ctaLabel: 'View plans',
-        createdAt: now.subtract(const Duration(days: 1)),
-      ),
-      Promotion(
-        id: 'promo-4',
-        shopId: 'shop-3',
-        shopName: 'Blue Drop Water Plant',
-        headline: '⚡ Same-Day Delivery',
-        body:
-            'Order before 12 PM and get delivery by 6 PM. No extra charge. Available in all areas.',
-        mediaType: PromotionMediaType.image,
-        badge: 'FAST',
-        ctaLabel: 'Order now',
-        createdAt: now.subtract(const Duration(days: 1, hours: 3)),
-      ),
-      Promotion(
-        id: 'promo-5',
-        shopId: 'shop-5',
-        shopName: 'Neer Amrit Water Plant',
-        headline: '📅 Monthly Plan — Save 15%',
-        body:
-            'Subscribe to our monthly plan and save up to 15% compared to per-can pricing. Min 20 cans/month.',
-        mediaType: PromotionMediaType.image,
-        badge: 'SAVE 15%',
-        ctaLabel: 'Subscribe',
-        createdAt: now.subtract(const Duration(days: 2)),
-      ),
-    ]);
-  }
 
   void updateSettings(BusinessSettings newSettings) {
     settings = newSettings;
@@ -2781,17 +2669,6 @@ class WaterPlantRepository extends ChangeNotifier {
               p.variants.any((v) => v.label.toLowerCase().contains(q)),
         )
         .toList();
-  }
-
-  void resetMockData() {
-    clearOperationalData(notify: false);
-    _products.clear();
-    _deliveryRoutes.clear();
-    _shops.clear();
-    _promotions.clear();
-    _loadedFirebaseUserId = null;
-    _seedDemoData();
-    notifyListeners();
   }
 
   String customerActivityLabel(String customerId, DateTime month) {

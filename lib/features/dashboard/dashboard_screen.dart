@@ -32,6 +32,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _month = DateTime(DateTime.now().year, DateTime.now().month);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final repo = context.read<WaterPlantRepository>();
+      await repo.loadLedgerForCurrentShopFromFirestore(force: true);
+    });
   }
 
   Future<void> _pickAdminImage(WaterPlantRepository repo) async {

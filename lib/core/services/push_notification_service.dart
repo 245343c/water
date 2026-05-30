@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-/// Device banners for delivery events (local mock until FCM backend).
+/// Local device banners for delivery events.
 class PushNotificationService {
   PushNotificationService();
 

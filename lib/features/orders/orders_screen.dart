@@ -76,8 +76,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
       customerPhone: customer.phone,
       shopName: shopName,
       isMonthlyCustomer: customer.isMonthlyContract,
-      onAccept: () {
-        context.read<OrderWorkflowService>().acceptOrder(orderId: order.id);
+      onAccept: () async {
+        await context.read<OrderWorkflowService>().acceptOrder(
+          orderId: order.id,
+        );
+        if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -88,11 +91,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
           ),
         );
       },
-      onReject: (reason) {
-        context.read<OrderWorkflowService>().rejectOrder(
+      onReject: (reason) async {
+        await context.read<OrderWorkflowService>().rejectOrder(
           orderId: order.id,
           reason: reason,
         );
+        if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Request declined', style: GoogleFonts.poppins()),
