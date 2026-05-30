@@ -196,13 +196,15 @@ class _EditDriverSheetState extends State<EditDriverSheet> {
                   'Phone',
                   Icons.phone_outlined,
                   keyboard: TextInputType.phone,
+                  inputFormatters: _mobileInputFormatters,
                 ),
                 const SizedBox(height: 12),
                 _driverField(
                   _email,
-                  'Login email',
+                  'Contact email (optional)',
                   Icons.email_outlined,
                   keyboard: TextInputType.emailAddress,
+                  required: false,
                 ),
                 const SizedBox(height: 20),
                 FilledButton(
@@ -299,13 +301,15 @@ class _AddDriverSheetState extends State<AddDriverSheet> {
                   'Phone',
                   Icons.phone_outlined,
                   keyboard: TextInputType.phone,
+                  inputFormatters: _mobileInputFormatters,
                 ),
                 const SizedBox(height: 12),
                 _field(
                   _email,
-                  'Login email',
+                  'Contact email (optional)',
                   Icons.email_outlined,
                   keyboard: TextInputType.emailAddress,
+                  required: false,
                 ),
                 const SizedBox(height: 12),
                 _field(
@@ -343,17 +347,28 @@ class _AddDriverSheetState extends State<AddDriverSheet> {
     IconData icon, {
     TextInputType? keyboard,
     bool obscure = false,
+    bool required = true,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return TextFormField(
       controller: c,
       keyboardType: keyboard,
       obscureText: obscure,
+      inputFormatters: inputFormatters,
       validator: (v) {
-        if (v == null || v.trim().isEmpty) return 'Required';
-        if (label.contains('Password') && v.length < 6) {
+        final value = v?.trim() ?? '';
+        if (required && value.isEmpty) return 'Required';
+        if (label == 'Phone' && value.length != 10) {
+          return 'Enter exactly 10 mobile digits';
+        }
+        if (label.contains('Password') && value.length < 6) {
           return 'Min 6 characters';
         }
-        if (label.contains('email') && !v.contains('@')) return 'Invalid email';
+        if (label.toLowerCase().contains('email') &&
+            value.isNotEmpty &&
+            !value.contains('@')) {
+          return 'Invalid email';
+        }
         return null;
       },
       decoration: InputDecoration(
@@ -370,15 +385,23 @@ Widget _driverField(
   String label,
   IconData icon, {
   TextInputType? keyboard,
+  bool required = true,
+  List<TextInputFormatter>? inputFormatters,
 }) {
   return TextFormField(
     controller: controller,
     keyboardType: keyboard,
+    inputFormatters: inputFormatters,
     validator: (v) {
-      if (v == null || v.trim().isEmpty) return 'Required';
-      if (label.contains('email') && !v.contains('@')) return 'Invalid email';
-      if (label == 'Phone' && v.trim().length < 10) {
-        return 'Valid phone is required';
+      final value = v?.trim() ?? '';
+      if (required && value.isEmpty) return 'Required';
+      if (label.toLowerCase().contains('email') &&
+          value.isNotEmpty &&
+          !value.contains('@')) {
+        return 'Invalid email';
+      }
+      if (label == 'Phone' && value.length != 10) {
+        return 'Enter exactly 10 mobile digits';
       }
       return null;
     },
@@ -389,3 +412,8 @@ Widget _driverField(
     ),
   );
 }
+
+final _mobileInputFormatters = <TextInputFormatter>[
+  FilteringTextInputFormatter.digitsOnly,
+  LengthLimitingTextInputFormatter(10),
+];

@@ -27,6 +27,12 @@ class _MonthlyBillScreenState extends State<MonthlyBillScreen> {
   void initState() {
     super.initState();
     _month = DateTime(DateTime.now().year, DateTime.now().month);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final repo = context.read<WaterPlantRepository>();
+      await repo.loadCustomersForCurrentAdminFromFirestore();
+      await repo.loadLedgerForCurrentShopFromFirestore();
+    });
   }
 
   void _snack(String msg, {bool isError = false}) {

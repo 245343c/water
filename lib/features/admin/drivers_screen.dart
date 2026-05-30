@@ -1,15 +1,31 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/data/models/driver.dart';
-import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/admin/widgets/drivers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
-class DriversScreen extends StatelessWidget {
+class DriversScreen extends StatefulWidget {
   const DriversScreen({super.key});
+
+  @override
+  State<DriversScreen> createState() => _DriversScreenState();
+}
+
+class _DriversScreenState extends State<DriversScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context
+          .read<WaterPlantRepository>()
+          .loadDriversForCurrentAdminFromFirestore();
+    });
+  }
 
   Future<void> _showAddDriver(BuildContext context) async {
     final result = await showModalBottomSheet<AddDriverResult>(
@@ -21,27 +37,26 @@ class DriversScreen extends StatelessWidget {
     if (result == null || !context.mounted) return;
 
     final repo = context.read<WaterPlantRepository>();
-    final auth = context.read<AuthRepository>();
-
-    final driver = repo.addDriver(
-      name: result.name,
-      phone: result.phone,
-      email: result.email,
-    );
-
-    final err = auth.createDriverAccount(
-      driverId: driver.id,
-      name: result.name,
-      phone: result.phone,
-      email: result.email,
-      password: result.password,
-    );
-
-    if (!context.mounted) return;
-    if (err != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+    Driver driver;
+    try {
+      driver = await repo.createDriverAccountInFirebase(
+        name: result.name,
+        phone: result.phone,
+        email: result.email,
+        password: result.password,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Driver not created. ${_messageForError(e)}'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       return;
     }
+
+    if (!context.mounted) return;
 
     await showDialog<void>(
       context: context,
@@ -54,7 +69,7 @@ class DriversScreen extends StatelessWidget {
           children: [
             Text('Share these credentials with ${driver.name}:', style: GoogleFonts.poppins(fontSize: 13)),
             const SizedBox(height: 12),
-            _CredentialRow(label: 'Email', value: result.email),
+            _CredentialRow(label: 'Mobile', value: result.phone),
             _CredentialRow(label: 'Password', value: result.password),
           ],
         ),
@@ -62,7 +77,7 @@ class DriversScreen extends StatelessWidget {
           TextButton(
             onPressed: () {
               Clipboard.setData(
-                ClipboardData(text: 'Email: ${result.email}\nPassword: ${result.password}'),
+                ClipboardData(text: 'Mobile: ${result.phone}\nPassword: ${result.password}'),
               );
               ScaffoldMessenger.of(ctx).showSnackBar(
                 const SnackBar(content: Text('Copied to clipboard')),
@@ -93,19 +108,23 @@ class DriversScreen extends StatelessWidget {
     if (result == null || !context.mounted) return;
 
     final repo = context.read<WaterPlantRepository>();
-    final auth = context.read<AuthRepository>();
-    repo.updateDriver(
-      driverId: driver.id,
-      name: result.name,
-      phone: result.phone,
-      email: result.email,
-    );
-    auth.updateDriverAccount(
-      driverId: driver.id,
-      name: result.name,
-      phone: result.phone,
-      email: result.email,
-    );
+    try {
+      await repo.updateDriverAccountInFirebase(
+        driverId: driver.id,
+        name: result.name,
+        phone: result.phone,
+        email: result.email,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Driver not updated. ${_messageForError(e)}'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -143,17 +162,111 @@ class DriversScreen extends StatelessWidget {
     );
     if (ok != true || !context.mounted) return;
 
-    context.read<AuthRepository>().deleteDriverAccount(driver.id);
-    context.read<WaterPlantRepository>().deleteDriver(driver.id);
+    try {
+      await context
+          .read<WaterPlantRepository>()
+          .deleteDriverAccountInFirebase(driver.id);
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Driver not deleted. ${_messageForError(e)}'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Driver deleted', style: GoogleFonts.poppins())),
     );
   }
 
+  Future<void> _resetDriverPassword(BuildContext context, Driver driver) async {
+    final password = await showDialog<String>(
+      context: context,
+      builder: (ctx) => const _ResetDriverPasswordDialog(),
+    );
+    if (password == null || !context.mounted) return;
+
+    try {
+      await context.read<WaterPlantRepository>().resetDriverPasswordInFirebase(
+        driverId: driver.id,
+        password: password,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Password not reset. ${_messageForError(e)}'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Password reset',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Share these updated credentials with ${driver.name}:',
+              style: GoogleFonts.poppins(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            _CredentialRow(label: 'Mobile', value: driver.phone),
+            _CredentialRow(label: 'Password', value: password),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(
+                ClipboardData(
+                  text: 'Mobile: ${driver.phone}\nPassword: $password',
+                ),
+              );
+              ScaffoldMessenger.of(ctx).showSnackBar(
+                const SnackBar(content: Text('Copied to clipboard')),
+              );
+            },
+            child: Text(
+              'Copy',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Done', style: GoogleFonts.poppins()),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _messageForError(Object error) {
+    if (error is FirebaseFunctionsException) {
+      return error.message ?? error.code;
+    }
+    final text = error.toString();
+    final marker = 'message: ';
+    final index = text.indexOf(marker);
+    if (index >= 0) return text.substring(index + marker.length);
+    return text;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Consumer2<WaterPlantRepository, AuthRepository>(
-      builder: (context, repo, auth, _) {
+    return Consumer<WaterPlantRepository>(
+      builder: (context, repo, _) {
         final drivers = repo.drivers;
 
         return Scaffold(
@@ -178,10 +291,29 @@ class DriversScreen extends StatelessWidget {
                           itemCount: drivers.length,
                           itemBuilder: (_, i) => _DriverCard(
                             driver: drivers[i],
-                            hasLogin: auth.hasAccountForDriver(drivers[i].id),
-                            accountEmail: auth.accountForDriver(drivers[i].id)?.email,
-                            onToggleActive: (active) => repo.setDriverActive(drivers[i].id, active),
+                            hasLogin: true,
+                            accountEmail: drivers[i].phone,
+                            onToggleActive: (active) async {
+                              try {
+                                await repo.setDriverActiveInFirebase(
+                                  drivers[i].id,
+                                  active,
+                                );
+                              } catch (e) {
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Driver status not changed. ${_messageForError(e)}',
+                                    ),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              }
+                            },
                             onEdit: () => _showEditDriver(context, drivers[i]),
+                            onResetPassword: () =>
+                                _resetDriverPassword(context, drivers[i]),
                             onDelete: () => _deleteDriver(context, drivers[i]),
                           ),
                         ),
@@ -202,6 +334,7 @@ class _DriverCard extends StatelessWidget {
     required this.accountEmail,
     required this.onToggleActive,
     required this.onEdit,
+    required this.onResetPassword,
     required this.onDelete,
   });
 
@@ -210,6 +343,7 @@ class _DriverCard extends StatelessWidget {
   final String? accountEmail;
   final ValueChanged<bool> onToggleActive;
   final VoidCallback onEdit;
+  final VoidCallback onResetPassword;
   final VoidCallback onDelete;
 
   @override
@@ -262,6 +396,7 @@ class _DriverCard extends StatelessWidget {
                 tooltip: 'Driver actions',
                 onSelected: (value) {
                   if (value == 'edit') onEdit();
+                  if (value == 'reset') onResetPassword();
                   if (value == 'delete') onDelete();
                 },
                 itemBuilder: (context) => [
@@ -272,6 +407,16 @@ class _DriverCard extends StatelessWidget {
                         const Icon(Icons.edit_outlined, size: 18),
                         const SizedBox(width: 8),
                         Text('Edit', style: GoogleFonts.poppins()),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'reset',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.key_rounded, size: 18),
+                        const SizedBox(width: 8),
+                        Text('Reset password', style: GoogleFonts.poppins()),
                       ],
                     ),
                   ),
@@ -329,6 +474,83 @@ class _DriverCard extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _ResetDriverPasswordDialog extends StatefulWidget {
+  const _ResetDriverPasswordDialog();
+
+  @override
+  State<_ResetDriverPasswordDialog> createState() =>
+      _ResetDriverPasswordDialogState();
+}
+
+class _ResetDriverPasswordDialogState
+    extends State<_ResetDriverPasswordDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _password = TextEditingController();
+  bool _obscure = true;
+
+  @override
+  void dispose() {
+    _password.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+    Navigator.pop(context, _password.text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Text(
+        'Reset password',
+        style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+      ),
+      content: Form(
+        key: _formKey,
+        child: TextFormField(
+          controller: _password,
+          obscureText: _obscure,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          onFieldSubmitted: (_) => _submit(),
+          validator: (value) {
+            if ((value ?? '').length < 6) {
+              return 'Password must be at least 6 characters';
+            }
+            return null;
+          },
+          decoration: InputDecoration(
+            labelText: 'New password',
+            prefixIcon: const Icon(Icons.lock_reset_rounded),
+            suffixIcon: IconButton(
+              tooltip: _obscure ? 'Show password' : 'Hide password',
+              icon: Icon(
+                _obscure
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+              ),
+              onPressed: () => setState(() => _obscure = !_obscure),
+            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel', style: GoogleFonts.poppins()),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: Text('Reset', style: GoogleFonts.poppins()),
+        ),
+      ],
     );
   }
 }

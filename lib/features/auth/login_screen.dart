@@ -46,7 +46,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (error == null && auth.currentUser?.isDriver == true) {
       final driverId = auth.currentUser!.driverId;
-      final driver = driverId != null ? repo.driverById(driverId) : null;
+      final driver = driverId != null
+          ? await repo.loadDriverForCurrentUserFromFirestore(driverId)
+          : null;
       if (driver == null || !driver.active) {
         await auth.logout();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -253,17 +255,21 @@ class _LoginFormPanel extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             LoginTextField(
-              label: 'Email',
+              label: 'Email or mobile number',
               controller: emailController,
-              hint: 'you@business.com',
-              icon: Icons.mail_outline_rounded,
+              hint: 'Admin email or driver mobile',
+              icon: Icons.badge_outlined,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
               validator: (v) {
                 if (v == null || v.trim().isEmpty) {
-                  return 'Email is required';
+                  return 'Email or mobile number is required';
                 }
-                if (!v.contains('@')) return 'Enter a valid email';
+                final text = v.trim();
+                final digits = text.replaceAll(RegExp(r'\D'), '');
+                if (!text.contains('@') && digits.length != 10) {
+                  return 'Enter exactly 10 mobile digits';
+                }
                 return null;
               },
             ),

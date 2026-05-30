@@ -22,6 +22,17 @@ class _DriverCustomersScreenState extends State<DriverCustomersScreen> {
   String? _routeFilter;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final repo = context.read<WaterPlantRepository>();
+      await repo.loadCustomersForCurrentAdminFromFirestore();
+      await repo.loadLedgerForCurrentShopFromFirestore();
+    });
+  }
+
+  @override
   void dispose() {
     _search.dispose();
     super.dispose();

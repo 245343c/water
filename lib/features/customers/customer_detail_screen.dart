@@ -18,6 +18,17 @@ class CustomerDetailScreen extends StatefulWidget {
 }
 
 class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final repo = context.read<WaterPlantRepository>();
+      await repo.loadCustomersForCurrentAdminFromFirestore();
+      await repo.loadLedgerForCurrentShopFromFirestore();
+    });
+  }
+
   void _onCall(String phone) {
     Clipboard.setData(ClipboardData(text: phone));
     if (!mounted) return;
@@ -57,7 +68,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   ) async {
     final confirmed = await confirmDeleteCustomer(context, customerName: name);
     if (!confirmed || !context.mounted) return;
-    repo.deleteCustomer(widget.customerId);
+    await repo.deleteCustomerFromCurrentAdminShop(widget.customerId);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

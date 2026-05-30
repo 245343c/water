@@ -33,6 +33,12 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
     } else {
       _month = DateTime(now.year, now.month);
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final repo = context.read<WaterPlantRepository>();
+      await repo.loadCustomersForCurrentAdminFromFirestore();
+      await repo.loadLedgerForCurrentShopFromFirestore();
+    });
   }
 
   @override

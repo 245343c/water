@@ -65,8 +65,8 @@ class AuthRepository extends ChangeNotifier {
     required String email,
     required String password,
   }) async {
-    final normalized = email.trim().toLowerCase();
-    if (normalized.isEmpty) return 'Email is required';
+    final normalized = _staffLoginEmail(email);
+    if (normalized.isEmpty) return 'Email or mobile number is required';
     if (password.isEmpty) return 'Password is required';
 
     try {
@@ -95,16 +95,26 @@ class AuthRepository extends ChangeNotifier {
     }
   }
 
-  String? _loginMockDriver(String normalizedEmail, String password) {
+  String? _loginMockDriver(String normalizedLoginEmail, String password) {
     for (final account in _accounts) {
-      if (account.user.email.toLowerCase() == normalizedEmail &&
+      final phoneLoginEmail = _staffLoginEmail(account.user.phone);
+      if ((account.user.email.toLowerCase() == normalizedLoginEmail ||
+              phoneLoginEmail == normalizedLoginEmail) &&
           account.password == password) {
         _currentUser = account.user;
         notifyListeners();
         return null;
       }
     }
-    return 'Invalid email or password';
+    return 'Invalid login ID or password';
+  }
+
+  String _staffLoginEmail(String value) {
+    final cleaned = value.trim().toLowerCase();
+    if (cleaned.contains('@')) return cleaned;
+    final digits = cleaned.replaceAll(RegExp(r'\D'), '');
+    if (digits.length != 10) return '';
+    return 'driver_$digits@waterapp.local';
   }
 
   Future<void> _restoreFirebaseSession() async {
@@ -274,13 +284,13 @@ class AuthRepository extends ChangeNotifier {
   String _loginAuthErrorMessage(firebase_auth.FirebaseAuthException e) {
     switch (e.code) {
       case 'invalid-email':
-        return 'Enter a valid email';
+        return 'Enter a valid email or mobile number';
       case 'user-disabled':
         return 'This account is disabled';
       case 'user-not-found':
       case 'wrong-password':
       case 'invalid-credential':
-        return 'Invalid email or password';
+        return 'Invalid login ID or password';
       case 'network-request-failed':
         return 'Network error. Check your connection and try again';
       default:

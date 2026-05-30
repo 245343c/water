@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
-import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/more/widgets/more_screen_widgets.dart';
 import 'package:sri_sai_ro_water/features/more/widgets/shop_location_card.dart';
@@ -11,46 +9,6 @@ import 'package:sri_sai_ro_water/routing/app_router.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
-
-  Future<void> _confirmReset(
-    BuildContext context,
-    WaterPlantRepository repo,
-  ) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          'Reset mock data?',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-        ),
-        content: Text(
-          'All test changes will be lost.',
-          style: GoogleFonts.poppins(fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Reset'),
-          ),
-        ],
-      ),
-    );
-    if (ok == true && context.mounted) {
-      repo.resetMockData();
-      context.read<NotificationRepository>().clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Mock data restored'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -125,7 +83,6 @@ class MoreScreen extends StatelessWidget {
                           context.read<AuthRepository>().logout();
                           context.go(AppRoutes.welcome);
                         },
-                        onResetMock: () => _confirmReset(context, repo),
                       ),
                       const MoreVersionLabel(),
                       const SizedBox(height: 16),

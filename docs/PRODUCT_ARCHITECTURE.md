@@ -49,7 +49,7 @@ Enforce in **three layers**: `AppPermissions` → **go_router redirect** → **h
 
 ## Driver rules
 
-- Login: email + password (created by admin).
+- Login: mobile number + password (created by admin). Admin login still uses email + password.
 - **Field flow:** visit customer → ask how many cans → enter normal/cool on customer screen → **Save & notify** → admin + customer notified (in-app + local push mock).
 - Home: **Route** — admin-confirmed customer requests + today's stops + completed.
 - Driver sees **accepted orders only** (not pending). Admin accept → push + in-app alert to driver.
@@ -59,8 +59,8 @@ Enforce in **three layers**: `AppPermissions` → **go_router redirect** → **h
 
 ## Admin: driver management
 
-- Menu → **Drivers**: add name, phone, email, password; deactivate driver.
-- Credentials are shared with driver manually (SMS/WhatsApp); no plain-text storage in UI after create.
+- Menu → **Drivers**: add name, phone, optional contact email, password; deactivate driver.
+- Credentials are shared with driver manually (SMS/WhatsApp): mobile number + password. No plain-text storage in UI after create.
 
 ## Routing
 

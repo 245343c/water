@@ -25,11 +25,11 @@ class _CustomersScreenState extends State<CustomersScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      context
-          .read<WaterPlantRepository>()
-          .loadCustomersForCurrentAdminFromFirestore();
+      final repo = context.read<WaterPlantRepository>();
+      await repo.loadCustomersForCurrentAdminFromFirestore();
+      await repo.loadLedgerForCurrentShopFromFirestore();
     });
   }
 

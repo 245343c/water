@@ -635,10 +635,12 @@ class AddDeliverySaveButton extends StatelessWidget {
     super.key,
     required this.enabled,
     required this.onPressed,
+    this.isSaving = false,
   });
 
   final bool enabled;
   final VoidCallback onPressed;
+  final bool isSaving;
 
   @override
   Widget build(BuildContext context) {
@@ -664,7 +666,16 @@ class AddDeliverySaveButton extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            child: const Text('Save Delivery'),
+            child: isSaving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text('Save Delivery'),
           ),
         ),
       ),

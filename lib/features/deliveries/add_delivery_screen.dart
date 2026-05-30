@@ -25,6 +25,7 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
   int _normal = 0;
   int _cool = 0;
   final Map<String, int> _bottleQty = {};
+  bool _saving = false;
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
@@ -204,29 +205,45 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
                 ),
                 AddDeliverySaveButton(
                   enabled: _hasItems(
-                    showNormalCans: showNormalCans,
-                    showCoolCans: showCoolCans,
-                    catalog: bottleCatalog,
-                    customer: customer,
-                    repo: repo,
-                  ),
-                  onPressed: () {
+                        showNormalCans: showNormalCans,
+                        showCoolCans: showCoolCans,
+                        catalog: bottleCatalog,
+                        customer: customer,
+                        repo: repo,
+                      ) &&
+                      !_saving,
+                  isSaving: _saving,
+                  onPressed: () async {
+                    setState(() => _saving = true);
                     final auth = context.read<AuthRepository>();
                     final staffId = auth.currentUser?.role == AppRole.driver
                         ? auth.currentUser?.driverId
                         : auth.currentUser?.id;
-                    final delivery = repo.addDelivery(
-                      customerId: widget.customerId,
-                      date: _date,
-                      normalQty: _normal,
-                      coolQty: _cool,
-                      bottles: _bottleInputs(customer, repo, bottleCatalog),
-                      driverId: staffId,
-                    );
-                    context.pushReplacement(
-                      '/customers/${widget.customerId}/delivery/success',
-                      extra: delivery,
-                    );
+                    try {
+                      final delivery = await repo.addDeliveryToCurrentShop(
+                        customerId: widget.customerId,
+                        date: _date,
+                        normalQty: _normal,
+                        coolQty: _cool,
+                        bottles: _bottleInputs(customer, repo, bottleCatalog),
+                        driverId: staffId,
+                      );
+                      if (!context.mounted) return;
+                      context.pushReplacement(
+                        '/customers/${widget.customerId}/delivery/success',
+                        extra: delivery,
+                      );
+                    } catch (_) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Delivery not saved. Please try again.'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    } finally {
+                      if (mounted) setState(() => _saving = false);
+                    }
                   },
                 ),
               ],

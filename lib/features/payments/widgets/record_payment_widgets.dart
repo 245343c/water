@@ -547,9 +547,14 @@ class RecordPaymentAllocationPreview extends StatelessWidget {
 }
 
 class RecordPaymentSaveButton extends StatelessWidget {
-  const RecordPaymentSaveButton({super.key, required this.onPressed});
+  const RecordPaymentSaveButton({
+    super.key,
+    required this.onPressed,
+    this.isSaving = false,
+  });
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
+  final bool isSaving;
 
   @override
   Widget build(BuildContext context) {
@@ -572,7 +577,16 @@ class RecordPaymentSaveButton extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            child: const Text('Save Payment'),
+            child: isSaving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text('Save Payment'),
           ),
         ),
       ),

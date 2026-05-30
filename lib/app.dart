@@ -25,6 +25,7 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
   late final DeliveryRecordingService _deliveryRecording;
   late final OrderWorkflowService _orderWorkflow;
   late final GoRouter _router;
+  String? _lastLoadedUserId;
 
   @override
   void initState() {
@@ -46,11 +47,22 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
     );
     _router = createAppRouter(_auth, _repository);
     _push.initialize();
+    _auth.addListener(_loadRepositoryForAuthUser);
+    _loadRepositoryForAuthUser();
+  }
+
+  void _loadRepositoryForAuthUser() {
+    final user = _auth.currentUser;
+    final userId = user?.id;
+    if (_lastLoadedUserId == userId) return;
+    _lastLoadedUserId = userId;
+    _repository.loadFirebaseDataForUser(user);
   }
 
   @override
   void dispose() {
     _router.dispose();
+    _auth.removeListener(_loadRepositoryForAuthUser);
     _auth.dispose();
     _repository.dispose();
     _notifications.dispose();
@@ -73,6 +85,24 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         routerConfig: _router,
+        builder: (context, child) {
+          return Consumer<WaterPlantRepository>(
+            builder: (context, repo, _) {
+              return Stack(
+                children: [
+                  child ?? const SizedBox.shrink(),
+                  if (repo.isFirebaseLoading)
+                    const Positioned.fill(
+                      child: ColoredBox(
+                        color: Colors.white,
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                    ),
+                ],
+              );
+            },
+          );
+        },
       ),
     );
   }

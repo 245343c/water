@@ -435,11 +435,9 @@ class MoreAccountCard extends StatelessWidget {
   const MoreAccountCard({
     super.key,
     required this.onSignOut,
-    required this.onResetMock,
   });
 
   final VoidCallback onSignOut;
-  final VoidCallback onResetMock;
 
   @override
   Widget build(BuildContext context) {
@@ -456,16 +454,6 @@ class MoreAccountCard extends StatelessWidget {
               title: 'Sign out',
               subtitle: 'Log out of admin account',
               onTap: onSignOut,
-            ),
-            const Divider(height: 1, indent: 56, color: MoreColors.divider),
-            _AccountRow(
-              icon: Icons.refresh_rounded,
-              iconBg: const Color(0xFFF3F4F6),
-              iconColor: MoreColors.labelGrey,
-              title: 'Reset mock data',
-              subtitle: 'Restore sample customers (demo)',
-              onTap: onResetMock,
-              showChevron: false,
             ),
           ],
         ),

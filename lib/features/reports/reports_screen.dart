@@ -20,6 +20,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
   void initState() {
     super.initState();
     _applyPreset(ReportsPeriodPreset.thisMonth, notify: false);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final repo = context.read<WaterPlantRepository>();
+      await repo.loadCustomersForCurrentAdminFromFirestore();
+      await repo.loadLedgerForCurrentShopFromFirestore();
+    });
   }
 
   void _applyPreset(ReportsPeriodPreset preset, {bool notify = true}) {

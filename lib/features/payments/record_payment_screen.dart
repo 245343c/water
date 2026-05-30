@@ -26,6 +26,7 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
   PaymentMethod _method = PaymentMethod.cash;
   DateTime _date = DateTime.now();
   bool _amountInitialized = false;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -200,31 +201,54 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
                     ),
                   ),
                   RecordPaymentSaveButton(
-                    onPressed: () {
-                      if (!_formKey.currentState!.validate()) return;
-                      final amount = double.parse(_amountController.text);
-                      final split = repo.previewPayment(widget.customerId, amount);
-                      repo.addPayment(
-                        customerId: widget.customerId,
-                        amount: amount,
-                        method: _method,
-                        date: _date,
-                        notes: _notesController.text.trim().isEmpty
-                            ? null
-                            : _notesController.text.trim(),
-                      );
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            _successMessage(split, amount),
-                            style: GoogleFonts.poppins(fontSize: 13),
-                          ),
-                          behavior: SnackBarBehavior.floating,
-                          duration: const Duration(seconds: 4),
-                        ),
-                      );
-                      context.pop();
-                    },
+                    isSaving: _saving,
+                    onPressed: _saving
+                        ? null
+                        : () async {
+                            if (!_formKey.currentState!.validate()) return;
+                            setState(() => _saving = true);
+                            final amount = double.parse(_amountController.text);
+                            final split = repo.previewPayment(
+                              widget.customerId,
+                              amount,
+                            );
+                            try {
+                              await repo.addPaymentToCurrentShop(
+                                customerId: widget.customerId,
+                                amount: amount,
+                                method: _method,
+                                date: _date,
+                                notes: _notesController.text.trim().isEmpty
+                                    ? null
+                                    : _notesController.text.trim(),
+                              );
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    _successMessage(split, amount),
+                                    style: GoogleFonts.poppins(fontSize: 13),
+                                  ),
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: const Duration(seconds: 4),
+                                ),
+                              );
+                              context.pop();
+                            } catch (_) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Payment not saved. Please try again.',
+                                    style: GoogleFonts.poppins(fontSize: 13),
+                                  ),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            } finally {
+                              if (mounted) setState(() => _saving = false);
+                            }
+                          },
                   ),
                 ],
               ),

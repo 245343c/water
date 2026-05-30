@@ -1,8 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/foundation.dart';
+import 'package:sri_sai_ro_water/core/auth/app_role.dart';
 import 'package:sri_sai_ro_water/data/models/business_settings.dart';
 import 'package:sri_sai_ro_water/core/constants/customer_pricing_keys.dart';
+import 'package:sri_sai_ro_water/data/models/app_user.dart';
 import 'package:sri_sai_ro_water/data/models/customer_app_profile.dart';
 import 'package:sri_sai_ro_water/data/models/customer_billing_mode.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
@@ -32,8 +35,11 @@ import 'package:sri_sai_ro_water/core/utils/payment_allocation.dart';
 import 'package:uuid/uuid.dart';
 
 class WaterPlantRepository extends ChangeNotifier {
-  WaterPlantRepository() {
-    _seedMockData();
+  WaterPlantRepository({bool seedDemoData = false}) {
+    _seedReferenceData();
+    if (seedDemoData) {
+      _seedDemoData();
+    }
   }
 
   static const _uuid = Uuid();
@@ -63,6 +69,12 @@ class WaterPlantRepository extends ChangeNotifier {
   /// Local path to the admin's profile photo (null = not set).
   String? adminImagePath;
   String? _loadedFirebaseCustomerShopId;
+  String? _loadedFirebaseDriverShopId;
+  String? _loadedFirebaseLedgerShopId;
+  bool _loadingFirebaseData = false;
+  String? _loadedFirebaseUserId;
+
+  bool get isFirebaseLoading => _loadingFirebaseData;
 
   void updateAdminImage(String? path) {
     adminImagePath = path;
@@ -452,7 +464,7 @@ class WaterPlantRepository extends ChangeNotifier {
     }, SetOptions(merge: true));
   }
 
-  void _seedMockData() {
+  void _seedReferenceData() {
     settings = BusinessSettings(
       businessName: 'Sri Sai RO Water Plant',
       address: 'Main Road, Rajahmundry, Andhra Pradesh - 533101',
@@ -469,11 +481,17 @@ class WaterPlantRepository extends ChangeNotifier {
     _seedMarketplaceShops();
     _seedProducts();
     _seedPromotions();
-    _deliveryRoutes.addAll(const [
-      DeliveryRoute(id: 'route-1', name: 'Route 1'),
-      DeliveryRoute(id: 'route-2', name: 'Route 2'),
-      DeliveryRoute(id: 'route-3', name: 'Route 3'),
-    ]);
+    if (_deliveryRoutes.isEmpty) {
+      _deliveryRoutes.addAll(const [
+        DeliveryRoute(id: 'route-1', name: 'Route 1'),
+        DeliveryRoute(id: 'route-2', name: 'Route 2'),
+        DeliveryRoute(id: 'route-3', name: 'Route 3'),
+      ]);
+    }
+  }
+
+  void _seedDemoData() {
+    _seedReferenceData();
 
     _drivers.addAll([
       const Driver(
@@ -1375,6 +1393,106 @@ class WaterPlantRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> loadFirebaseDataForUser(AppUser? user) async {
+    if (user == null || user.role == AppRole.customer) {
+      _loadedFirebaseUserId = null;
+      clearOperationalData();
+      return;
+    }
+    if (_loadedFirebaseUserId == user.id && !_loadingFirebaseData) return;
+
+    _loadedFirebaseUserId = user.id;
+    _loadingFirebaseData = true;
+    clearOperationalData(notify: false);
+    notifyListeners();
+
+    try {
+      await loadCurrentShopFromFirestore(force: true);
+      await loadCustomersForCurrentAdminFromFirestore(force: true);
+      await loadLedgerForCurrentShopFromFirestore(force: true);
+      if (user.role == AppRole.admin) {
+        await loadDriversForCurrentAdminFromFirestore(force: true);
+      } else if (user.role == AppRole.driver && user.driverId != null) {
+        await loadDriverForCurrentUserFromFirestore(user.driverId!);
+      }
+    } finally {
+      _loadingFirebaseData = false;
+      notifyListeners();
+    }
+  }
+
+  void clearOperationalData({bool notify = true}) {
+    _customers.clear();
+    _deliveries.clear();
+    _payments.clear();
+    _orders.clear();
+    _drivers.clear();
+    _customerShopIds.clear();
+    _driverShopIds.clear();
+    _routeNotes.clear();
+    _todaysRouteIds = [];
+    _loadedFirebaseCustomerShopId = null;
+    _loadedFirebaseDriverShopId = null;
+    _loadedFirebaseLedgerShopId = null;
+    if (notify) notifyListeners();
+  }
+
+  Future<void> loadCurrentShopFromFirestore({bool force = false}) async {
+    final shopId = await _currentAdminShopId();
+    if (shopId == null) return;
+    if (!force && _shops.any((shop) => shop.id == shopId)) return;
+
+    final shopDoc = await FirebaseFirestore.instance
+        .collection('shops')
+        .doc(shopId)
+        .get();
+    final data = shopDoc.data();
+    if (data == null) return;
+
+    final shop = _shopFromFirestore(shopDoc.id, data);
+    _upsertShop(shop);
+    settings = BusinessSettings(
+      businessName: shop.name,
+      address: shop.address,
+      phone: shop.phone,
+      email: shop.email,
+      normalPrice: shop.normalPrice,
+      coolPrice: shop.coolPrice,
+      shopLatitude: shop.latitude,
+      shopLongitude: shop.longitude,
+      homeDeliveryAvailable: shop.homeDeliveryAvailable,
+    );
+    notifyListeners();
+  }
+
+  Future<void> loadLedgerForCurrentShopFromFirestore({
+    bool force = false,
+  }) async {
+    final shopId = await _currentAdminShopId();
+    if (shopId == null) return;
+    if (!force && _loadedFirebaseLedgerShopId == shopId) return;
+
+    final shopRef = FirebaseFirestore.instance.collection('shops').doc(shopId);
+    final results = await Future.wait([
+      shopRef.collection('deliveries').orderBy('date', descending: true).get(),
+      shopRef.collection('payments').orderBy('date', descending: true).get(),
+    ]);
+
+    final deliverySnapshot =
+        results[0] as QuerySnapshot<Map<String, dynamic>>;
+    final paymentSnapshot =
+        results[1] as QuerySnapshot<Map<String, dynamic>>;
+
+    _deliveries
+      ..clear()
+      ..addAll(deliverySnapshot.docs.map(_deliveryFromFirestore));
+    _payments
+      ..clear()
+      ..addAll(paymentSnapshot.docs.map(_paymentFromFirestore));
+    _loadedFirebaseLedgerShopId = shopId;
+    notifyListeners();
+  }
+
   Future<Customer> addCustomerToCurrentAdminShop({
     required String name,
     required String phone,
@@ -1464,6 +1582,14 @@ class WaterPlantRepository extends ChangeNotifier {
         .doc(uid)
         .get();
     return userDoc.data()?['shopId'] as String?;
+  }
+
+  Future<String?> _shopIdForCustomerOrCurrent(String customerId) async {
+    final cachedShopId = shopIdForCustomer(customerId);
+    if (cachedShopId != defaultShopId) {
+      return cachedShopId;
+    }
+    return _currentAdminShopId();
   }
 
   Customer _customerFromFirestore(
@@ -1583,6 +1709,105 @@ class WaterPlantRepository extends ChangeNotifier {
         enabled: item['enabled'] as bool? ?? true,
       );
     }).toList();
+  }
+
+  Delivery _deliveryFromFirestore(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data();
+    return Delivery(
+      id: doc.id,
+      customerId: data['customerId'] as String? ?? '',
+      date: _dateTimeFromFirestore(data['date']) ?? DateTime.now(),
+      lines: _deliveryLinesFromFirestore(data['lines']),
+      driverId: data['driverId'] as String?,
+      createdAt: _dateTimeFromFirestore(data['createdAt']),
+    );
+  }
+
+  Delivery _deliveryFromCallable(Object? value) {
+    final data = value is Map ? Map<String, dynamic>.from(value) : {};
+    return Delivery(
+      id: data['id'] as String? ?? _uuid.v4(),
+      customerId: data['customerId'] as String? ?? '',
+      date: _dateTimeFromFirestore(data['date']) ?? DateTime.now(),
+      lines: _deliveryLinesFromFirestore(data['lines']),
+      driverId: data['driverId'] as String?,
+      createdAt: _dateTimeFromFirestore(data['createdAt']),
+    );
+  }
+
+  Map<String, dynamic> _deliveryLineToMap(DeliveryLineItem line) {
+    return {
+      'kind': line.kind.name,
+      'label': line.label,
+      'quantity': line.quantity,
+      'unitPrice': line.unitPrice,
+      'lineTotal': line.lineTotal,
+      'productId': line.productId,
+    };
+  }
+
+  List<DeliveryLineItem> _deliveryLinesFromFirestore(Object? value) {
+    if (value is! List) return const [];
+    return value.whereType<Map>().map((item) {
+      return DeliveryLineItem(
+        kind: _deliveryItemKindFromString(item['kind'] as String?),
+        label: item['label'] as String? ?? 'Delivery item',
+        quantity: (item['quantity'] as num?)?.toInt() ?? 0,
+        unitPrice: (item['unitPrice'] as num?)?.toDouble() ?? 0,
+        productId: item['productId'] as String?,
+      );
+    }).where((line) => line.quantity > 0).toList();
+  }
+
+  DeliveryItemKind _deliveryItemKindFromString(String? value) {
+    return DeliveryItemKind.values.firstWhere(
+      (kind) => kind.name == value,
+      orElse: () => DeliveryItemKind.normalCan,
+    );
+  }
+
+  Payment _paymentFromFirestore(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data();
+    return Payment(
+      id: doc.id,
+      customerId: data['customerId'] as String? ?? '',
+      date: _dateTimeFromFirestore(data['date']) ?? DateTime.now(),
+      amount: (data['amount'] as num?)?.toDouble() ?? 0,
+      method: _paymentMethodFromString(data['method'] as String?),
+      notes: data['notes'] as String?,
+      createdAt: _dateTimeFromFirestore(data['createdAt']),
+    );
+  }
+
+  Payment _paymentFromCallable(Object? value) {
+    final data = value is Map ? Map<String, dynamic>.from(value) : {};
+    return Payment(
+      id: data['id'] as String? ?? _uuid.v4(),
+      customerId: data['customerId'] as String? ?? '',
+      date: _dateTimeFromFirestore(data['date']) ?? DateTime.now(),
+      amount: (data['amount'] as num?)?.toDouble() ?? 0,
+      method: _paymentMethodFromString(data['method'] as String?),
+      notes: data['notes'] as String?,
+      createdAt: _dateTimeFromFirestore(data['createdAt']),
+    );
+  }
+
+  PaymentMethod _paymentMethodFromString(String? value) {
+    return PaymentMethod.values.firstWhere(
+      (method) => method.name == value,
+      orElse: () => PaymentMethod.cash,
+    );
+  }
+
+  DateTime? _dateTimeFromFirestore(Object? value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    return null;
   }
 
   void updateCustomer(Customer customer) {
@@ -1803,6 +2028,32 @@ class WaterPlantRepository extends ChangeNotifier {
     }
   }
 
+  Future<Driver?> loadDriverForCurrentUserFromFirestore(String driverId) async {
+    final uid = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return driverById(driverId);
+
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
+    final shopId = userDoc.data()?['shopId'] as String?;
+    if (shopId == null || shopId.isEmpty) return null;
+
+    final driverDoc = await FirebaseFirestore.instance
+        .collection('shops')
+        .doc(shopId)
+        .collection('drivers')
+        .doc(driverId)
+        .get();
+    final data = driverDoc.data();
+    if (data == null) return null;
+
+    final driver = _driverFromFirestore(driverDoc);
+    _upsertDriver(driver, shopId);
+    notifyListeners();
+    return driver;
+  }
+
   Driver addDriver({
     required String name,
     required String phone,
@@ -1819,6 +2070,158 @@ class WaterPlantRepository extends ChangeNotifier {
     _linkDriverToShop(driver.id, defaultShopId);
     notifyListeners();
     return driver;
+  }
+
+  Future<void> loadDriversForCurrentAdminFromFirestore({
+    bool force = false,
+  }) async {
+    final shopId = await _currentAdminShopId();
+    if (shopId == null) return;
+    if (!force && _loadedFirebaseDriverShopId == shopId) return;
+
+    final snapshot = await FirebaseFirestore.instance
+        .collection('shops')
+        .doc(shopId)
+        .collection('drivers')
+        .where('active', isEqualTo: true)
+        .get();
+
+    _drivers
+      ..clear()
+      ..addAll(snapshot.docs.map(_driverFromFirestore));
+    _driverShopIds
+      ..clear()
+      ..addEntries(_drivers.map((d) => MapEntry(d.id, shopId)));
+    _loadedFirebaseDriverShopId = shopId;
+    notifyListeners();
+  }
+
+  Future<Driver> createDriverAccountInFirebase({
+    required String name,
+    required String phone,
+    required String email,
+    required String password,
+  }) async {
+    final shopId = await _currentAdminShopId();
+    final pendingDriver = Driver(
+      id: 'pending-${DateTime.now().microsecondsSinceEpoch}',
+      name: name.trim(),
+      phone: phone.trim(),
+      email: email.trim().toLowerCase(),
+      createdAt: DateTime.now(),
+    );
+    _upsertDriver(pendingDriver, shopId ?? defaultShopId);
+    notifyListeners();
+
+    try {
+      final result = await FirebaseFunctions.instance
+          .httpsCallable('createDriverAccount')
+          .call({
+            'name': name,
+            'phone': phone,
+            'email': email,
+            'password': password,
+          });
+      final driver = _driverFromCallable(result.data);
+      _drivers.removeWhere((d) => d.id == pendingDriver.id);
+      _driverShopIds.remove(pendingDriver.id);
+      _upsertDriver(driver, shopId ?? defaultShopId);
+      notifyListeners();
+      return driver;
+    } catch (_) {
+      _drivers.removeWhere((d) => d.id == pendingDriver.id);
+      _driverShopIds.remove(pendingDriver.id);
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> updateDriverAccountInFirebase({
+    required String driverId,
+    required String name,
+    required String phone,
+    required String email,
+  }) async {
+    final result = await FirebaseFunctions.instance
+        .httpsCallable('updateDriverAccount')
+        .call({
+          'driverId': driverId,
+          'name': name,
+          'phone': phone,
+          'email': email,
+        });
+    final driver = _driverFromCallable(result.data);
+    final shopId = await _currentAdminShopId();
+    _upsertDriver(driver, shopId ?? shopIdForDriver(driver.id));
+    notifyListeners();
+  }
+
+  Future<void> setDriverActiveInFirebase(String driverId, bool active) async {
+    final previous = driverById(driverId);
+    setDriverActive(driverId, active);
+    try {
+      await FirebaseFunctions.instance.httpsCallable('setDriverActive').call({
+        'driverId': driverId,
+        'active': active,
+      });
+    } catch (_) {
+      if (previous != null) {
+        setDriverActive(driverId, previous.active);
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> deleteDriverAccountInFirebase(String driverId) async {
+    await FirebaseFunctions.instance.httpsCallable('deleteDriverAccount').call({
+      'driverId': driverId,
+    });
+    deleteDriver(driverId);
+  }
+
+  Future<void> resetDriverPasswordInFirebase({
+    required String driverId,
+    required String password,
+  }) async {
+    await FirebaseFunctions.instance.httpsCallable('resetDriverPassword').call({
+      'driverId': driverId,
+      'password': password,
+    });
+  }
+
+  Driver _driverFromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data() ?? const <String, dynamic>{};
+    final createdAt = data['createdAt'];
+    return Driver(
+      id: doc.id,
+      name: data['name'] as String? ?? '',
+      phone: data['phone'] as String? ?? '',
+      email: data['email'] as String? ?? '',
+      active: data['active'] as bool? ?? true,
+      createdAt: createdAt is Timestamp ? createdAt.toDate() : null,
+    );
+  }
+
+  Driver _driverFromCallable(Object? value) {
+    final data = value is Map ? Map<String, dynamic>.from(value) : {};
+    return Driver(
+      id: data['id'] as String? ?? '',
+      name: data['name'] as String? ?? '',
+      phone: data['phone'] as String? ?? '',
+      email: data['email'] as String? ?? '',
+      active: data['active'] as bool? ?? true,
+      createdAt: DateTime.now(),
+    );
+  }
+
+  void _upsertDriver(Driver driver, String shopId) {
+    final index = _drivers.indexWhere((d) => d.id == driver.id);
+    if (index >= 0) {
+      _drivers[index] = driver;
+    } else {
+      _drivers.insert(0, driver);
+    }
+    _linkDriverToShop(driver.id, shopId);
   }
 
   void setDriverActive(String driverId, bool active) {
@@ -1923,6 +2326,73 @@ class WaterPlantRepository extends ChangeNotifier {
     List<BottleDeliveryInput> bottles = const [],
     String? driverId,
   }) {
+    final delivery = _buildDelivery(
+      id: _uuid.v4(),
+      customerId: customerId,
+      date: date,
+      normalQty: normalQty,
+      coolQty: coolQty,
+      bottles: bottles,
+      driverId: driverId,
+    );
+    _upsertDelivery(delivery);
+    notifyListeners();
+    return delivery;
+  }
+
+  Future<Delivery> addDeliveryToCurrentShop({
+    required String customerId,
+    required DateTime date,
+    int normalQty = 0,
+    int coolQty = 0,
+    List<BottleDeliveryInput> bottles = const [],
+    String? driverId,
+  }) async {
+    final shopId = await _shopIdForCustomerOrCurrent(customerId);
+    if (shopId == null) {
+      return addDelivery(
+        customerId: customerId,
+        date: date,
+        normalQty: normalQty,
+        coolQty: coolQty,
+        bottles: bottles,
+        driverId: driverId,
+      );
+    }
+
+    final deliveryDraft = _buildDelivery(
+      id: _uuid.v4(),
+      customerId: customerId,
+      date: date,
+      normalQty: normalQty,
+      coolQty: coolQty,
+      bottles: bottles,
+      driverId: driverId,
+    );
+
+    final result = await FirebaseFunctions.instance
+        .httpsCallable('recordCustomerDelivery')
+        .call({
+          'customerId': customerId,
+          'date': date.toIso8601String(),
+          'lines': deliveryDraft.lines.map(_deliveryLineToMap).toList(),
+          'driverId': driverId,
+        });
+    final delivery = _deliveryFromCallable(result.data);
+    _upsertDelivery(delivery);
+    notifyListeners();
+    return delivery;
+  }
+
+  Delivery _buildDelivery({
+    required String id,
+    required String customerId,
+    required DateTime date,
+    int normalQty = 0,
+    int coolQty = 0,
+    List<BottleDeliveryInput> bottles = const [],
+    String? driverId,
+  }) {
     final customer = customerById(customerId);
     final lines = <DeliveryLineItem>[];
     if (normalQty > 0) {
@@ -1975,16 +2445,22 @@ class WaterPlantRepository extends ChangeNotifier {
       throw ArgumentError('At least one item is required for a delivery');
     }
 
-    final delivery = Delivery(
-      id: _uuid.v4(),
+    return Delivery(
+      id: id,
       customerId: customerId,
       date: date,
       lines: lines,
       driverId: driverId,
     );
-    _deliveries.insert(0, delivery);
-    notifyListeners();
-    return delivery;
+  }
+
+  void _upsertDelivery(Delivery delivery) {
+    final index = _deliveries.indexWhere((d) => d.id == delivery.id);
+    if (index >= 0) {
+      _deliveries[index] = delivery;
+    } else {
+      _deliveries.insert(0, delivery);
+    }
   }
 
   List<Product> get bottleCatalog =>
@@ -2005,9 +2481,51 @@ class WaterPlantRepository extends ChangeNotifier {
       method: method,
       notes: notes,
     );
-    _payments.insert(0, payment);
+    _upsertPayment(payment);
     notifyListeners();
     return payment;
+  }
+
+  Future<Payment> addPaymentToCurrentShop({
+    required String customerId,
+    required double amount,
+    required PaymentMethod method,
+    required DateTime date,
+    String? notes,
+  }) async {
+    final shopId = await _shopIdForCustomerOrCurrent(customerId);
+    if (shopId == null) {
+      return addPayment(
+        customerId: customerId,
+        amount: amount,
+        method: method,
+        date: date,
+        notes: notes,
+      );
+    }
+
+    final result = await FirebaseFunctions.instance
+        .httpsCallable('recordCustomerPayment')
+        .call({
+          'customerId': customerId,
+          'amount': amount,
+          'method': method.name,
+          'date': date.toIso8601String(),
+          'notes': notes ?? '',
+        });
+    final payment = _paymentFromCallable(result.data);
+    _upsertPayment(payment);
+    notifyListeners();
+    return payment;
+  }
+
+  void _upsertPayment(Payment payment) {
+    final index = _payments.indexWhere((p) => p.id == payment.id);
+    if (index >= 0) {
+      _payments[index] = payment;
+    } else {
+      _payments.insert(0, payment);
+    }
   }
 
   void _syncShopFromSettings() {
@@ -2266,18 +2784,13 @@ class WaterPlantRepository extends ChangeNotifier {
   }
 
   void resetMockData() {
-    _customers.clear();
-    _deliveries.clear();
-    _payments.clear();
-    _orders.clear();
+    clearOperationalData(notify: false);
     _products.clear();
-    _drivers.clear();
     _deliveryRoutes.clear();
-    _customerShopIds.clear();
-    _driverShopIds.clear();
-    _routeNotes.clear();
-    _todaysRouteIds = [];
-    _seedMockData();
+    _shops.clear();
+    _promotions.clear();
+    _loadedFirebaseUserId = null;
+    _seedDemoData();
     notifyListeners();
   }
 
