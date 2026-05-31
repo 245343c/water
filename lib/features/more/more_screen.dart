@@ -51,8 +51,8 @@ class MoreScreen extends StatelessWidget {
                       ),
                       MoreHomeDeliveryCard(
                         value: repo.settings.homeDeliveryAvailable,
-                        onChanged: (v) {
-                          repo.updateSettings(
+                        onChanged: (v) async {
+                          await repo.updateSettingsInFirestore(
                             repo.settings.copyWith(homeDeliveryAvailable: v),
                           );
                         },

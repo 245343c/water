@@ -6,7 +6,11 @@ const admin = require("firebase-admin");
 admin.initializeApp();
 
 const db = admin.firestore();
-const callableOptions = { invoker: "public" };
+const callableOptions = {
+  invoker: "public",
+  region: "asia-south1",
+  maxInstances: 3,
+};
 
 async function requireAdmin(auth) {
   if (!auth) {
@@ -76,6 +80,14 @@ function normalizePhone(value) {
     );
   }
   return digits;
+}
+
+function normalizeAuthPhone(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("91")) {
+    return normalizePhone(digits.slice(2));
+  }
+  return normalizePhone(digits);
 }
 
 function driverAuthEmail(phoneDigits) {
@@ -211,6 +223,17 @@ function shopPayload(shopId, data) {
   };
 }
 
+function productPayload(productId, data) {
+  return {
+    id: productId,
+    name: data.name || "",
+    description: data.description || "",
+    category: data.category || "bottle",
+    variants: data.variants || [],
+    active: data.active !== false,
+  };
+}
+
 function cleanAmount(value) {
   const amount = Number(value);
   if (!Number.isFinite(amount) || amount <= 0) {
@@ -313,6 +336,84 @@ function deliveryTotals(lines) {
   );
 }
 
+function customerPrice(customer, productId, variantId, fallback) {
+  const prices = Array.isArray(customer.productPrices)
+    ? customer.productPrices
+    : [];
+  const match = prices.find((price) =>
+    price &&
+    price.enabled !== false &&
+    price.productId === productId &&
+    price.variantId === variantId);
+  const value = Number(match?.unitPrice);
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+async function applyCanonicalDeliveryPrices(shopId, customer, lines) {
+  const shopSnap = await db.collection("shops").doc(shopId).get();
+  const shop = shopSnap.data() || {};
+  const normalPrice = Number(shop.normalPrice) || 20;
+  const coolPrice = Number(shop.coolPrice) || 30;
+
+  return Promise.all(lines.map(async (line) => {
+    let unitPrice;
+    if (line.kind === "normalCan") {
+      unitPrice = customerPrice(
+        customer,
+        "__water_cans__",
+        "normal",
+        normalPrice,
+      );
+    } else if (line.kind === "coolCan") {
+      unitPrice = customerPrice(
+        customer,
+        "__water_cans__",
+        "cool",
+        coolPrice,
+      );
+    } else {
+      if (!line.productId) {
+        throw new HttpsError("invalid-argument", "Bottle product is required.");
+      }
+      const productSnap = await db
+        .collection("shops")
+        .doc(shopId)
+        .collection("products")
+        .doc(line.productId)
+        .get();
+      const product = productSnap.data();
+      if (!product || product.active === false) {
+        throw new HttpsError("invalid-argument", "Bottle product is not available.");
+      }
+      const allowedPrices = (Array.isArray(customer.productPrices)
+        ? customer.productPrices
+        : [])
+        .filter((price) =>
+          price &&
+          price.enabled !== false &&
+          price.productId === line.productId &&
+          Number.isFinite(Number(price.unitPrice)) &&
+          Number(price.unitPrice) >= 0);
+      const selectedPrice = allowedPrices.find(
+        (price) => Number(price.unitPrice) === line.unitPrice,
+      ) || (allowedPrices.length === 1 ? allowedPrices[0] : null);
+      if (!selectedPrice) {
+        throw new HttpsError(
+          "invalid-argument",
+          "Bottle price is not configured for this customer.",
+        );
+      }
+      unitPrice = Number(selectedPrice.unitPrice);
+    }
+
+    return {
+      ...line,
+      unitPrice,
+      lineTotal: line.quantity * unitPrice,
+    };
+  }));
+}
+
 function deliveryCansSummary(totals) {
   const parts = [];
   if (totals.normalQty > 0) parts.push(`${totals.normalQty} Normal`);
@@ -381,6 +482,34 @@ function appendDeliveryNotifications({
   });
 }
 
+function appendOrderNotification({
+  batch,
+  shopId,
+  type,
+  audience,
+  title,
+  body,
+  customerId,
+  orderId,
+  now,
+}) {
+  batch.set(
+    db.collection("shops").doc(shopId).collection("notifications").doc(),
+    {
+      shopId,
+      type,
+      audience,
+      title,
+      body,
+      customerId,
+      orderId,
+      read: false,
+      createdAt: now,
+      updatedAt: now,
+    },
+  );
+}
+
 async function customerLinksForUid(uid) {
   const linksSnap = await db
     .collection("customerShopLinks")
@@ -398,22 +527,33 @@ async function customerPortalLinks(uid) {
     if (!shopId || !customerId) continue;
 
     const shopRef = db.collection("shops").doc(shopId);
-    const [shopSnap, customerSnap, deliveriesSnap, paymentsSnap, ordersSnap] =
+    const [
+      shopSnap,
+      customerSnap,
+      deliveriesSnap,
+      paymentsSnap,
+      ordersSnap,
+      productsSnap,
+    ] =
       await Promise.all([
         shopRef.get(),
         shopRef.collection("customers").doc(customerId).get(),
         shopRef
           .collection("deliveries")
           .where("customerId", "==", customerId)
+          .limit(250)
           .get(),
         shopRef
           .collection("payments")
           .where("customerId", "==", customerId)
+          .limit(250)
           .get(),
         shopRef
           .collection("orders")
           .where("customerId", "==", customerId)
+          .limit(250)
           .get(),
+        shopRef.collection("products").where("active", "==", true).limit(100).get(),
       ]);
 
     const shop = shopSnap.data();
@@ -429,6 +569,9 @@ async function customerPortalLinks(uid) {
         paymentPayload(doc.id, doc.data()),
       ),
       orders: ordersSnap.docs.map((doc) => orderPayload(doc.id, doc.data())),
+      products: productsSnap.docs.map((doc) =>
+        productPayload(doc.id, doc.data()),
+      ),
     });
   }
   return links;
@@ -814,8 +957,7 @@ exports.recordCustomerDelivery = onCall(callableOptions, async (request) => {
 
   const customerId = cleanText(request.data.customerId, "Customer id");
   const date = cleanDate(request.data.date, "Delivery date");
-  const lines = cleanDeliveryLines(request.data.lines);
-  const totals = deliveryTotals(lines);
+  let lines = cleanDeliveryLines(request.data.lines);
 
   const customerRef = db
     .collection("shops")
@@ -827,6 +969,8 @@ exports.recordCustomerDelivery = onCall(callableOptions, async (request) => {
   if (!customer || customer.active === false) {
     throw new HttpsError("not-found", "Customer not found.");
   }
+  lines = await applyCanonicalDeliveryPrices(staffCtx.shopId, customer, lines);
+  const totals = deliveryTotals(lines);
 
   const now = admin.firestore.FieldValue.serverTimestamp();
   const deliveryRef = db
@@ -923,7 +1067,7 @@ exports.linkCustomerByPhone = onCall(callableOptions, async (request) => {
       if (normalQty + coolQty <= 0 && !customerNote) {
         throw new HttpsError("invalid-argument", "Add at least one item.");
       }
-      await orderRef.set({
+      const orderData = {
         shopId,
         customerId,
         placedByAppUserId: customerCtx.uid,
@@ -933,7 +1077,21 @@ exports.linkCustomerByPhone = onCall(callableOptions, async (request) => {
         customerNote,
         createdAt: now,
         updatedAt: now,
+      };
+      const batch = db.batch();
+      batch.set(orderRef, orderData);
+      appendOrderNotification({
+        batch,
+        shopId,
+        type: "orderPlaced",
+        audience: "admin",
+        title: "New water request",
+        body: "A customer placed a new water request. Review it in Orders.",
+        customerId,
+        orderId: orderRef.id,
+        now,
       });
+      await batch.commit();
     } else {
       const orderSnap = await orderRef.get();
       const order = orderSnap.data();
@@ -977,15 +1135,16 @@ exports.linkCustomerByPhone = onCall(callableOptions, async (request) => {
     throw new HttpsError("permission-denied", "Customer access required.");
   }
 
+  const authenticatedPhone = normalizeAuthPhone(request.auth.token.phone_number);
   const requestedPhone = normalizePhone(request.data.phone);
-  if (requestedPhone.length !== 10) {
-    throw new HttpsError("invalid-argument", "Enter a valid 10-digit mobile number.");
-  }
-  const savedPhone = user ? normalizePhone(user.normalizedPhone || user.phone) : "";
-  if (savedPhone && requestedPhone !== savedPhone) {
+  if (requestedPhone !== authenticatedPhone) {
     throw new HttpsError("permission-denied", "Mobile number mismatch.");
   }
-  const authPhone = requestedPhone;
+  const savedPhone = user ? normalizePhone(user.normalizedPhone || user.phone) : "";
+  if (savedPhone && authenticatedPhone !== savedPhone) {
+    throw new HttpsError("permission-denied", "Mobile number mismatch.");
+  }
+  const authPhone = authenticatedPhone;
 
   const matches = [];
   const customerSnaps = await db
@@ -1082,6 +1241,68 @@ exports.linkCustomerByPhone = onCall(callableOptions, async (request) => {
       onboardingComplete: true,
     },
   };
+});
+
+exports.respondToCustomerOrder = onCall(callableOptions, async (request) => {
+  const adminCtx = await requireAdmin(request.auth);
+  const orderId = cleanText(request.data.orderId, "Order id");
+  const status = cleanText(request.data.status, "Status");
+  if (!["accepted", "rejected"].includes(status)) {
+    throw new HttpsError("invalid-argument", "Unsupported order status.");
+  }
+  const adminResponse = String(request.data.adminResponse || "").trim();
+  const orderRef = db
+    .collection("shops")
+    .doc(adminCtx.shopId)
+    .collection("orders")
+    .doc(orderId);
+  const orderSnap = await orderRef.get();
+  const order = orderSnap.data();
+  if (!order || order.status !== "pending") {
+    throw new HttpsError("failed-precondition", "Pending request not found.");
+  }
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const batch = db.batch();
+  batch.set(orderRef, {
+    status,
+    adminResponse,
+    respondedAt: now,
+    updatedAt: now,
+  }, { merge: true });
+  appendOrderNotification({
+    batch,
+    shopId: adminCtx.shopId,
+    type: status === "accepted" ? "orderAccepted" : "orderRejected",
+    audience: "customer",
+    title: status === "accepted" ? "Request accepted" : "Request declined",
+    body: status === "accepted"
+      ? "Your water request was accepted. A driver will deliver soon."
+      : `Your water request was declined.${adminResponse ? ` Reason: ${adminResponse}` : ""}`,
+    customerId: order.customerId,
+    orderId,
+    now,
+  });
+  if (status === "accepted") {
+    appendOrderNotification({
+      batch,
+      shopId: adminCtx.shopId,
+      type: "orderAccepted",
+      audience: "driver",
+      title: "New delivery task",
+      body: "An accepted customer request is ready for delivery.",
+      customerId: order.customerId,
+      orderId,
+      now,
+    });
+  }
+  await batch.commit();
+  return orderPayload(orderId, {
+    ...order,
+    status,
+    adminResponse,
+    respondedAt: new Date(),
+  });
 });
 
 exports.getCustomerPortalData = onCall(callableOptions, async (request) => {

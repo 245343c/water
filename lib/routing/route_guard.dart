@@ -117,8 +117,7 @@ String _customerHomeRoute(
   final profile = customerProfile?.call(user.id);
   final needsOnboarding =
       !user.customerProfileComplete ||
-      profile == null ||
-      !profile.onboardingComplete;
+      (profile != null && !profile.onboardingComplete);
   return needsOnboarding
       ? AppRoutes.customerOnboarding
       : AppRoutes.customerHome;

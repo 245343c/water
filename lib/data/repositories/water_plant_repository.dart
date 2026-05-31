@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/foundation.dart';
 import 'package:sri_sai_ro_water/core/auth/app_role.dart';
@@ -31,6 +30,7 @@ import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/data/models/product_variant.dart';
 import 'package:sri_sai_ro_water/data/models/promotion.dart';
 import 'package:sri_sai_ro_water/data/models/customer_shop_billing.dart';
+import 'package:sri_sai_ro_water/core/services/firebase_backend.dart';
 import 'package:sri_sai_ro_water/core/services/product_image_service.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/core/utils/payment_allocation.dart';
@@ -57,6 +57,7 @@ class WaterPlantRepository extends ChangeNotifier {
 
   /// Driver id -> shop id for tenant-scoped access.
   final Map<String, String> _driverShopIds = {};
+  final Map<String, String> _productShopIds = {};
   final Map<String, CustomerAppProfile> _customerProfiles = {};
   final Map<String, String> _routeNotes = {};
   List<String> _todaysRouteIds = [];
@@ -70,6 +71,7 @@ class WaterPlantRepository extends ChangeNotifier {
   String? _loadedFirebaseCustomerShopId;
   String? _loadedFirebaseDriverShopId;
   String? _loadedFirebaseLedgerShopId;
+  String? _currentFirebaseShopId;
   bool _loadingFirebaseData = false;
   String? _loadedFirebaseUserId;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _ledgerDeliveriesSub;
@@ -79,7 +81,6 @@ class WaterPlantRepository extends ChangeNotifier {
   final List<StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>
       _customerLedgerItemSubs = [];
   Timer? _customerLedgerReloadTimer;
-  Timer? _customerPortalRefreshTimer;
   String? _watchedLedgerShopId;
   String? _watchedCustomerLedgerUserId;
 
@@ -114,7 +115,7 @@ class WaterPlantRepository extends ChangeNotifier {
   String deliveryRouteName(String? id) =>
       deliveryRouteById(id)?.name ?? 'Unassigned';
 
-  DeliveryRoute addDeliveryRoute(String name) {
+  Future<DeliveryRoute> addDeliveryRoute(String name) async {
     final cleaned = name.trim();
     if (cleaned.isEmpty) {
       throw ArgumentError('Route name is required');
@@ -125,7 +126,20 @@ class WaterPlantRepository extends ChangeNotifier {
     if (existing) {
       throw ArgumentError('Route already exists');
     }
-    final route = DeliveryRoute(id: _uuid.v4(), name: cleaned);
+    final shopId = await _currentAdminShopId();
+    if (shopId == null) throw StateError('Shop account not found');
+    final ref = FirebaseFirestore.instance
+        .collection('shops')
+        .doc(shopId)
+        .collection('routes')
+        .doc();
+    final route = DeliveryRoute(id: ref.id, name: cleaned);
+    await ref.set({
+      'name': route.name,
+      'active': true,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
     _deliveryRoutes.add(route);
     notifyListeners();
     return route;
@@ -165,6 +179,33 @@ class WaterPlantRepository extends ChangeNotifier {
   void saveCustomerProfile(CustomerAppProfile profile) {
     _customerProfiles[profile.userId] = profile;
     notifyListeners();
+  }
+
+  Future<void> saveCustomerProfileToFirestore(CustomerAppProfile profile) async {
+    final now = FieldValue.serverTimestamp();
+    final db = FirebaseFirestore.instance;
+    await Future.wait([
+      db.collection('appCustomers').doc(profile.userId).set({
+        'name': profile.name,
+        'phone': profile.phone,
+        'normalizedPhone': normalizePhone(profile.phone),
+        'address': profile.address,
+        'latitude': profile.latitude,
+        'longitude': profile.longitude,
+        'email': profile.email,
+        'place': profile.place,
+        'linkedCrmCustomerId': profile.linkedCrmCustomerId,
+        'onboardingComplete': profile.onboardingComplete,
+        'updatedAt': now,
+      }, SetOptions(merge: true)),
+      db.collection('users').doc(profile.userId).set({
+        'name': profile.name,
+        'email': profile.email,
+        'customerProfileComplete': profile.onboardingComplete,
+        'updatedAt': now,
+      }, SetOptions(merge: true)),
+    ]);
+    saveCustomerProfile(profile);
   }
 
   static String normalizePhone(String phone) =>
@@ -235,6 +276,18 @@ class WaterPlantRepository extends ChangeNotifier {
     final shop = shopForDriver(driverId);
     if (shop == null) return const [];
     return customersForShop(shop.id);
+  }
+
+  List<Customer> todaysRouteCustomersForDriver(String? driverId) {
+    final scopedCustomers = customersForDriver(driverId);
+    if (_todaysRouteIds.isEmpty) return scopedCustomers;
+    final routeIds = _todaysRouteIds.toSet();
+    return scopedCustomers.where((customer) => routeIds.contains(customer.id)).toList();
+  }
+
+  String? routeNoteForCustomer(String customerId) {
+    final note = _routeNotes[customerId]?.trim();
+    return note == null || note.isEmpty ? null : note;
   }
 
   bool canDriverAccessCustomer(String? driverId, String customerId) {
@@ -398,7 +451,7 @@ class WaterPlantRepository extends ChangeNotifier {
 
     Customer? firstCustomer;
     Shop? firstShop;
-    final result = await FirebaseFunctions.instance
+    final result = await FirebaseBackend.functions
         .httpsCallable('linkCustomerByPhone')
         .call({'phone': digits});
     final data = result.data is Map ? Map<String, dynamic>.from(result.data) : {};
@@ -1017,10 +1070,7 @@ class WaterPlantRepository extends ChangeNotifier {
       _loadedFirebaseUserId = user.id;
       await stopFirebaseWatches();
       await refreshCustomerPortal(user.phone);
-      _customerPortalRefreshTimer = Timer.periodic(
-        const Duration(seconds: 12),
-        (_) => _refreshCustomerPortalQuietly(user.phone),
-      );
+      await startCustomerLedgerWatch(user.id);
       notifyListeners();
       return;
     }
@@ -1070,7 +1120,7 @@ class WaterPlantRepository extends ChangeNotifier {
   }
 
   Future<void> refreshCustomerPortal(String phone) async {
-    final result = await FirebaseFunctions.instance
+    final result = await FirebaseBackend.functions
         .httpsCallable('linkCustomerByPhone')
         .call({'action': 'refresh', 'phone': normalizePhone(phone)});
     _applyCustomerPortalData(result.data);
@@ -1090,6 +1140,8 @@ class WaterPlantRepository extends ChangeNotifier {
     _deliveries.clear();
     _payments.clear();
     _orders.clear();
+    _products.clear();
+    _productShopIds.clear();
 
     for (final item in links.whereType<Map>()) {
       final shopData = item['shop'];
@@ -1107,13 +1159,41 @@ class WaterPlantRepository extends ChangeNotifier {
           item['deliveries'] is List ? item['deliveries'] as List : const [];
       final payments = item['payments'] is List ? item['payments'] as List : const [];
       final orders = item['orders'] is List ? item['orders'] as List : const [];
+      final products =
+          item['products'] is List ? item['products'] as List : const [];
       _deliveries.addAll(deliveries.map(_deliveryFromCallable));
       _payments.addAll(payments.map(_paymentFromCallable));
       _orders.addAll(orders.map(_orderFromCallable));
+      for (final productData in products.whereType<Map>()) {
+        final productMap = Map<String, dynamic>.from(productData);
+        final productId = productMap['id'] as String? ?? '';
+        if (productId.isEmpty) continue;
+        _products.add(_productFromFirestoreMap(productId, productMap));
+        _productShopIds[productId] = shopId;
+      }
     }
     _deliveries.sort((a, b) => b.date.compareTo(a.date));
     _payments.sort((a, b) => b.date.compareTo(a.date));
     _orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final firebaseUser = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (firebaseUser != null &&
+        !_customerProfiles.containsKey(firebaseUser.uid) &&
+        _customers.isNotEmpty) {
+      final customer = _customers.first;
+      final shop = shopById(shopIdForCustomer(customer.id));
+      _customerProfiles[firebaseUser.uid] = CustomerAppProfile(
+        userId: firebaseUser.uid,
+        name: customer.name,
+        phone: normalizePhone(firebaseUser.phoneNumber ?? customer.phone),
+        address: customer.address,
+        latitude: shop?.latitude ?? 0,
+        longitude: shop?.longitude ?? 0,
+        email: customer.email,
+        place: customer.place,
+        linkedCrmCustomerId: customer.id,
+        onboardingComplete: true,
+      );
+    }
     notifyListeners();
   }
 
@@ -1136,6 +1216,7 @@ class WaterPlantRepository extends ChangeNotifier {
         .doc(shopId)
         .collection('deliveries')
         .orderBy('date', descending: true)
+        .limit(500)
         .snapshots()
         .listen(_applyShopDeliverySnapshot);
     _ledgerPaymentsSub = FirebaseFirestore.instance
@@ -1143,6 +1224,7 @@ class WaterPlantRepository extends ChangeNotifier {
         .doc(shopId)
         .collection('payments')
         .orderBy('date', descending: true)
+        .limit(500)
         .snapshots()
         .listen(_applyShopPaymentSnapshot);
     _ledgerOrdersSub = FirebaseFirestore.instance
@@ -1150,6 +1232,7 @@ class WaterPlantRepository extends ChangeNotifier {
         .doc(shopId)
         .collection('orders')
         .orderBy('createdAt', descending: true)
+        .limit(500)
         .snapshots()
         .listen(_applyShopOrderSnapshot);
   }
@@ -1198,6 +1281,13 @@ class WaterPlantRepository extends ChangeNotifier {
       _customerLedgerItemSubs.add(
         shopRef
             .collection('payments')
+            .where('customerId', isEqualTo: customerId)
+            .snapshots()
+            .listen((_) => _scheduleCustomerLedgerReload(userId)),
+      );
+      _customerLedgerItemSubs.add(
+        shopRef
+            .collection('orders')
             .where('customerId', isEqualTo: customerId)
             .snapshots()
             .listen((_) => _scheduleCustomerLedgerReload(userId)),
@@ -1267,8 +1357,6 @@ class WaterPlantRepository extends ChangeNotifier {
     _customerLedgerSub = null;
     await _cancelCustomerLedgerItemSubs();
     _watchedCustomerLedgerUserId = null;
-    _customerPortalRefreshTimer?.cancel();
-    _customerPortalRefreshTimer = null;
   }
 
   @override
@@ -1283,13 +1371,16 @@ class WaterPlantRepository extends ChangeNotifier {
     _payments.clear();
     _orders.clear();
     _drivers.clear();
+    _products.clear();
     _customerShopIds.clear();
     _driverShopIds.clear();
+    _productShopIds.clear();
     _routeNotes.clear();
     _todaysRouteIds = [];
     _loadedFirebaseCustomerShopId = null;
     _loadedFirebaseDriverShopId = null;
     _loadedFirebaseLedgerShopId = null;
+    _currentFirebaseShopId = null;
     if (notify) notifyListeners();
   }
 
@@ -1318,7 +1409,27 @@ class WaterPlantRepository extends ChangeNotifier {
       shopLongitude: shop.longitude,
       homeDeliveryAvailable: shop.homeDeliveryAvailable,
     );
+    await loadShopConfigurationFromFirestore(shopId);
     notifyListeners();
+  }
+
+  Future<void> loadShopConfigurationFromFirestore(String shopId) async {
+    final shopRef = FirebaseFirestore.instance.collection('shops').doc(shopId);
+    final results = await Future.wait([
+      shopRef.collection('routes').where('active', isEqualTo: true).get(),
+      shopRef.collection('products').where('active', isEqualTo: true).get(),
+    ]);
+    final routes = results[0] as QuerySnapshot<Map<String, dynamic>>;
+    final products = results[1] as QuerySnapshot<Map<String, dynamic>>;
+    _deliveryRoutes
+      ..clear()
+      ..addAll(routes.docs.map(_deliveryRouteFromFirestore));
+    _products
+      ..clear()
+      ..addAll(products.docs.map(_productFromFirestore));
+    _productShopIds
+      ..clear()
+      ..addEntries(products.docs.map((doc) => MapEntry(doc.id, shopId)));
   }
 
   Future<void> loadLedgerForCurrentShopFromFirestore({
@@ -1330,9 +1441,21 @@ class WaterPlantRepository extends ChangeNotifier {
 
     final shopRef = FirebaseFirestore.instance.collection('shops').doc(shopId);
     final results = await Future.wait([
-      shopRef.collection('deliveries').orderBy('date', descending: true).get(),
-      shopRef.collection('payments').orderBy('date', descending: true).get(),
-      shopRef.collection('orders').orderBy('createdAt', descending: true).get(),
+      shopRef
+          .collection('deliveries')
+          .orderBy('date', descending: true)
+          .limit(500)
+          .get(),
+      shopRef
+          .collection('payments')
+          .orderBy('date', descending: true)
+          .limit(500)
+          .get(),
+      shopRef
+          .collection('orders')
+          .orderBy('createdAt', descending: true)
+          .limit(500)
+          .get(),
     ]);
 
     final deliverySnapshot =
@@ -1366,18 +1489,7 @@ class WaterPlantRepository extends ChangeNotifier {
     List<CustomerProductPrice>? productPrices,
   }) async {
     final shopId = await _currentAdminShopId();
-    if (shopId == null) {
-      return addCustomer(
-        name: name,
-        phone: phone,
-        email: email,
-        place: place,
-        routeId: routeId,
-        address: address,
-        billingMode: billingMode,
-        productPrices: productPrices,
-      );
-    }
+    if (shopId == null) throw StateError('Shop account not found');
 
     final ref = FirebaseFirestore.instance
         .collection('shops')
@@ -1405,10 +1517,7 @@ class WaterPlantRepository extends ChangeNotifier {
 
   Future<void> updateCustomerInCurrentAdminShop(Customer customer) async {
     final shopId = await _currentAdminShopId();
-    if (shopId == null) {
-      updateCustomer(customer);
-      return;
-    }
+    if (shopId == null) throw StateError('Shop account not found');
 
     await FirebaseFirestore.instance
         .collection('shops')
@@ -1422,28 +1531,29 @@ class WaterPlantRepository extends ChangeNotifier {
 
   Future<void> deleteCustomerFromCurrentAdminShop(String id) async {
     final shopId = await _currentAdminShopId();
-    if (shopId != null) {
-      await FirebaseFirestore.instance
-          .collection('shops')
-          .doc(shopId)
-          .collection('customers')
-          .doc(id)
-          .set({
-            'active': false,
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
-    }
+    if (shopId == null) throw StateError('Shop account not found');
+    await FirebaseFirestore.instance
+        .collection('shops')
+        .doc(shopId)
+        .collection('customers')
+        .doc(id)
+        .set({
+          'active': false,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
     deleteCustomer(id);
   }
 
   Future<String?> _currentAdminShopId() async {
+    if (_currentFirebaseShopId != null) return _currentFirebaseShopId;
     final uid = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return null;
     final userDoc = await FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
         .get();
-    return userDoc.data()?['shopId'] as String?;
+    _currentFirebaseShopId = userDoc.data()?['shopId'] as String?;
+    return _currentFirebaseShopId;
   }
 
   Future<String?> _shopIdForCustomerOrCurrent(String customerId) async {
@@ -1476,6 +1586,71 @@ class WaterPlantRepository extends ChangeNotifier {
       appUserId: data['appUserId'] as String?,
       createdAt: createdAt is Timestamp ? createdAt.toDate() : null,
     );
+  }
+
+  DeliveryRoute _deliveryRouteFromFirestore(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data();
+    return DeliveryRoute(
+      id: doc.id,
+      name: data['name'] as String? ?? '',
+      active: data['active'] as bool? ?? true,
+    );
+  }
+
+  Product _productFromFirestore(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) =>
+      _productFromFirestoreMap(doc.id, doc.data());
+
+  Product _productFromFirestoreMap(String id, Map<String, dynamic> data) {
+    final categoryName = data['category'] as String?;
+    return Product(
+      id: id,
+      name: data['name'] as String? ?? '',
+      description: data['description'] as String? ?? '',
+      category: ProductCategory.values.firstWhere(
+        (category) => category.name == categoryName,
+        orElse: () => ProductCategory.bottle,
+      ),
+      variants: (data['variants'] as List? ?? const [])
+          .whereType<Map>()
+          .map(
+            (variant) => ProductVariant(
+              id: variant['id'] as String? ?? '',
+              label: variant['label'] as String? ?? '',
+              price: (variant['price'] as num?)?.toDouble() ?? 0,
+              isCool: variant['isCool'] as bool? ?? false,
+            ),
+          )
+          .toList(),
+      isActive: data['active'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> _productToFirestore(
+    Product product, {
+    bool creating = false,
+  }) {
+    return {
+      'name': product.name,
+      'description': product.description,
+      'category': product.category.name,
+      'variants': product.variants
+          .map(
+            (variant) => {
+              'id': variant.id,
+              'label': variant.label,
+              'price': variant.price,
+              'isCool': variant.isCool,
+            },
+          )
+          .toList(),
+      'active': product.isActive,
+      if (creating) 'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
   }
 
   Shop _shopFromFirestore(String id, Map<String, dynamic> data) {
@@ -1768,8 +1943,13 @@ class WaterPlantRepository extends ChangeNotifier {
   }
 
   /// Listed products for customer ordering (active catalog).
-  List<Product> catalogProducts() =>
-      _products.where((p) => p.isActive).toList();
+  List<Product> catalogProducts({String? shopId}) => _products
+      .where(
+        (p) =>
+            p.isActive &&
+            (shopId == null || _productShopIds[p.id] == shopId),
+      )
+      .toList();
 
   /// Ensures CRM row exists for app user, then creates a pending order.
   CustomerOrder placeAppOrder({
@@ -1835,7 +2015,7 @@ class WaterPlantRepository extends ChangeNotifier {
       customerNote: customerNote,
       productSummary: productSummary,
     );
-    final result = await FirebaseFunctions.instance
+    final result = await FirebaseBackend.functions
         .httpsCallable('linkCustomerByPhone')
         .call({
           'action': 'createOrder',
@@ -1917,17 +2097,11 @@ class WaterPlantRepository extends ChangeNotifier {
   }) async {
     final order = orderById(orderId);
     if (order == null || order.shopId == null) return;
-    await FirebaseFirestore.instance
-        .collection('shops')
-        .doc(order.shopId)
-        .collection('orders')
-        .doc(orderId)
-        .set({
-          'status': status.name,
-          'adminResponse': adminResponse ?? '',
-          'respondedAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+    await FirebaseBackend.functions.httpsCallable('respondToCustomerOrder').call({
+      'orderId': orderId,
+      'status': status.name,
+      'adminResponse': adminResponse ?? '',
+    });
     respondToOrder(orderId, status, adminResponse: adminResponse);
   }
 
@@ -1942,7 +2116,7 @@ class WaterPlantRepository extends ChangeNotifier {
     final order = orderById(orderId);
     if (order == null || order.shopId == null) return;
     final note = _mergeOrderNotes(customerNote, productSummary);
-    final result = await FirebaseFunctions.instance
+    final result = await FirebaseBackend.functions
         .httpsCallable('linkCustomerByPhone')
         .call({
           'action': 'updateOrder',
@@ -1978,7 +2152,7 @@ class WaterPlantRepository extends ChangeNotifier {
   }) async {
     final order = orderById(orderId);
     if (order == null || order.shopId == null) return;
-    final result = await FirebaseFunctions.instance
+    final result = await FirebaseBackend.functions
         .httpsCallable('linkCustomerByPhone')
         .call({
           'action': 'cancelOrder',
@@ -2002,7 +2176,7 @@ class WaterPlantRepository extends ChangeNotifier {
             shopIdForCustomer(order.customerId) != shop.id)) {
       throw StateError('This request belongs to another water plant');
     }
-    await FirebaseFunctions.instance
+    await FirebaseBackend.functions
         .httpsCallable('recordCustomerDelivery')
         .call({
           'action': 'updateOrderProgress',
@@ -2025,7 +2199,7 @@ class WaterPlantRepository extends ChangeNotifier {
             shopIdForCustomer(order.customerId) != shop.id)) {
       throw StateError('This request belongs to another water plant');
     }
-    await FirebaseFunctions.instance
+    await FirebaseBackend.functions
         .httpsCallable('recordCustomerDelivery')
         .call({
           'action': 'updateOrderProgress',
@@ -2132,7 +2306,7 @@ class WaterPlantRepository extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = await FirebaseFunctions.instance
+      final result = await FirebaseBackend.functions
           .httpsCallable('createDriverAccount')
           .call({
             'name': name,
@@ -2160,7 +2334,7 @@ class WaterPlantRepository extends ChangeNotifier {
     required String phone,
     required String email,
   }) async {
-    final result = await FirebaseFunctions.instance
+    final result = await FirebaseBackend.functions
         .httpsCallable('updateDriverAccount')
         .call({
           'driverId': driverId,
@@ -2178,7 +2352,7 @@ class WaterPlantRepository extends ChangeNotifier {
     final previous = driverById(driverId);
     setDriverActive(driverId, active);
     try {
-      await FirebaseFunctions.instance.httpsCallable('setDriverActive').call({
+      await FirebaseBackend.functions.httpsCallable('setDriverActive').call({
         'driverId': driverId,
         'active': active,
       });
@@ -2191,7 +2365,7 @@ class WaterPlantRepository extends ChangeNotifier {
   }
 
   Future<void> deleteDriverAccountInFirebase(String driverId) async {
-    await FirebaseFunctions.instance.httpsCallable('deleteDriverAccount').call({
+    await FirebaseBackend.functions.httpsCallable('deleteDriverAccount').call({
       'driverId': driverId,
     });
     deleteDriver(driverId);
@@ -2201,7 +2375,7 @@ class WaterPlantRepository extends ChangeNotifier {
     required String driverId,
     required String password,
   }) async {
-    await FirebaseFunctions.instance.httpsCallable('resetDriverPassword').call({
+    await FirebaseBackend.functions.httpsCallable('resetDriverPassword').call({
       'driverId': driverId,
       'password': password,
     });
@@ -2372,16 +2546,7 @@ class WaterPlantRepository extends ChangeNotifier {
     String? driverName,
   }) async {
     final shopId = await _shopIdForCustomerOrCurrent(customerId);
-    if (shopId == null) {
-      return addDelivery(
-        customerId: customerId,
-        date: date,
-        normalQty: normalQty,
-        coolQty: coolQty,
-        bottles: bottles,
-        driverId: driverId,
-      );
-    }
+    if (shopId == null) throw StateError('Shop account not found');
 
     final deliveryDraft = _buildDelivery(
       id: _uuid.v4(),
@@ -2393,7 +2558,7 @@ class WaterPlantRepository extends ChangeNotifier {
       driverId: driverId,
     );
 
-    final result = await FirebaseFunctions.instance
+    final result = await FirebaseBackend.functions
         .httpsCallable('recordCustomerDelivery')
         .call({
           'customerId': customerId,
@@ -2519,17 +2684,9 @@ class WaterPlantRepository extends ChangeNotifier {
     String? notes,
   }) async {
     final shopId = await _shopIdForCustomerOrCurrent(customerId);
-    if (shopId == null) {
-      return addPayment(
-        customerId: customerId,
-        amount: amount,
-        method: method,
-        date: date,
-        notes: notes,
-      );
-    }
+    if (shopId == null) throw StateError('Shop account not found');
 
-    final result = await FirebaseFunctions.instance
+    final result = await FirebaseBackend.functions
         .httpsCallable('recordCustomerPayment')
         .call({
           'customerId': customerId,
@@ -2590,6 +2747,25 @@ class WaterPlantRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateSettingsInFirestore(BusinessSettings newSettings) async {
+    final shopId = await _currentAdminShopId();
+    if (shopId == null) throw StateError('Shop account not found');
+    await FirebaseFirestore.instance.collection('shops').doc(shopId).set({
+      'name': newSettings.businessName,
+      'address': newSettings.address,
+      'phone': newSettings.phone,
+      'email': newSettings.email,
+      'normalPrice': newSettings.normalPrice,
+      'coolPrice': newSettings.coolPrice,
+      'latitude': newSettings.shopLatitude,
+      'longitude': newSettings.shopLongitude,
+      'homeDeliveryAvailable': newSettings.homeDeliveryAvailable,
+      'isListed': newSettings.homeDeliveryAvailable,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    updateSettings(newSettings);
+  }
+
   void _seedProducts() {
     // Products start empty — admin adds their own catalog.
     _products.clear();
@@ -2618,8 +2794,15 @@ class WaterPlantRepository extends ChangeNotifier {
       );
     }
 
+    final shopId = await _currentAdminShopId();
+    if (shopId == null) throw StateError('Shop account not found');
+    final ref = FirebaseFirestore.instance
+        .collection('shops')
+        .doc(shopId)
+        .collection('products')
+        .doc();
     final product = Product(
-      id: _uuid.v4(),
+      id: ref.id,
       name: name.trim(),
       description: (description?.trim().isEmpty ?? true)
           ? _defaultProductDescription(category, variantLabel, isCool: isCool)
@@ -2635,7 +2818,9 @@ class WaterPlantRepository extends ChangeNotifier {
       ],
       localImagePath: savedImagePath,
     );
+    await ref.set(_productToFirestore(product, creating: true));
     _products.insert(0, product);
+    _productShopIds[product.id] = shopId;
     notifyListeners();
     return product;
   }
@@ -2652,8 +2837,20 @@ class WaterPlantRepository extends ChangeNotifier {
     };
   }
 
-  void deleteProduct(String id) {
+  Future<void> deleteProduct(String id) async {
+    final shopId = await _currentAdminShopId();
+    if (shopId == null) throw StateError('Shop account not found');
+    await FirebaseFirestore.instance
+        .collection('shops')
+        .doc(shopId)
+        .collection('products')
+        .doc(id)
+        .set({
+          'active': false,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
     _products.removeWhere((p) => p.id == id);
+    _productShopIds.remove(id);
     notifyListeners();
   }
 

@@ -5,9 +5,9 @@ import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 
 /// Customer app theme — mirrors driver field-app quality with blue accent.
 abstract final class CustomerColors {
-  static const Color screenBg = Color(0xFFEFF6FF);
-  static const Color headerStart = Color(0xFF1D4ED8);
-  static const Color headerEnd = Color(0xFF3B82F6);
+  static const Color screenBg = Color(0xFFF4F7FB);
+  static const Color headerStart = Color(0xFF001F3F);
+  static const Color headerEnd = Color(0xFF075985);
   static const Color accent = Color(0xFF1A73E8);
   static const Color accentBright = Color(0xFF60A5FA);
   static const Color titleNavy = Color(0xFF111827);

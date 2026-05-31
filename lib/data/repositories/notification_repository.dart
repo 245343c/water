@@ -15,7 +15,10 @@ class NotificationRepository extends ChangeNotifier {
   static const _uuid = Uuid();
   final List<AppNotification> _items = [];
   final Set<String> _remoteAdminIds = {};
+  final Set<String> _remoteDriverIds = {};
   final Map<String, Set<String>> _remoteCustomerIdsByCustomer = {};
+  final Map<String, DocumentReference<Map<String, dynamic>>>
+      _remoteNotificationRefs = {};
   final List<StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>
       _subscriptions = [];
 
@@ -58,7 +61,9 @@ class NotificationRepository extends ChangeNotifier {
   ) async {
     await _cancelSubscriptions();
     _remoteAdminIds.clear();
+    _remoteDriverIds.clear();
     _remoteCustomerIdsByCustomer.clear();
+    _remoteNotificationRefs.clear();
 
     if (user == null) {
       clear();
@@ -82,7 +87,37 @@ class NotificationRepository extends ChangeNotifier {
     }
 
     if (user.role == AppRole.customer) {
+      for (final customer in plant.linkedCrmCustomersForAppUser(
+        user.id,
+        phone: user.phone,
+      )) {
+        final shopId = plant.shopIdForCustomer(customer.id);
+        final sub = FirebaseFirestore.instance
+            .collection('shops')
+            .doc(shopId)
+            .collection('notifications')
+            .where('audience', isEqualTo: 'customer')
+            .where('customerId', isEqualTo: customer.id)
+            .limit(100)
+            .snapshots()
+            .listen((snapshot) => _applyCustomerSnapshot(customer.id, snapshot));
+        _subscriptions.add(sub);
+      }
       return;
+    }
+
+    if (user.role == AppRole.driver && user.driverId != null) {
+      final shop = plant.shopForDriver(user.driverId);
+      if (shop == null) return;
+      final sub = FirebaseFirestore.instance
+          .collection('shops')
+          .doc(shop.id)
+          .collection('notifications')
+          .where('audience', isEqualTo: 'driver')
+          .limit(100)
+          .snapshots()
+          .listen(_applyDriverSnapshot);
+      _subscriptions.add(sub);
     }
   }
 
@@ -138,6 +173,21 @@ class NotificationRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _applyDriverSnapshot(QuerySnapshot<Map<String, dynamic>> snapshot) {
+    _items.removeWhere(
+      (n) => n.audience == AppRole.driver && _remoteDriverIds.contains(n.id),
+    );
+    _remoteDriverIds
+      ..clear()
+      ..addAll(snapshot.docs.map((doc) => doc.id));
+
+    for (final doc in snapshot.docs) {
+      final notification = _notificationFromFirestore(doc);
+      if (notification != null) _upsertNotification(notification);
+    }
+    notifyListeners();
+  }
+
   void _upsertNotification(AppNotification notification) {
     final index = _items.indexWhere((n) => n.id == notification.id);
     if (index >= 0) {
@@ -162,6 +212,7 @@ class NotificationRepository extends ChangeNotifier {
   ) {
     final data = doc.data();
     final createdAt = data['createdAt'];
+    _remoteNotificationRefs[doc.id] = doc.reference;
     return AppNotification(
       id: doc.id,
       type: _notificationTypeFromString(data['type'] as String?),
@@ -200,9 +251,14 @@ class NotificationRepository extends ChangeNotifier {
   }
 
   void markAllReadForDriver() {
+    final ids = <String>[];
     for (final n in _items) {
-      if (n.audience == AppRole.driver) n.read = true;
+      if (n.audience == AppRole.driver) {
+        n.read = true;
+        ids.add(n.id);
+      }
     }
+    _persistRead(ids);
     notifyListeners();
   }
 
@@ -210,23 +266,52 @@ class NotificationRepository extends ChangeNotifier {
     final i = _items.indexWhere((n) => n.id == id);
     if (i < 0) return;
     _items[i].read = true;
+    _persistRead([id]);
     notifyListeners();
   }
 
   void markAllReadForAdmin() {
+    final ids = <String>[];
     for (final n in _items) {
-      if (n.audience == AppRole.admin) n.read = true;
+      if (n.audience == AppRole.admin) {
+        n.read = true;
+        ids.add(n.id);
+      }
     }
+    _persistRead(ids);
     notifyListeners();
   }
 
   void markAllReadForCustomer(String customerId) {
+    final ids = <String>[];
     for (final n in _items) {
       if (n.audience == AppRole.customer && n.customerId == customerId) {
         n.read = true;
+        ids.add(n.id);
       }
     }
+    _persistRead(ids);
     notifyListeners();
+  }
+
+  void _persistRead(Iterable<String> ids) {
+    final refs = ids
+        .map((id) => _remoteNotificationRefs[id])
+        .whereType<DocumentReference<Map<String, dynamic>>>()
+        .toList();
+    if (refs.isEmpty) return;
+    final batch = FirebaseFirestore.instance.batch();
+    for (final ref in refs) {
+      batch.set(
+        ref,
+        {
+          'read': true,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    }
+    unawaited(batch.commit());
   }
 
   void recordDelivery({

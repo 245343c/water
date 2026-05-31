@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/data/models/customer_app_profile.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
@@ -24,7 +23,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
   final _emailController = TextEditingController();
-  final _picker = ImagePicker();
   String? _loadedUserId;
   double? _lat;
   double? _lng;
@@ -95,7 +93,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     );
 
     setState(() => _saving = true);
-    repo.saveCustomerProfile(profile);
+    await repo.saveCustomerProfileToFirestore(profile);
     auth.markCustomerOnboardingComplete(user.id, name: profile.name);
     if (!mounted) return;
     setState(() {
@@ -110,35 +108,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
-  }
-
-  Future<void> _pickPhoto(ImageSource source) async {
-    try {
-      final file = await _picker.pickImage(
-        source: source,
-        maxWidth: 900,
-        maxHeight: 900,
-        imageQuality: 82,
-      );
-      if (file == null) return;
-      final bytes = await file.readAsBytes();
-      if (!mounted) return;
-      setState(() {
-        _photoBytes = bytes;
-        _editing = true;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Could not open ${source == ImageSource.camera ? 'camera' : 'gallery'}.',
-            style: GoogleFonts.poppins(),
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
   }
 
   static String _capitalizeWords(String s) {
@@ -170,7 +139,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       child: Column(
         children: [
           _ProfileHeader(
-            title: 'Profile',
+            title: 'My profile',
             onEdit: _editing ? null : () => setState(() => _editing = true),
           ),
           Expanded(
@@ -184,26 +153,20 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   customerBottomInset(context, extra: 18),
                 ),
                 children: [
-                  _PhotoSection(
+                  _IdentityCard(
                     photoBytes: _photoBytes,
                     initial: initial,
-                    onCamera: () => _pickPhoto(ImageSource.camera),
-                    onGallery: () => _pickPhoto(ImageSource.gallery),
-                    onRemove: _photoBytes == null
-                        ? null
-                        : () => setState(() {
-                              _photoBytes = null;
-                              _editing = true;
-                            }),
+                    name: displayName,
+                    phone: user?.phone ?? '-',
+                    editing: _editing,
+                    nameController: _nameController,
+                    onChanged: () => setState(() {}),
                   ),
                   const SizedBox(height: 14),
                   _ProfileDetailsPanel(
                     editing: _editing,
-                    nameController: _nameController,
                     emailController: _emailController,
                     addressController: _addressController,
-                    phone: user?.phone ?? '-',
-                    onChanged: () => setState(() {}),
                   ),
                   const SizedBox(height: 14),
                   _LocationBar(
@@ -507,101 +470,88 @@ class _ProfileHeader extends StatelessWidget {
   }
 }
 
-class _PhotoSection extends StatelessWidget {
-  const _PhotoSection({
+class _IdentityCard extends StatelessWidget {
+  const _IdentityCard({
     required this.photoBytes,
     required this.initial,
-    required this.onCamera,
-    required this.onGallery,
-    required this.onRemove,
+    required this.name,
+    required this.phone,
+    required this.editing,
+    required this.nameController,
+    required this.onChanged,
   });
 
   final Uint8List? photoBytes;
   final String initial;
-  final VoidCallback onCamera;
-  final VoidCallback onGallery;
-  final VoidCallback? onRemove;
+  final String name;
+  final String phone;
+  final bool editing;
+  final TextEditingController nameController;
+  final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: CustomerColors.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: CustomerColors.cardDecoration,
       child: Row(
         children: [
-          _CustomerAvatar(photoBytes: photoBytes, initial: initial, size: 72),
+          _CustomerAvatar(photoBytes: photoBytes, initial: initial, size: 58),
           const SizedBox(width: 14),
           Expanded(
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _PhotoAction(
-                  icon: Icons.photo_camera_outlined,
-                  label: 'Camera',
-                  onTap: onCamera,
+                if (editing)
+                  TextFormField(
+                    controller: nameController,
+                    onChanged: (_) => onChanged(),
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'Name is required'
+                        : null,
+                    textCapitalization: TextCapitalization.words,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: CustomerColors.titleNavy,
+                    ),
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      hintText: 'Full name',
+                    ),
+                  )
+                else
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: CustomerColors.titleNavy,
+                    ),
+                  ),
+                const SizedBox(height: 3),
+                Text(
+                  phone,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: CustomerColors.labelGrey,
+                  ),
                 ),
-                _PhotoAction(
-                  icon: Icons.photo_library_outlined,
-                  label: 'Gallery',
-                  onTap: onGallery,
-                ),
-                _PhotoAction(
-                  icon: Icons.delete_outline_rounded,
-                  label: 'Remove',
-                  danger: true,
-                  onTap: onRemove,
+                const SizedBox(height: 6),
+                Text(
+                  'Monthly water account',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: CustomerColors.accent,
+                  ),
                 ),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _PhotoAction extends StatelessWidget {
-  const _PhotoAction({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.danger = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-  final bool danger;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = danger ? const Color(0xFFDC2626) : CustomerColors.accent;
-    return OutlinedButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, size: 17),
-      label: Text(label),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: onTap == null ? CustomerColors.labelGrey : color,
-        side: BorderSide(
-          color: danger ? const Color(0xFFFECACA) : CustomerColors.cardBorder,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        textStyle: GoogleFonts.poppins(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
       ),
     );
   }
@@ -659,19 +609,13 @@ class _CustomerAvatar extends StatelessWidget {
 class _ProfileDetailsPanel extends StatelessWidget {
   const _ProfileDetailsPanel({
     required this.editing,
-    required this.nameController,
     required this.emailController,
     required this.addressController,
-    required this.phone,
-    required this.onChanged,
   });
 
   final bool editing;
-  final TextEditingController nameController;
   final TextEditingController emailController;
   final TextEditingController addressController;
-  final String phone;
-  final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -691,25 +635,6 @@ class _ProfileDetailsPanel extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _ProfileRow(
-            icon: Icons.person_outline_rounded,
-            label: 'Full name',
-            value: nameController.text,
-            editing: editing,
-            controller: nameController,
-            validator: (v) =>
-                v == null || v.trim().isEmpty ? 'Name is required' : null,
-            textCapitalization: TextCapitalization.words,
-            onChanged: (_) => onChanged(),
-          ),
-          const _ProfileInsetDivider(),
-          _ProfileRow(
-            icon: Icons.phone_iphone_rounded,
-            label: 'Mobile number',
-            value: phone,
-            editing: false,
-          ),
-          const _ProfileInsetDivider(),
           _ProfileRow(
             icon: Icons.mail_outline_rounded,
             label: 'Email',

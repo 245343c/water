@@ -215,9 +215,9 @@ class _ManageRoutesSheetState extends State<_ManageRoutesSheet> {
     super.dispose();
   }
 
-  void _addRoute() {
+  Future<void> _addRoute() async {
     try {
-      widget.repo.addDeliveryRoute(_controller.text);
+      await widget.repo.addDeliveryRoute(_controller.text);
       _controller.clear();
       if (!mounted) return;
       setState(() => _routes = widget.repo.deliveryRoutes);

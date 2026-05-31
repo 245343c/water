@@ -45,8 +45,6 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
     );
     _orderWorkflow = OrderWorkflowService(
       plant: _repository,
-      notifications: _notifications,
-      push: _push,
     );
     _router = createAppRouter(_auth, _repository);
     _push.initialize();

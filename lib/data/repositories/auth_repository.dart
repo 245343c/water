@@ -444,6 +444,12 @@ class AuthRepository extends ChangeNotifier {
         return 'Enable Phone sign-in in Firebase Authentication';
       case 'invalid-phone-number':
         return 'Enter a valid 10-digit mobile number';
+      case 'invalid-app-credential':
+      case 'captcha-check-failed':
+      case 'missing-app-credential':
+        return kIsWeb
+            ? 'Customer OTP cannot be tested from localhost. Use the Android APK or a hosted web domain.'
+            : 'Phone verification failed. Please try again';
       case 'too-many-requests':
       case 'quota-exceeded':
         return 'OTP limit reached. Please try again later';

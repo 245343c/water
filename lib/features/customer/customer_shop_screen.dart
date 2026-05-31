@@ -9,14 +9,12 @@ import 'package:sri_sai_ro_water/core/services/shop_map_launcher.dart';
 import 'package:sri_sai_ro_water/core/constants/customer_pricing_keys.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
-import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/data/models/order_status.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/data/models/product_variant.dart';
 import 'package:sri_sai_ro_water/data/models/shop.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
-import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customer/widgets/customer_theme.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
@@ -204,7 +202,6 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
       final normalTotal = _normal + _catalogNormalQty(products);
       final coolTotal = _cool + _catalogCoolQty(products);
       final editingOrderId = widget.orderId;
-      final CustomerOrder order;
       if (editingOrderId != null) {
         await repo.updatePendingAppOrderInFirebase(
           orderId: editingOrderId,
@@ -214,9 +211,8 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
           customerNote: _noteController.text,
           productSummary: _buildProductSummary(products),
         );
-        order = repo.orderById(editingOrderId)!;
       } else {
-        order = await repo.placeAppOrderInFirebase(
+        await repo.placeAppOrderInFirebase(
           shopId: widget.shopId,
           appUserId: user.id,
           normalQty: normalTotal,
@@ -224,16 +220,6 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
           customerNote: _noteController.text,
           productSummary: _buildProductSummary(products),
         );
-      }
-      final customer = repo.customerById(order.customerId);
-      if (customer != null) {
-        if (editingOrderId == null) {
-          context.read<NotificationRepository>().notifyAdminOrderPlaced(
-            order: order,
-            customerName: customer.name,
-            shopName: shop.name,
-          );
-        }
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -266,7 +252,7 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
     final auth = context.watch<AuthRepository>();
     _loadExistingOrder(repo, auth);
     final shop = repo.shopById(widget.shopId);
-    final products = repo.catalogProducts();
+    final products = repo.catalogProducts(shopId: widget.shopId);
     final user = auth.currentUser;
     final canAccess =
         user != null &&
@@ -335,7 +321,7 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
               child: CustomScrollView(
                 slivers: [
                   SliverAppBar(
-                    expandedHeight: 220,
+                    expandedHeight: 168,
                     pinned: true,
                     backgroundColor: CustomerColors.headerStart,
                     foregroundColor: Colors.white,
@@ -372,7 +358,7 @@ class _CustomerShopScreenState extends State<CustomerShopScreen> {
                             coolPrice: coolPrice,
                             hasCustomerPricing: linkedCustomer != null,
                           ),
-                          const SizedBox(height: 18),
+                          const SizedBox(height: 14),
                           CustomerSectionTitle(
                             title: 'Choose cans',
                             trailing: Text(
@@ -480,73 +466,71 @@ class _ShopDetailsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(14),
       decoration: CustomerColors.cardDecoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: CustomerColors.accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.storefront_rounded,
-                  color: CustomerColors.accent,
-                  size: 28,
+              Expanded(
+                child: Text(
+                  'Your monthly rates',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: CustomerColors.titleNavy,
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 9,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      shop.name,
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: CustomerColors.titleNavy,
-                      ),
+                    const Icon(
+                      Icons.verified_rounded,
+                      color: Color(0xFF16A34A),
+                      size: 14,
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.verified_user_outlined,
-                          size: 16,
-                          color: CustomerColors.accent,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Home delivery',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: CustomerColors.labelGrey,
-                          ),
-                        ),
-                      ],
+                    const SizedBox(width: 4),
+                    Text(
+                      'Home delivery',
+                      style: GoogleFonts.poppins(
+                        color: const Color(0xFF15803D),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           Row(
             children: [
-              _PriceChip(
-                label: 'Normal',
-                price: CurrencyUtils.format(normalPrice),
+              Expanded(
+                child: _PriceChip(
+                  label: 'Normal can',
+                  price: CurrencyUtils.format(normalPrice),
+                ),
               ),
               const SizedBox(width: 8),
-              _PriceChip(
-                label: 'Cool',
-                price: CurrencyUtils.format(coolPrice),
-                cool: true,
+              Expanded(
+                child: _PriceChip(
+                  label: 'Cool can',
+                  price: CurrencyUtils.format(coolPrice),
+                  cool: true,
+                ),
               ),
             ],
           ),
@@ -581,7 +565,7 @@ class _ShopDetailsCard extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           _DetailRow(
             icon: Icons.location_on_outlined,
             label: 'Address',
@@ -649,12 +633,20 @@ class _DetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Container(
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: CustomerColors.cardBorder),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           Icon(icon, size: 18, color: CustomerColors.labelGrey),
           const SizedBox(width: 10),
           Expanded(
@@ -683,7 +675,8 @@ class _DetailRow extends StatelessWidget {
           ),
           if (onTap != null)
             Icon(Icons.copy_rounded, size: 16, color: CustomerColors.accent),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -709,13 +702,26 @@ class _PriceChip extends StatelessWidget {
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Text(
-        '$label $price',
-        style: GoogleFonts.poppins(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: color,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+          Text(
+            price,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }

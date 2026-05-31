@@ -39,17 +39,11 @@ class CustomerHomeScreen extends StatelessWidget {
           greeting: greeting,
           photoBytes: profile?.photoBytes,
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
-          child: Text(
-            shops.length == 1 ? 'YOUR WATER PLANT' : 'LINKED WATER PLANTS',
-            style: GoogleFonts.poppins(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              color: CustomerColors.labelGrey,
-              letterSpacing: 0.6,
-            ),
-          ),
+        _HomeSectionHeading(
+          title: shops.length == 1 ? 'Your water plant' : 'Linked water plants',
+          subtitle: shops.length == 1
+              ? 'Your monthly account and quick ordering'
+              : 'Choose a plant to view your monthly account',
         ),
         if (shops.isEmpty)
           CustomerEmptyState(
@@ -105,6 +99,34 @@ class _CustomerHomeHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.water_drop_rounded,
+                  color: Color(0xFF7DD3FC),
+                  size: 14,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'HOME DELIVERY',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -112,23 +134,31 @@ class _CustomerHomeHeader extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      greeting,
+                      '$greeting,',
                       style: GoogleFonts.poppins(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                        color: Colors.white.withValues(alpha: 0.74),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     Text(
                       name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
                         color: Colors.white,
-                        fontSize: 22,
+                        fontSize: 27,
                         fontWeight: FontWeight.w800,
                         height: 1.15,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Your fresh water account is ready',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white.withValues(alpha: 0.74),
+                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -171,6 +201,55 @@ class _CustomerHomeHeader extends StatelessWidget {
   }
 }
 
+class _HomeSectionHeading extends StatelessWidget {
+  const _HomeSectionHeading({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 20, 18, 10),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 34,
+            decoration: BoxDecoration(
+              color: CustomerColors.accent,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: CustomerColors.titleNavy,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: CustomerColors.labelGrey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ShopCard extends StatelessWidget {
   const _ShopCard({required this.shop});
 
@@ -185,24 +264,24 @@ class _ShopCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: () => context.go('/customer/account?shopId=${shop.id}'),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           decoration: CustomerColors.cardDecoration,
           child: Row(
             children: [
               Container(
-                width: 54,
-                height: 54,
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
                   color: CustomerColors.accent.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
                   Icons.storefront_rounded,
                   color: CustomerColors.accent,
-                  size: 28,
+                  size: 21,
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -212,7 +291,7 @@ class _ShopCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
-                        fontSize: 16,
+                        fontSize: 14,
                         fontWeight: FontWeight.w800,
                         color: CustomerColors.titleNavy,
                       ),
@@ -228,38 +307,17 @@ class _ShopCard extends StatelessWidget {
                         height: 1.35,
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _ShopActionButton(
-                            label: 'Details',
-                            icon: Icons.info_outline_rounded,
-                            outlined: true,
-                            onTap: () => context.go(
-                              '/customer/account?shopId=${shop.id}',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _ShopActionButton(
-                            label: 'Order Water',
-                            icon: Icons.water_drop_outlined,
-                            onTap: () =>
-                                context.push('/customer/shop/${shop.id}'),
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 9),
+                    _ShopActionButton(
+                      label: 'Order water',
+                      icon: Icons.water_drop_outlined,
+                      onTap: () => context.push('/customer/shop/${shop.id}'),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: CustomerColors.labelGrey,
-              ),
+              const SizedBox(width: 6),
+              const Icon(Icons.chevron_right_rounded, size: 20),
             ],
           ),
         ),
@@ -291,7 +349,7 @@ class _ShopActionButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          height: 42,
+          height: 36,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: CustomerColors.accent),
@@ -300,7 +358,7 @@ class _ShopActionButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 17, color: fg),
+              Icon(icon, size: 15, color: fg),
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
@@ -308,7 +366,7 @@ class _ShopActionButton extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: FontWeight.w800,
                     color: fg,
                   ),

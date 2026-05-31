@@ -8,9 +8,134 @@ import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/data/models/order_status.dart';
 import 'package:sri_sai_ro_water/features/customer/widgets/customer_theme.dart';
 
-class CustomerRequestCard extends StatelessWidget {
+class CustomerRequestCard extends StatefulWidget {
   const CustomerRequestCard({
     super.key,
+    required this.order,
+    required this.shopName,
+    this.delivery,
+    this.onEdit,
+    this.onCancel,
+  });
+
+  final CustomerOrder order;
+  final String shopName;
+  final Delivery? delivery;
+  final VoidCallback? onEdit;
+  final VoidCallback? onCancel;
+
+  @override
+  State<CustomerRequestCard> createState() => _CustomerRequestCardState();
+}
+
+class _CustomerRequestCardState extends State<CustomerRequestCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_expanded) {
+      return Column(
+        children: [
+          _ExpandedCustomerRequestCard(
+            order: widget.order,
+            shopName: widget.shopName,
+            delivery: widget.delivery,
+            onEdit: widget.onEdit,
+            onCancel: widget.onCancel,
+          ),
+          Transform.translate(
+            offset: const Offset(0, -10),
+            child: TextButton.icon(
+              onPressed: () => setState(() => _expanded = false),
+              icon: const Icon(Icons.expand_less_rounded, size: 18),
+              label: const Text('Show less'),
+            ),
+          ),
+        ],
+      );
+    }
+    final style = _RequestStyle.from(_state);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => setState(() => _expanded = true),
+          child: Container(
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: CustomerColors.cardBorder),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: style.color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(style.icon, color: style.color, size: 19),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.shopName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: CustomerColors.titleNavy,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.order.cansSummary,
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: CustomerColors.labelGrey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                PremiumStatusBadge(
+                  label: style.label,
+                  color: style.color,
+                  icon: style.icon,
+                  compact: true,
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.expand_more_rounded, size: 19),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  _RequestState get _state {
+    if (widget.delivery != null) return _RequestState.delivered;
+    if (widget.order.isOutForDelivery) return _RequestState.outForDelivery;
+    if (widget.order.isDriverAssigned) return _RequestState.driverAssigned;
+    return switch (widget.order.status) {
+      OrderStatus.pending => _RequestState.pending,
+      OrderStatus.accepted => _RequestState.accepted,
+      OrderStatus.rejected => _RequestState.rejected,
+      OrderStatus.cancelled => _RequestState.cancelled,
+    };
+  }
+}
+
+class _ExpandedCustomerRequestCard extends StatelessWidget {
+  const _ExpandedCustomerRequestCard({
     required this.order,
     required this.shopName,
     this.delivery,
@@ -134,13 +259,6 @@ class CustomerRequestCard extends StatelessWidget {
                             label: order.cansSummary,
                             color: CustomerColors.accent,
                           ),
-                          if (order.respondedAt != null)
-                            _RequestPill(
-                              icon: Icons.event_available_outlined,
-                              label:
-                                  'Updated ${_formatDate(order.respondedAt!)}',
-                              color: style.color,
-                            ),
                           if (delivery != null)
                             _RequestPill(
                               icon: Icons.local_shipping_outlined,

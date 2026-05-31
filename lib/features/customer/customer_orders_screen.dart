@@ -130,7 +130,7 @@ class _OrdersHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Requests',
+            'My orders',
             style: GoogleFonts.poppins(
               color: Colors.white,
               fontSize: 24,
@@ -140,7 +140,7 @@ class _OrdersHeader extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             total == 0
-                ? 'Track water requests from your linked plants'
+                ? 'Track orders from your linked water plants'
                 : '$pending pending · $total total',
             style: GoogleFonts.poppins(
               color: Colors.white.withValues(alpha: 0.85),

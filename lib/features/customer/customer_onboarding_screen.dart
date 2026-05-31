@@ -90,7 +90,7 @@ class _CustomerOnboardingScreenState extends State<CustomerOnboardingScreen> {
           ?.linkedCrmCustomerId,
       onboardingComplete: true,
     );
-    repo.saveCustomerProfile(profile);
+    await repo.saveCustomerProfileToFirestore(profile);
     auth.markCustomerOnboardingComplete(user.id, name: profile.name);
     if (!mounted) return;
     setState(() => _saving = false);

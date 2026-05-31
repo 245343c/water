@@ -49,12 +49,16 @@ class CustomerContractAccountScreen extends StatelessWidget {
         children: [
           _AccountTopHeader(
             shopCount: billings.length,
-            title: focusShopId == null ? 'Account' : 'Plant details',
+            title: focusShopId == null
+                ? 'My account'
+                : billings.isEmpty
+                ? 'Water plant'
+                : billings.first.shop.name,
             subtitle: focusShopId == null
-                ? null
+                ? 'Monthly delivery and billing overview'
                 : billings.isEmpty
                 ? 'Monthly account'
-                : billings.first.shop.name,
+                : 'Monthly water account',
             onBack: showBackButton ? () => context.pop() : null,
           ),
           Expanded(
@@ -112,13 +116,7 @@ class _AccountTopHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF312E81), Color(0xFF4C1D95), Color(0xFF6D28D9)],
-        ),
-      ),
+      decoration: CustomerColors.headerGradient,
       padding: EdgeInsets.fromLTRB(
         20,
         MediaQuery.paddingOf(context).top + 16,
@@ -159,9 +157,9 @@ class _AccountTopHeader extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            shopCount > 1
+            subtitle ?? (shopCount > 1
                 ? '$shopCount shops · Monthly billing'
-                : 'Monthly billing with your shop',
+                : 'Monthly billing with your shop'),
             style: GoogleFonts.poppins(
               color: Colors.white.withValues(alpha: 0.85),
               fontSize: 13,
@@ -295,7 +293,7 @@ class _ShopBillingSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _ShopBillingHeader(shop: shop, pending: pending),
+          if (!compactDetails) _ShopBillingHeader(shop: shop, pending: pending),
           if (!compactDetails) ...[
             _ShopMonthlyBillCard(
               shop: shop,
@@ -329,10 +327,23 @@ class _ShopBillingSection extends StatelessWidget {
           if (shop.isVisibleToCustomers)
             Padding(
               padding: const EdgeInsets.only(top: 10),
-              child: CustomerPrimaryButton(
-                label: 'Request water from ${shop.name}',
-                icon: Icons.shopping_bag_outlined,
+              child: FilledButton.icon(
+                icon: const Icon(Icons.water_drop_outlined, size: 17),
+                label: Text(
+                  'Order water',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 onPressed: () => context.push('/customer/shop/${shop.id}'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(42),
+                  backgroundColor: CustomerColors.accent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               ),
             ),
         ],

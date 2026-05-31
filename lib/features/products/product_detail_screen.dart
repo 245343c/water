@@ -45,7 +45,7 @@ class ProductDetailScreen extends StatelessWidget {
     );
 
     if (confirmed == true && context.mounted) {
-      repo.deleteProduct(productId);
+      await repo.deleteProduct(productId);
       context.pop();
     }
   }
