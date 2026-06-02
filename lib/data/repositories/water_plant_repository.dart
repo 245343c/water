@@ -5,17 +5,20 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/foundation.dart';
 import 'package:sri_sai_ro_water/core/auth/app_role.dart';
 import 'package:sri_sai_ro_water/data/models/business_settings.dart';
+import 'package:sri_sai_ro_water/data/models/delivery_product_type.dart';
 import 'package:sri_sai_ro_water/core/constants/customer_pricing_keys.dart';
 import 'package:sri_sai_ro_water/data/models/app_user.dart';
 import 'package:sri_sai_ro_water/data/models/customer_app_profile.dart';
 import 'package:sri_sai_ro_water/data/models/customer_billing_mode.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
+import 'package:sri_sai_ro_water/data/models/customer_can_balance.dart';
 import 'package:sri_sai_ro_water/data/models/shop.dart';
 import 'package:sri_sai_ro_water/data/models/customer_product_price.dart';
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/data/models/order_status.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/data/models/dashboard_action_item.dart';
+import 'package:sri_sai_ro_water/data/models/dashboard_product_breakdown.dart';
 import 'package:sri_sai_ro_water/data/models/dashboard_stats.dart';
 import 'package:sri_sai_ro_water/data/models/driver.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
@@ -641,6 +644,26 @@ class WaterPlantRepository extends ChangeNotifier {
     return list;
   }
 
+  CustomerCanBalance customerCanBalance(String customerId) {
+    final deliveries = deliveriesForCustomer(customerId);
+    var normalDelivered = 0;
+    var coolDelivered = 0;
+    var normalReturned = 0;
+    var coolReturned = 0;
+    for (final delivery in deliveries) {
+      normalDelivered += delivery.normalQty;
+      coolDelivered += delivery.coolQty;
+      normalReturned += delivery.emptyNormalReturned;
+      coolReturned += delivery.emptyCoolReturned;
+    }
+    return CustomerCanBalance(
+      normalDelivered: normalDelivered,
+      coolDelivered: coolDelivered,
+      normalReturned: normalReturned,
+      coolReturned: coolReturned,
+    );
+  }
+
   Payment? lastPayment(String customerId) {
     final list = paymentsForCustomer(customerId);
     return list.isEmpty ? null : list.first;
@@ -914,16 +937,13 @@ class WaterPlantRepository extends ChangeNotifier {
   /// Default pricing for a new customer — shop rates for all active products.
   List<CustomerProductPrice> defaultCustomerPricing() {
     final list = <CustomerProductPrice>[
-      CustomerProductPrice(
-        productId: CustomerPricingKeys.canProductId,
-        variantId: CustomerPricingKeys.normalVariantId,
-        unitPrice: settings.normalPrice,
-      ),
-      CustomerProductPrice(
-        productId: CustomerPricingKeys.canProductId,
-        variantId: CustomerPricingKeys.coolVariantId,
-        unitPrice: settings.coolPrice,
-      ),
+      for (final type in DeliveryProductType.catalog)
+        CustomerProductPrice(
+          productId: type.productId,
+          variantId: type.variantId,
+          unitPrice: shopDefaultRateForDeliveryType(type),
+          enabled: false,
+        ),
     ];
     for (final product in _products) {
       if (!product.isActive) continue;
@@ -933,12 +953,42 @@ class WaterPlantRepository extends ChangeNotifier {
             productId: product.id,
             variantId: variant.id,
             unitPrice: variant.price,
-            enabled: product.category == ProductCategory.bottle,
+            enabled: false,
           ),
         );
       }
     }
     return list;
+  }
+
+  double shopDefaultRateForDeliveryType(DeliveryProductType type) {
+    return switch (type) {
+      DeliveryProductType.normalCan => settings.normalPrice,
+      DeliveryProductType.coolCan => settings.coolPrice,
+      DeliveryProductType.lorryLiters => settings.lorryLiterPrice,
+      DeliveryProductType.fullLorry => settings.fullLorryPrice,
+      DeliveryProductType.autoLiters => settings.autoLiterPrice,
+      DeliveryProductType.autoCans => settings.autoCanPrice,
+    };
+  }
+
+  Future<void> updateDeliveryTypeShopRate(
+    DeliveryProductType type,
+    double rate,
+  ) async {
+    final updated = switch (type) {
+      DeliveryProductType.normalCan =>
+        settings.copyWith(normalPrice: rate),
+      DeliveryProductType.coolCan => settings.copyWith(coolPrice: rate),
+      DeliveryProductType.lorryLiters =>
+        settings.copyWith(lorryLiterPrice: rate),
+      DeliveryProductType.fullLorry =>
+        settings.copyWith(fullLorryPrice: rate),
+      DeliveryProductType.autoLiters =>
+        settings.copyWith(autoLiterPrice: rate),
+      DeliveryProductType.autoCans => settings.copyWith(autoCanPrice: rate),
+    };
+    await updateSettingsInFirestore(updated);
   }
 
   double customerUnitPrice(
@@ -958,6 +1008,16 @@ class WaterPlantRepository extends ChangeNotifier {
       }
     }
 
+    if (productId == CustomerPricingKeys.channelProductId) {
+      return switch (variantId) {
+        CustomerPricingKeys.lorryLitersVariantId => settings.lorryLiterPrice,
+        CustomerPricingKeys.fullLorryVariantId => settings.fullLorryPrice,
+        CustomerPricingKeys.autoLitersVariantId => settings.autoLiterPrice,
+        CustomerPricingKeys.autoCansVariantId => settings.autoCanPrice,
+        _ => 0.0,
+      };
+    }
+
     final product = productById(productId);
     if (product == null) return 0;
     for (final v in product.variants) {
@@ -973,7 +1033,7 @@ class WaterPlantRepository extends ChangeNotifier {
   }) {
     final entry = customer.priceEntry(productId, variantId);
     if (entry != null) return entry.enabled;
-    return true;
+    return false;
   }
 
   /// Bottle catalog filtered to variants this customer is set up to buy.
@@ -1405,6 +1465,10 @@ class WaterPlantRepository extends ChangeNotifier {
       email: shop.email,
       normalPrice: shop.normalPrice,
       coolPrice: shop.coolPrice,
+      lorryLiterPrice: shop.lorryLiterPrice,
+      fullLorryPrice: shop.fullLorryPrice,
+      autoLiterPrice: shop.autoLiterPrice,
+      autoCanPrice: shop.autoCanPrice,
       shopLatitude: shop.latitude,
       shopLongitude: shop.longitude,
       homeDeliveryAvailable: shop.homeDeliveryAvailable,
@@ -1564,6 +1628,14 @@ class WaterPlantRepository extends ChangeNotifier {
     return _currentAdminShopId();
   }
 
+  Future<String?> _shopIdForProduct(String productId) async {
+    final cachedShopId = _productShopIds[productId];
+    if (cachedShopId != null && cachedShopId != defaultShopId) {
+      return cachedShopId;
+    }
+    return _currentAdminShopId();
+  }
+
   Customer _customerFromFirestore(
     QueryDocumentSnapshot<Map<String, dynamic>> doc,
   ) {
@@ -1626,6 +1698,7 @@ class WaterPlantRepository extends ChangeNotifier {
           )
           .toList(),
       isActive: data['active'] as bool? ?? true,
+      iconKey: data['iconKey'] as String?,
     );
   }
 
@@ -1648,6 +1721,7 @@ class WaterPlantRepository extends ChangeNotifier {
           )
           .toList(),
       'active': product.isActive,
+      'iconKey': product.iconKey,
       if (creating) 'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
@@ -1673,6 +1747,10 @@ class WaterPlantRepository extends ChangeNotifier {
           data['homeDeliveryAvailable'] as bool? ?? false,
       normalPrice: (data['normalPrice'] as num?)?.toDouble() ?? 20,
       coolPrice: (data['coolPrice'] as num?)?.toDouble() ?? 30,
+      lorryLiterPrice: (data['lorryLiterPrice'] as num?)?.toDouble() ?? 0,
+      fullLorryPrice: (data['fullLorryPrice'] as num?)?.toDouble() ?? 0,
+      autoLiterPrice: (data['autoLiterPrice'] as num?)?.toDouble() ?? 0,
+      autoCanPrice: (data['autoCanPrice'] as num?)?.toDouble() ?? 0,
       coverImageUrl: data['coverImageUrl'] as String?,
       tagline: data['tagline'] as String? ?? '',
       rating: (data['rating'] as num?)?.toDouble() ?? 4.5,
@@ -1760,6 +1838,8 @@ class WaterPlantRepository extends ChangeNotifier {
       customerId: data['customerId'] as String? ?? '',
       date: _dateTimeFromFirestore(data['date']) ?? DateTime.now(),
       lines: _deliveryLinesFromFirestore(data['lines']),
+      emptyNormalReturned: (data['emptyNormalReturned'] as num?)?.toInt() ?? 0,
+      emptyCoolReturned: (data['emptyCoolReturned'] as num?)?.toInt() ?? 0,
       driverId: data['driverId'] as String?,
       createdAt: _dateTimeFromFirestore(data['createdAt']),
     );
@@ -1772,6 +1852,8 @@ class WaterPlantRepository extends ChangeNotifier {
       customerId: data['customerId'] as String? ?? '',
       date: _dateTimeFromFirestore(data['date']) ?? DateTime.now(),
       lines: _deliveryLinesFromFirestore(data['lines']),
+      emptyNormalReturned: (data['emptyNormalReturned'] as num?)?.toInt() ?? 0,
+      emptyCoolReturned: (data['emptyCoolReturned'] as num?)?.toInt() ?? 0,
       driverId: data['driverId'] as String?,
       createdAt: _dateTimeFromFirestore(data['createdAt']),
     );
@@ -1791,14 +1873,19 @@ class WaterPlantRepository extends ChangeNotifier {
   List<DeliveryLineItem> _deliveryLinesFromFirestore(Object? value) {
     if (value is! List) return const [];
     return value.whereType<Map>().map((item) {
+      final kindStr = item['kind'] as String?;
+      if (kindStr == null ||
+          !DeliveryItemKind.values.any((k) => k.name == kindStr)) {
+        return null;
+      }
       return DeliveryLineItem(
-        kind: _deliveryItemKindFromString(item['kind'] as String?),
+        kind: _deliveryItemKindFromString(kindStr),
         label: item['label'] as String? ?? 'Delivery item',
         quantity: (item['quantity'] as num?)?.toInt() ?? 0,
         unitPrice: (item['unitPrice'] as num?)?.toDouble() ?? 0,
         productId: item['productId'] as String?,
       );
-    }).where((line) => line.quantity > 0).toList();
+    }).whereType<DeliveryLineItem>().where((line) => line.quantity > 0).toList();
   }
 
   DeliveryItemKind _deliveryItemKindFromString(String? value) {
@@ -2454,6 +2541,52 @@ class WaterPlantRepository extends ChangeNotifier {
       ..sort((a, b) => b.date.compareTo(a.date));
   }
 
+  /// Shop-wide empty can balance still held by customers (delivered − returned).
+  CustomerCanBalance shopCanBalance() {
+    var normalDelivered = 0;
+    var coolDelivered = 0;
+    var normalReturned = 0;
+    var coolReturned = 0;
+    for (final customer in _customers) {
+      final balance = customerCanBalance(customer.id);
+      normalDelivered += balance.normalDelivered;
+      coolDelivered += balance.coolDelivered;
+      normalReturned += balance.normalReturned;
+      coolReturned += balance.coolReturned;
+    }
+    return CustomerCanBalance(
+      normalDelivered: normalDelivered,
+      coolDelivered: coolDelivered,
+      normalReturned: normalReturned,
+      coolReturned: coolReturned,
+    );
+  }
+
+  List<DashboardProductBreakdown> productBreakdownOnDate(DateTime day) {
+    final byLabel = <String, (int qty, double amount)>{};
+    for (final delivery in deliveriesOnDate(day)) {
+      for (final line in delivery.lines) {
+        final current = byLabel[line.label] ?? (0, 0.0);
+        byLabel[line.label] = (
+          current.$1 + line.quantity,
+          current.$2 + line.lineTotal,
+        );
+      }
+    }
+
+    final list = byLabel.entries
+        .map(
+          (e) => DashboardProductBreakdown(
+            label: e.key,
+            quantity: e.value.$1,
+            amount: e.value.$2,
+          ),
+        )
+        .toList()
+      ..sort((a, b) => b.amount.compareTo(a.amount));
+    return list;
+  }
+
   int cansDeliveredOnDate(DateTime day) {
     return deliveriesOnDate(
       day,
@@ -2519,6 +2652,8 @@ class WaterPlantRepository extends ChangeNotifier {
     required DateTime date,
     int normalQty = 0,
     int coolQty = 0,
+    int emptyNormalReturned = 0,
+    int emptyCoolReturned = 0,
     List<BottleDeliveryInput> bottles = const [],
     String? driverId,
   }) {
@@ -2528,9 +2663,61 @@ class WaterPlantRepository extends ChangeNotifier {
       date: date,
       normalQty: normalQty,
       coolQty: coolQty,
+      emptyNormalReturned: emptyNormalReturned,
+      emptyCoolReturned: emptyCoolReturned,
       bottles: bottles,
       driverId: driverId,
     );
+    _upsertDelivery(delivery);
+    notifyListeners();
+    return delivery;
+  }
+
+  /// Record empty cans returned without a product delivery (balance update only).
+  Delivery recordEmptyCanReturn({
+    required String customerId,
+    required DateTime date,
+    int emptyNormalReturned = 0,
+    int emptyCoolReturned = 0,
+    String? driverId,
+  }) {
+    final delivery = _buildEmptyReturnDelivery(
+      id: _uuid.v4(),
+      customerId: customerId,
+      date: date,
+      emptyNormalReturned: emptyNormalReturned,
+      emptyCoolReturned: emptyCoolReturned,
+      driverId: driverId,
+    );
+    _upsertDelivery(delivery);
+    notifyListeners();
+    return delivery;
+  }
+
+  Future<Delivery> recordEmptyCanReturnToCurrentShop({
+    required String customerId,
+    required DateTime date,
+    int emptyNormalReturned = 0,
+    int emptyCoolReturned = 0,
+    String? driverId,
+    String? driverName,
+  }) async {
+    final shopId = await _shopIdForCustomerOrCurrent(customerId);
+    if (shopId == null) throw StateError('Shop account not found');
+
+    final result = await FirebaseBackend.functions
+        .httpsCallable('recordCustomerDelivery')
+        .call({
+          'customerId': customerId,
+          'date': date.toUtc().toIso8601String(),
+          'lines': <Map<String, dynamic>>[],
+          'emptyNormalReturned': emptyNormalReturned,
+          'emptyCoolReturned': emptyCoolReturned,
+          'driverId': driverId,
+          if (driverName != null && driverName.isNotEmpty)
+            'driverName': driverName,
+        });
+    final delivery = _deliveryFromCallable(result.data);
     _upsertDelivery(delivery);
     notifyListeners();
     return delivery;
@@ -2541,21 +2728,28 @@ class WaterPlantRepository extends ChangeNotifier {
     required DateTime date,
     int normalQty = 0,
     int coolQty = 0,
+    int emptyNormalReturned = 0,
+    int emptyCoolReturned = 0,
     List<BottleDeliveryInput> bottles = const [],
     String? driverId,
     String? driverName,
+    Customer? customer,
   }) async {
     final shopId = await _shopIdForCustomerOrCurrent(customerId);
     if (shopId == null) throw StateError('Shop account not found');
 
+    final resolvedCustomer = customer ?? customerById(customerId);
     final deliveryDraft = _buildDelivery(
       id: _uuid.v4(),
       customerId: customerId,
       date: date,
       normalQty: normalQty,
       coolQty: coolQty,
+      emptyNormalReturned: emptyNormalReturned,
+      emptyCoolReturned: emptyCoolReturned,
       bottles: bottles,
       driverId: driverId,
+      customer: resolvedCustomer,
     );
 
     final result = await FirebaseBackend.functions
@@ -2564,6 +2758,8 @@ class WaterPlantRepository extends ChangeNotifier {
           'customerId': customerId,
           'date': date.toUtc().toIso8601String(),
           'lines': deliveryDraft.lines.map(_deliveryLineToMap).toList(),
+          'emptyNormalReturned': emptyNormalReturned,
+          'emptyCoolReturned': emptyCoolReturned,
           'driverId': driverId,
           if (driverName != null && driverName.isNotEmpty)
             'driverName': driverName,
@@ -2580,45 +2776,56 @@ class WaterPlantRepository extends ChangeNotifier {
     required DateTime date,
     int normalQty = 0,
     int coolQty = 0,
+    int emptyNormalReturned = 0,
+    int emptyCoolReturned = 0,
     List<BottleDeliveryInput> bottles = const [],
     String? driverId,
+    Customer? customer,
   }) {
-    final customer = customerById(customerId);
+    final resolvedCustomer = customer ?? customerById(customerId);
     final lines = <DeliveryLineItem>[];
-    if (normalQty > 0) {
-      final unitPrice = customer != null
+
+    void addLine({
+      required DeliveryItemKind kind,
+      required String label,
+      required int qty,
+      required String productId,
+      required String variantId,
+      required double fallbackPrice,
+    }) {
+      if (qty <= 0) return;
+      final unitPrice = resolvedCustomer != null
           ? customerUnitPrice(
-              customer,
-              productId: CustomerPricingKeys.canProductId,
-              variantId: CustomerPricingKeys.normalVariantId,
+              resolvedCustomer,
+              productId: productId,
+              variantId: variantId,
             )
-          : settings.normalPrice;
-      lines.add(
-        DeliveryLineItem(
-          kind: DeliveryItemKind.normalCan,
-          label: 'Normal Can',
-          quantity: normalQty,
-          unitPrice: unitPrice,
-        ),
-      );
+          : fallbackPrice;
+      lines.add(DeliveryLineItem(
+        kind: kind,
+        label: label,
+        quantity: qty,
+        unitPrice: unitPrice,
+      ));
     }
-    if (coolQty > 0) {
-      final unitPrice = customer != null
-          ? customerUnitPrice(
-              customer,
-              productId: CustomerPricingKeys.canProductId,
-              variantId: CustomerPricingKeys.coolVariantId,
-            )
-          : settings.coolPrice;
-      lines.add(
-        DeliveryLineItem(
-          kind: DeliveryItemKind.coolCan,
-          label: 'Cool Can',
-          quantity: coolQty,
-          unitPrice: unitPrice,
-        ),
-      );
-    }
+
+    addLine(
+      kind: DeliveryItemKind.normalCan,
+      label: 'Normal Can',
+      qty: normalQty,
+      productId: CustomerPricingKeys.canProductId,
+      variantId: CustomerPricingKeys.normalVariantId,
+      fallbackPrice: settings.normalPrice,
+    );
+    addLine(
+      kind: DeliveryItemKind.coolCan,
+      label: 'Cool Can',
+      qty: coolQty,
+      productId: CustomerPricingKeys.canProductId,
+      variantId: CustomerPricingKeys.coolVariantId,
+      fallbackPrice: settings.coolPrice,
+    );
+
     for (final b in bottles) {
       if (b.quantity <= 0) continue;
       lines.add(
@@ -2640,6 +2847,30 @@ class WaterPlantRepository extends ChangeNotifier {
       customerId: customerId,
       date: date,
       lines: lines,
+      emptyNormalReturned: emptyNormalReturned,
+      emptyCoolReturned: emptyCoolReturned,
+      driverId: driverId,
+    );
+  }
+
+  Delivery _buildEmptyReturnDelivery({
+    required String id,
+    required String customerId,
+    required DateTime date,
+    int emptyNormalReturned = 0,
+    int emptyCoolReturned = 0,
+    String? driverId,
+  }) {
+    if (emptyNormalReturned <= 0 && emptyCoolReturned <= 0) {
+      throw ArgumentError('At least one empty can return is required');
+    }
+    return Delivery(
+      id: id,
+      customerId: customerId,
+      date: date,
+      lines: const [],
+      emptyNormalReturned: emptyNormalReturned,
+      emptyCoolReturned: emptyCoolReturned,
       driverId: driverId,
     );
   }
@@ -2757,6 +2988,10 @@ class WaterPlantRepository extends ChangeNotifier {
       'email': newSettings.email,
       'normalPrice': newSettings.normalPrice,
       'coolPrice': newSettings.coolPrice,
+      'lorryLiterPrice': newSettings.lorryLiterPrice,
+      'fullLorryPrice': newSettings.fullLorryPrice,
+      'autoLiterPrice': newSettings.autoLiterPrice,
+      'autoCanPrice': newSettings.autoCanPrice,
       'latitude': newSettings.shopLatitude,
       'longitude': newSettings.shopLongitude,
       'homeDeliveryAvailable': newSettings.homeDeliveryAvailable,
@@ -2786,6 +3021,7 @@ class WaterPlantRepository extends ChangeNotifier {
     required double price,
     bool isCool = false,
     String? imageSourcePath,
+    String? iconKey,
   }) async {
     String? savedImagePath;
     if (imageSourcePath != null && imageSourcePath.isNotEmpty) {
@@ -2817,6 +3053,7 @@ class WaterPlantRepository extends ChangeNotifier {
         ),
       ],
       localImagePath: savedImagePath,
+      iconKey: iconKey,
     );
     await ref.set(_productToFirestore(product, creating: true));
     _products.insert(0, product);
@@ -2852,6 +3089,59 @@ class WaterPlantRepository extends ChangeNotifier {
     _products.removeWhere((p) => p.id == id);
     _productShopIds.remove(id);
     notifyListeners();
+  }
+
+  Future<void> updateProductStartingPrice(
+    String productId,
+    double price, {
+    String? variantId,
+  }) async {
+    final product = productById(productId);
+    if (product == null) return;
+    if (product.variants.isEmpty) return;
+
+    final targetVariantId = variantId ?? product.variants.first.id;
+    final updatedVariants = product.variants
+        .map(
+          (v) => v.id == targetVariantId
+              ? ProductVariant(
+                  id: v.id,
+                  label: v.label,
+                  price: price,
+                  isCool: v.isCool,
+                )
+              : v,
+        )
+        .toList();
+
+    final updated = product.copyWith(variants: updatedVariants);
+    final shopId = await _shopIdForProduct(productId);
+    if (shopId == null) throw StateError('Shop account not found');
+
+    await FirebaseFirestore.instance
+        .collection('shops')
+        .doc(shopId)
+        .collection('products')
+        .doc(productId)
+        .set({
+          'variants': updatedVariants
+              .map(
+                (variant) => {
+                  'id': variant.id,
+                  'label': variant.label,
+                  'price': variant.price,
+                  'isCool': variant.isCool,
+                },
+              )
+              .toList(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+
+    final index = _products.indexWhere((p) => p.id == productId);
+    if (index >= 0) {
+      _products[index] = updated;
+      notifyListeners();
+    }
   }
 
   List<Product> searchProducts(String query) {

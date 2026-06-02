@@ -3,9 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/auth/app_role.dart';
 import 'package:sri_sai_ro_water/core/constants/customer_pricing_keys.dart';
-import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
+import 'package:sri_sai_ro_water/data/models/delivery_product_type.dart';
 import 'package:sri_sai_ro_water/data/models/delivery_line_item.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
@@ -24,8 +24,10 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
   DateTime _date = DateTime.now();
   int _normal = 0;
   int _cool = 0;
+  int _emptyNormalReturned = 0;
+  int _emptyCoolReturned = 0;
   final Map<String, int> _bottleQty = {};
-  bool _saving = false;
+  final Map<String, int> _channelQty = {};
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
@@ -69,6 +71,7 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
     WaterPlantRepository repo,
     Customer customer,
     List<Product> catalog,
+    List<DeliveryProductType> channelTypes,
   ) {
     final lines = <DeliveryPriceLine>[];
     if (_normal > 0) {
@@ -96,6 +99,22 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
           name: 'Cool Cans',
           calc: '$_cool x $unit',
           amount: _cool * unit,
+        ),
+      );
+    }
+    for (final type in channelTypes) {
+      final qty = _channelQty[type.variantId] ?? 0;
+      if (qty <= 0) continue;
+      final unit = repo.customerUnitPrice(
+        customer,
+        productId: type.productId,
+        variantId: type.variantId,
+      );
+      lines.add(
+        DeliveryPriceLine(
+          name: type.title,
+          calc: '$qty x $unit',
+          amount: qty * unit,
         ),
       );
     }
@@ -128,12 +147,16 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
   bool _hasItems({
     required bool showNormalCans,
     required bool showCoolCans,
+    required List<DeliveryProductType> channelTypes,
     required List<Product> catalog,
     required Customer customer,
     required WaterPlantRepository repo,
   }) {
     if (showNormalCans && _normal > 0) return true;
     if (showCoolCans && _cool > 0) return true;
+    for (final type in channelTypes) {
+      if ((_channelQty[type.variantId] ?? 0) > 0) return true;
+    }
     return _bottleInputs(customer, repo, catalog).isNotEmpty;
   }
 
@@ -152,12 +175,27 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
         final bottleCatalog = repo.bottleCatalogForCustomer(customer);
         final showNormalCans = repo.customerUsesNormalCans(customer);
         final showCoolCans = repo.customerUsesCoolCans(customer);
-        final priceLines = _priceLines(repo, customer, bottleCatalog);
+        final channelTypes = DeliveryProductType.catalog
+            .where((type) => type.productId == CustomerPricingKeys.channelProductId)
+            .where(
+              (type) => repo.customerVariantEnabled(
+                customer,
+                productId: type.productId,
+                variantId: type.variantId,
+              ),
+            )
+            .toList();
+        final hasEnabledProducts = showNormalCans ||
+            showCoolCans ||
+            channelTypes.isNotEmpty ||
+            bottleCatalog.isNotEmpty;
+        final priceLines =
+            _priceLines(repo, customer, bottleCatalog, channelTypes);
         final total = _total(priceLines);
         final colorIndex = repo.customers.indexWhere((c) => c.id == widget.customerId);
 
         return Scaffold(
-          backgroundColor: AppColors.surface,
+          backgroundColor: Colors.white,
           body: AddDeliveryScaffold(
             child: Column(
               children: [
@@ -170,80 +208,116 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
                         colorIndex: colorIndex >= 0 ? colorIndex : 0,
                       ),
                       AddDeliveryDateRow(date: _date, onTap: _pickDate),
-                      if (showNormalCans || showCoolCans) ...[
+                      if (!hasEnabledProducts)
+                        const AddDeliveryNoProductsHint()
+                      else ...[
                         const AddDeliverySectionTitle(
-                          title: '20L Water Cans',
-                          subtitle: 'Customer rates applied',
+                          title: 'Products',
+                          subtitle: 'Only products enabled for this customer',
                         ),
                         if (showNormalCans)
                           AddDeliveryCanStepper(
-                            label: 'Normal Water Cans',
+                            label: 'Normal Can',
                             value: _normal,
                             onChanged: (v) => setState(() => _normal = v),
                           ),
                         if (showCoolCans)
                           AddDeliveryCanStepper(
-                            label: 'Cool Water Cans',
+                            label: 'Cool Can',
                             value: _cool,
                             onChanged: (v) => setState(() => _cool = v),
                           ),
-                      ],
-                      if (bottleCatalog.isNotEmpty) ...[
-                        const AddDeliverySectionTitle(
-                          title: 'Water Bottles',
-                          subtitle: 'Products assigned to this customer',
+                        ...channelTypes.map(
+                          (type) => AddDeliveryCanStepper(
+                            label: type.title,
+                            value: _channelQty[type.variantId] ?? 0,
+                            onChanged: (v) =>
+                                setState(() => _channelQty[type.variantId] = v),
+                          ),
                         ),
                         AddDeliveryBottleCatalog(
                           products: bottleCatalog,
                           quantities: _bottleQty,
                           onChanged: (key, qty) => setState(() => _bottleQty[key] = qty),
+                          unitPriceFor: (productId, variantId) =>
+                              repo.customerUnitPrice(
+                                customer,
+                                productId: productId,
+                                variantId: variantId,
+                              ),
                         ),
+                        if (showNormalCans || showCoolCans) ...[
+                          const AddDeliverySectionTitle(
+                            title: 'Empty cans returned',
+                            subtitle: 'Track cans collected back from customer',
+                          ),
+                          if (showNormalCans)
+                            AddDeliveryCanStepper(
+                              label: 'Empty Normal Can',
+                              value: _emptyNormalReturned,
+                              onChanged: (v) =>
+                                  setState(() => _emptyNormalReturned = v),
+                            ),
+                          if (showCoolCans)
+                            AddDeliveryCanStepper(
+                              label: 'Empty Cool Can',
+                              value: _emptyCoolReturned,
+                              onChanged: (v) =>
+                                  setState(() => _emptyCoolReturned = v),
+                            ),
+                        ],
                       ],
                       AddDeliveryPriceSection(lines: priceLines, total: total),
                     ],
                   ),
                 ),
                 AddDeliverySaveButton(
-                  enabled: _hasItems(
+                  enabled: hasEnabledProducts &&
+                      _hasItems(
                         showNormalCans: showNormalCans,
                         showCoolCans: showCoolCans,
+                        channelTypes: channelTypes,
                         catalog: bottleCatalog,
                         customer: customer,
                         repo: repo,
-                      ) &&
-                      !_saving,
-                  isSaving: _saving,
-                  onPressed: () async {
-                    setState(() => _saving = true);
+                      ),
+                  onPressed: () {
                     final auth = context.read<AuthRepository>();
                     final staffId = auth.currentUser?.role == AppRole.driver
                         ? auth.currentUser?.driverId
                         : auth.currentUser?.id;
-                    try {
-                      final delivery = await repo.addDeliveryToCurrentShop(
-                        customerId: widget.customerId,
-                        date: _date,
-                        normalQty: _normal,
-                        coolQty: _cool,
-                        bottles: _bottleInputs(customer, repo, bottleCatalog),
-                        driverId: staffId,
-                      );
-                      if (!context.mounted) return;
-                      context.pushReplacement(
-                        '/customers/${widget.customerId}/delivery/success',
-                        extra: delivery,
-                      );
-                    } catch (_) {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Delivery not saved. Please try again.'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    } finally {
-                      if (mounted) setState(() => _saving = false);
-                    }
+                    final channelInputs = channelTypes
+                        .where((type) => (_channelQty[type.variantId] ?? 0) > 0)
+                        .map(
+                          (type) => BottleDeliveryInput(
+                            label: type.title,
+                            quantity: _channelQty[type.variantId] ?? 0,
+                            unitPrice: repo.customerUnitPrice(
+                              customer,
+                              productId: type.productId,
+                              variantId: type.variantId,
+                            ),
+                            productId: type.productId,
+                          ),
+                        )
+                        .toList();
+                    final delivery = repo.addDelivery(
+                      customerId: widget.customerId,
+                      date: _date,
+                      normalQty: _normal,
+                      coolQty: _cool,
+                      emptyNormalReturned: _emptyNormalReturned,
+                      emptyCoolReturned: _emptyCoolReturned,
+                      bottles: [
+                        ..._bottleInputs(customer, repo, bottleCatalog),
+                        ...channelInputs,
+                      ],
+                      driverId: staffId,
+                    );
+                    context.pushReplacement(
+                      '/customers/${widget.customerId}/delivery/success',
+                      extra: delivery,
+                    );
                   },
                 ),
               ],

@@ -24,6 +24,10 @@ class Shop {
     this.homeDeliveryAvailable = false,
     this.normalPrice = 20,
     this.coolPrice = 30,
+    this.lorryLiterPrice = 0,
+    this.fullLorryPrice = 0,
+    this.autoLiterPrice = 0,
+    this.autoCanPrice = 0,
     this.coverImageUrl,
     this.tagline = '',
     this.rating = 4.5,
@@ -50,6 +54,10 @@ class Shop {
   final bool homeDeliveryAvailable;
   final double normalPrice;
   final double coolPrice;
+  final double lorryLiterPrice;
+  final double fullLorryPrice;
+  final double autoLiterPrice;
+  final double autoCanPrice;
 
   bool get isVisibleToCustomers {
     if (!isListed || !homeDeliveryAvailable) return false;
@@ -76,6 +84,10 @@ class Shop {
       homeDeliveryAvailable: s.homeDeliveryAvailable,
       normalPrice: s.normalPrice,
       coolPrice: s.coolPrice,
+      lorryLiterPrice: s.lorryLiterPrice,
+      fullLorryPrice: s.fullLorryPrice,
+      autoLiterPrice: s.autoLiterPrice,
+      autoCanPrice: s.autoCanPrice,
       tagline: 'Pure RO water · Fast home delivery',
     );
   }

@@ -38,34 +38,43 @@ class DeliverySuccessView extends StatelessWidget {
       color: DeliverySuccessColors.bgMint,
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
           child: Column(
             children: [
-              const Spacer(flex: 2),
-              const _SuccessHero(),
-              const SizedBox(height: 20),
-              Text(
-                'Delivery Saved!',
-                style: GoogleFonts.poppins(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: DeliverySuccessColors.titleNavy,
+              Expanded(
+                child: ListView(
+                  children: [
+                    const SizedBox(height: 20),
+                    const _SuccessHero(),
+                    const SizedBox(height: 20),
+                    Text(
+                      delivery.isEmptyReturnOnly
+                          ? 'Empty Return Saved!'
+                          : 'Delivery Saved!',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: DeliverySuccessColors.titleNavy,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      delivery.isEmptyReturnOnly
+                          ? 'Customer can balance is updated.'
+                          : 'Payment will be collected at month end.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: DeliverySuccessColors.labelGrey,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    _SummaryCard(customerName: customerName, delivery: delivery),
+                    const SizedBox(height: 16),
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Payment will be collected at month end.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: DeliverySuccessColors.labelGrey,
-                ),
-              ),
-              const SizedBox(height: 24),
-              _SummaryCard(customerName: customerName, delivery: delivery),
-              const SizedBox(height: 14),
-              const _WhatsAppBar(),
-              const Spacer(flex: 3),
               SizedBox(
                 width: double.infinity,
                 height: 52,
@@ -85,7 +94,6 @@ class DeliverySuccessView extends StatelessWidget {
                   child: const Text('Continue'),
                 ),
               ),
-              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -94,8 +102,46 @@ class DeliverySuccessView extends StatelessWidget {
   }
 }
 
-class _SuccessHero extends StatelessWidget {
+class _SuccessHero extends StatefulWidget {
   const _SuccessHero();
+
+  @override
+  State<_SuccessHero> createState() => _SuccessHeroState();
+}
+
+class _SuccessHeroState extends State<_SuccessHero>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
+  late final Animation<double> _opacity;
+  late final Animation<double> _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+    );
+    _scale = Tween<double>(begin: 0.72, end: 1).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
+    );
+    _opacity = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+    _pulse = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+    );
+    Future<void>.delayed(const Duration(milliseconds: 180), () {
+      if (mounted) _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -138,24 +184,47 @@ class _SuccessHero extends StatelessWidget {
               color: DeliverySuccessColors.ringGreen.withValues(alpha: 0.45),
             ),
           ),
-          Container(
-            width: 76,
-            height: 76,
-            decoration: const BoxDecoration(
-              color: DeliverySuccessColors.successGreen,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Color(0x402E7D32),
-                  blurRadius: 16,
-                  offset: Offset(0, 6),
+          FadeTransition(
+            opacity: Tween<double>(begin: 0.55, end: 0).animate(_pulse),
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.45, end: 1.35).animate(_pulse),
+              child: Container(
+                width: 108,
+                height: 108,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: DeliverySuccessColors.successGreen.withValues(alpha: 0.35),
+                    width: 4,
+                  ),
                 ),
-              ],
+              ),
             ),
-            child: const Icon(
-              Icons.check_rounded,
-              color: Colors.white,
-              size: 44,
+          ),
+          FadeTransition(
+            opacity: _opacity,
+            child: ScaleTransition(
+              scale: _scale,
+              child: Container(
+                width: 76,
+                height: 76,
+                decoration: const BoxDecoration(
+                  color: DeliverySuccessColors.successGreen,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0x402E7D32),
+                      blurRadius: 16,
+                      offset: Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.check_rounded,
+                  color: Colors.white,
+                  size: 44,
+                ),
+              ),
             ),
           ),
         ],
@@ -212,7 +281,7 @@ class _SummaryCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Delivery Summary',
+            delivery.isEmptyReturnOnly ? 'Return Summary' : 'Delivery Summary',
             style: GoogleFonts.poppins(
               fontSize: 16,
               fontWeight: FontWeight.w700,
@@ -221,6 +290,18 @@ class _SummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _SummaryRow(label: 'Customer', value: customerName),
+          if (delivery.isEmptyReturnOnly) ...[
+            if (delivery.emptyNormalReturned > 0)
+              _SummaryRow(
+                label: 'Empty Normal Can',
+                value: '${delivery.emptyNormalReturned}',
+              ),
+            if (delivery.emptyCoolReturned > 0)
+              _SummaryRow(
+                label: 'Empty Cool Can',
+                value: '${delivery.emptyCoolReturned}',
+              ),
+          ],
           for (final line in delivery.lines) ...[
             const SizedBox(height: 12),
             const SizedBox(height: 10),
@@ -230,12 +311,30 @@ class _SummaryCard extends StatelessWidget {
                   '${line.quantity} × ${CurrencyUtils.format(line.unitPrice)}',
             ),
           ],
-          const SizedBox(height: 12),
-          _SummaryRow(
-            label: 'Total Amount',
-            value: CurrencyUtils.format(delivery.totalAmount),
-            valueColor: DeliverySuccessColors.successGreenLight,
-          ),
+          if (!delivery.isEmptyReturnOnly) ...[
+            if (delivery.emptyNormalReturned > 0) ...[
+              const SizedBox(height: 12),
+              _SummaryRow(
+                label: 'Empty Normal Can',
+                value: '${delivery.emptyNormalReturned}',
+              ),
+            ],
+            if (delivery.emptyCoolReturned > 0) ...[
+              const SizedBox(height: 12),
+              _SummaryRow(
+                label: 'Empty Cool Can',
+                value: '${delivery.emptyCoolReturned}',
+              ),
+            ],
+          ],
+          if (!delivery.isEmptyReturnOnly) ...[
+            const SizedBox(height: 12),
+            _SummaryRow(
+              label: 'Total Amount',
+              value: CurrencyUtils.format(delivery.totalAmount),
+              valueColor: DeliverySuccessColors.successGreenLight,
+            ),
+          ],
           const SizedBox(height: 12),
           _SummaryRow(label: 'Date', value: delivery.date.fullDate),
         ],
@@ -276,43 +375,6 @@ class _SummaryRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _WhatsAppBar extends StatelessWidget {
-  const _WhatsAppBar();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-      decoration: BoxDecoration(
-        color: DeliverySuccessColors.notifyBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: DeliverySuccessColors.notifyBorder),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.chat,
-            color: DeliverySuccessColors.whatsapp,
-            size: 24,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'WhatsApp notification sent',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: DeliverySuccessColors.titleNavy,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

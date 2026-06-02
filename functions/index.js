@@ -141,10 +141,18 @@ function deliveryPayload(deliveryId, data) {
     id: deliveryId,
     customerId: data.customerId || "",
     lines: data.lines || [],
+    emptyNormalReturned: Number(data.emptyNormalReturned) || 0,
+    emptyCoolReturned: Number(data.emptyCoolReturned) || 0,
     driverId: data.driverId || null,
     date: date instanceof Date ? date.toISOString() : "",
     createdAt: createdAt instanceof Date ? createdAt.toISOString() : "",
   };
+}
+
+function cleanEmptyCanCount(value) {
+  const count = Number(value);
+  if (!Number.isInteger(count) || count < 0) return 0;
+  return count;
 }
 
 function orderPayload(orderId, data) {
@@ -957,7 +965,20 @@ exports.recordCustomerDelivery = onCall(callableOptions, async (request) => {
 
   const customerId = cleanText(request.data.customerId, "Customer id");
   const date = cleanDate(request.data.date, "Delivery date");
-  let lines = cleanDeliveryLines(request.data.lines);
+  const emptyNormalReturned = cleanEmptyCanCount(request.data.emptyNormalReturned);
+  const emptyCoolReturned = cleanEmptyCanCount(request.data.emptyCoolReturned);
+  let lines = Array.isArray(request.data.lines) ? request.data.lines : [];
+
+  if (lines.length > 0) {
+    lines = cleanDeliveryLines(lines);
+  } else if (emptyNormalReturned + emptyCoolReturned <= 0) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Add delivery items or record empty can returns.",
+    );
+  } else {
+    lines = [];
+  }
 
   const customerRef = db
     .collection("shops")
@@ -969,7 +990,9 @@ exports.recordCustomerDelivery = onCall(callableOptions, async (request) => {
   if (!customer || customer.active === false) {
     throw new HttpsError("not-found", "Customer not found.");
   }
-  lines = await applyCanonicalDeliveryPrices(staffCtx.shopId, customer, lines);
+  if (lines.length > 0) {
+    lines = await applyCanonicalDeliveryPrices(staffCtx.shopId, customer, lines);
+  }
   const totals = deliveryTotals(lines);
 
   const now = admin.firestore.FieldValue.serverTimestamp();
@@ -984,6 +1007,8 @@ exports.recordCustomerDelivery = onCall(callableOptions, async (request) => {
     customerId,
     date: admin.firestore.Timestamp.fromDate(date),
     lines,
+    emptyNormalReturned,
+    emptyCoolReturned,
     normalQty: totals.normalQty,
     coolQty: totals.coolQty,
     bottleQty: totals.bottleQty,

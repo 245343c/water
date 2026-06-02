@@ -5,6 +5,7 @@ import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/add_edit_customer_widgets.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
+import 'package:sri_sai_ro_water/features/products/models/product_icon_choice.dart';
 import 'package:sri_sai_ro_water/features/products/widgets/products_screen_widgets.dart';
 
 abstract final class AddProductColors {
@@ -38,6 +39,7 @@ class AddProductLivePreview extends StatelessWidget {
     required this.priceText,
     required this.category,
     required this.isCool,
+    required this.iconKey,
     this.imagePath,
   });
 
@@ -46,6 +48,7 @@ class AddProductLivePreview extends StatelessWidget {
   final String priceText;
   final ProductCategory category;
   final bool isCool;
+  final String iconKey;
   final String? imagePath;
 
   @override
@@ -56,6 +59,7 @@ class AddProductLivePreview extends StatelessWidget {
         : (isBottle ? ProductsColors.statBlue : ProductsColors.statGreen);
     final price = double.tryParse(priceText.replaceAll(',', '').trim());
     final file = ProductImageService.fileForPath(imagePath);
+    final selectedIcon = productIconByKey(iconKey).icon;
     final displayName = name.trim().isEmpty ? 'Product name' : name.trim();
     final displaySize = sizeLabel.trim().isEmpty
         ? (isBottle ? 'Size' : (isCool ? 'Cool can' : 'Normal can'))
@@ -77,9 +81,7 @@ class AddProductLivePreview extends StatelessWidget {
                   : ColoredBox(
                       color: accent.withValues(alpha: 0.1),
                       child: Icon(
-                        isBottle
-                            ? Icons.water_drop_rounded
-                            : Icons.local_drink_rounded,
+                        selectedIcon,
                         color: accent,
                         size: 32,
                       ),
@@ -128,6 +130,99 @@ class AddProductLivePreview extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class AddProductIconSelector extends StatelessWidget {
+  const AddProductIconSelector({
+    super.key,
+    required this.selectedKey,
+    required this.onSelected,
+  });
+
+  final String selectedKey;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'ICON',
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+              color: AddProductColors.labelGrey,
+            ),
+          ),
+          const SizedBox(height: 10),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: kProductIconChoices.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 1.32,
+            ),
+            itemBuilder: (context, i) {
+              final choice = kProductIconChoices[i];
+              final selected = choice.key == selectedKey;
+              return Material(
+                color: selected
+                    ? ProductsColors.statBlue.withValues(alpha: 0.12)
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  onTap: () => onSelected(choice.key),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: selected
+                            ? ProductsColors.statBlue
+                            : AddProductColors.fieldBorder,
+                        width: selected ? 2 : 1,
+                      ),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          choice.icon,
+                          size: 20,
+                          color: selected
+                              ? ProductsColors.statBlue
+                              : AddProductColors.labelGrey,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          choice.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AddProductColors.titleNavy,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),

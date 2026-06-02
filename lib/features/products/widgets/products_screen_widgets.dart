@@ -9,6 +9,7 @@ import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/data/models/product_variant.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
+import 'package:sri_sai_ro_water/features/products/models/product_icon_choice.dart';
 
 abstract final class ProductsColors {
   static const Color titleNavy = AppColors.textPrimary;
@@ -459,6 +460,102 @@ class ProductCatalogCard extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Small catalog box (same feel as delivery type tiles) ────────────────
+class ProductCatalogBox extends StatelessWidget {
+  const ProductCatalogBox({
+    super.key,
+    required this.product,
+    required this.onTap,
+  });
+
+  final Product product;
+  final VoidCallback onTap;
+
+  bool get _isBottle => product.category == ProductCategory.bottle;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = _isBottle ? ProductsColors.statBlue : ProductsColors.statGreen;
+    final icon = productIconByKey(product.iconKey).icon;
+    final file = ProductImageService.fileForPath(product.localImagePath);
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: ProductsColors.cardBorder),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: 52,
+                  height: 52,
+                  child: file != null
+                      ? Image.file(file, fit: BoxFit.cover)
+                      : ColoredBox(
+                          color: _isBottle ? ProductsColors.bottleBg : ProductsColors.canBg,
+                          child: Center(
+                            child: Icon(
+                              icon,
+                              size: 28,
+                              color: accent.withValues(alpha: 0.95),
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                product.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: ProductsColors.titleNavy,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                product.variantSummary,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 10,
+                  color: ProductsColors.labelGrey,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '₹${product.startingPrice.toStringAsFixed(0)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: accent,
+                ),
+              ),
+            ],
           ),
         ),
       ),

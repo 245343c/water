@@ -6,6 +6,8 @@ class Delivery {
     required this.customerId,
     required this.date,
     required this.lines,
+    this.emptyNormalReturned = 0,
+    this.emptyCoolReturned = 0,
     this.driverId,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
@@ -14,6 +16,8 @@ class Delivery {
   final String customerId;
   DateTime date;
   final List<DeliveryLineItem> lines;
+  final int emptyNormalReturned;
+  final int emptyCoolReturned;
 
   /// Staff who recorded this delivery (driver or admin user id).
   final String? driverId;
@@ -57,6 +61,8 @@ class Delivery {
       customerId: customerId,
       date: date,
       lines: lines,
+      emptyNormalReturned: 0,
+      emptyCoolReturned: 0,
       driverId: driverId,
       createdAt: createdAt,
     );
@@ -73,13 +79,27 @@ class Delivery {
 
   double get totalAmount => lines.fold<double>(0, (s, l) => s + l.lineTotal);
 
+  bool get isEmptyReturnOnly => lines.isEmpty && totalEmptyReturned > 0;
+
   String get itemsSummary {
+    if (isEmptyReturnOnly) {
+      final parts = <String>[];
+      if (emptyNormalReturned > 0) {
+        parts.add('$emptyNormalReturned empty normal');
+      }
+      if (emptyCoolReturned > 0) {
+        parts.add('$emptyCoolReturned empty cool');
+      }
+      return 'Empty return (${parts.join(', ')})';
+    }
     if (lines.isEmpty) return 'No items';
     return lines.map((l) => '${l.quantity} ${l.label}').join(', ');
   }
 
   /// Backward-compatible alias.
   String get cansSummary => itemsSummary;
+
+  int get totalEmptyReturned => emptyNormalReturned + emptyCoolReturned;
 
   /// Official monthly bill — description column.
   String get billTableDescription {
@@ -92,12 +112,16 @@ class Delivery {
   Delivery copyWith({
     DateTime? date,
     List<DeliveryLineItem>? lines,
+    int? emptyNormalReturned,
+    int? emptyCoolReturned,
   }) {
     return Delivery(
       id: id,
       customerId: customerId,
       date: date ?? this.date,
       lines: lines ?? this.lines,
+      emptyNormalReturned: emptyNormalReturned ?? this.emptyNormalReturned,
+      emptyCoolReturned: emptyCoolReturned ?? this.emptyCoolReturned,
       driverId: driverId,
       createdAt: createdAt,
     );

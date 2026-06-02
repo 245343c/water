@@ -10,6 +10,7 @@ class Product {
     required this.variants,
     this.isActive = true,
     this.localImagePath,
+    this.iconKey,
   });
 
   final String id;
@@ -19,6 +20,7 @@ class Product {
   final List<ProductVariant> variants;
   final bool isActive;
   final String? localImagePath;
+  final String? iconKey;
 
   bool get hasPhoto => localImagePath != null && localImagePath!.isNotEmpty;
 
@@ -29,6 +31,7 @@ class Product {
     List<ProductVariant>? variants,
     bool? isActive,
     String? localImagePath,
+    String? iconKey,
   }) {
     return Product(
       id: id,
@@ -38,6 +41,7 @@ class Product {
       variants: variants ?? this.variants,
       isActive: isActive ?? this.isActive,
       localImagePath: localImagePath ?? this.localImagePath,
+      iconKey: iconKey ?? this.iconKey,
     );
   }
 

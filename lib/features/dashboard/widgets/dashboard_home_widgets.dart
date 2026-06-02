@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
+import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
+import 'package:sri_sai_ro_water/data/models/customer_can_balance.dart';
+import 'package:sri_sai_ro_water/data/models/dashboard_product_breakdown.dart';
 
 abstract final class DashboardColors {
   static const Color bgTop = AppColors.headerTop;
@@ -229,16 +232,19 @@ class DashboardOwnerSnapshot extends StatelessWidget {
   const DashboardOwnerSnapshot({
     super.key,
     required this.todayDeliveries,
-    required this.todayNormalCans,
-    required this.todayCoolCans,
+    required this.todayTotalUnits,
+    required this.todaySales,
+    required this.productBreakdown,
   });
 
   final int todayDeliveries;
-  final int todayNormalCans;
-  final int todayCoolCans;
+  final int todayTotalUnits;
+  final double todaySales;
+  final List<DashboardProductBreakdown> productBreakdown;
 
   @override
   Widget build(BuildContext context) {
+    final topRows = productBreakdown.take(5).toList();
     return Container(
       decoration: DashboardColors.whiteCard,
       padding: const EdgeInsets.all(14),
@@ -273,53 +279,251 @@ class DashboardOwnerSnapshot extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final wide = constraints.maxWidth >= 620;
-              final cards = [
-                _OwnerMetricTile(
+          Row(
+            children: [
+              Expanded(
+                child: _OwnerMetricTile(
                   label: 'Today deliveries',
                   value: '$todayDeliveries',
                   helper: 'Saved today',
                   color: DashboardColors.statTeal,
                   icon: Icons.local_shipping_rounded,
                 ),
-                _OwnerMetricTile(
-                  label: 'Normal cans',
-                  value: '$todayNormalCans',
-                  helper: 'Delivered today',
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _OwnerMetricTile(
+                  label: 'Total units',
+                  value: '$todayTotalUnits',
+                  helper: 'All products today',
                   color: DashboardColors.statBlue,
-                  icon: Icons.water_drop_outlined,
+                  icon: Icons.inventory_2_outlined,
                 ),
-                _OwnerMetricTile(
-                  label: 'Cool cans',
-                  value: '$todayCoolCans',
-                  helper: 'Delivered today',
-                  color: DashboardColors.statTeal,
-                  icon: Icons.ac_unit_rounded,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _OwnerMetricTile(
+                  label: 'Today sales',
+                  value: CurrencyUtils.format(todaySales),
+                  helper: 'From deliveries',
+                  color: DashboardColors.statGreen,
+                  icon: Icons.currency_rupee_rounded,
                 ),
-              ];
-
-              if (wide) {
-                return Row(
-                  children: [
-                    for (var i = 0; i < cards.length; i++) ...[
-                      Expanded(child: cards[i]),
-                      if (i != cards.length - 1) const SizedBox(width: 10),
-                    ],
-                  ],
-                );
-              }
-
-              return Column(
+              ),
+            ],
+          ),
+          if (productBreakdown.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFFAFBFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: DashboardColors.statCellBorder),
+              ),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (var i = 0; i < cards.length; i++) ...[
-                    cards[i],
-                    if (i != cards.length - 1) const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Today by product',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: DashboardColors.cardTitle,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        'Qty',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: DashboardColors.labelGrey,
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Text(
+                        'Amount',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: DashboardColors.labelGrey,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  for (var i = 0; i < topRows.length; i++) ...[
+                    _ProductBreakdownRow(row: topRows[i]),
+                    if (i != topRows.length - 1)
+                      const Divider(height: 10, color: DashboardColors.statCellBorder),
                   ],
                 ],
-              );
-            },
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Shop-wide empty cans still with customers — between today summary and monthly overview.
+class DashboardShopCanBalanceCard extends StatelessWidget {
+  const DashboardShopCanBalanceCard({super.key, required this.balance});
+
+  final CustomerCanBalance balance;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = balance.totalWithCustomer;
+
+    return Container(
+      decoration: DashboardColors.whiteCard,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDFA),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.recycling_rounded,
+                  color: Color(0xFF0D9488),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Empty can balance',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: DashboardColors.cardTitle,
+                      ),
+                    ),
+                    Text(
+                      'Empty cans still with all customers',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: DashboardColors.labelGrey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '$total total',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF0F766E),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _ShopCanBalanceTile(
+                  label: 'Normal can',
+                  balance: balance.normalWithCustomer,
+                  delivered: balance.normalDelivered,
+                  returned: balance.normalReturned,
+                  color: DashboardColors.statBlue,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ShopCanBalanceTile(
+                  label: 'Cool can',
+                  balance: balance.coolWithCustomer,
+                  delivered: balance.coolDelivered,
+                  returned: balance.coolReturned,
+                  color: const Color(0xFF0D9488),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShopCanBalanceTile extends StatelessWidget {
+  const _ShopCanBalanceTile({
+    required this.label,
+    required this.balance,
+    required this.delivered,
+    required this.returned,
+    required this.color,
+  });
+
+  final String label;
+  final int balance;
+  final int delivered;
+  final int returned;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 11),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: DashboardColors.labelGrey,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '$balance',
+            style: GoogleFonts.poppins(
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              color: color,
+              height: 1.05,
+            ),
+          ),
+          Text(
+            'Balance',
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF111827),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Delivered $delivered · Returned $returned',
+            style: GoogleFonts.poppins(
+              fontSize: 9,
+              color: DashboardColors.labelGrey,
+            ),
           ),
         ],
       ),
@@ -334,7 +538,6 @@ class _OwnerMetricTile extends StatelessWidget {
     required this.helper,
     required this.color,
     required this.icon,
-    this.onTap,
   });
 
   final String label;
@@ -342,72 +545,119 @@ class _OwnerMetricTile extends StatelessWidget {
   final String helper;
   final Color color;
   final IconData icon;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: color.withValues(alpha: 0.07),
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        onTap: null,
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: color, size: 22),
+                child: Icon(icon, color: color, size: 18),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        value,
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: color,
-                          height: 1.1,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF111827),
-                      ),
-                    ),
-                    Text(
-                      helper,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
-                        fontSize: 10,
-                        color: DashboardColors.labelGrey,
-                      ),
-                    ),
-                  ],
+              const SizedBox(height: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  style: GoogleFonts.poppins(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: color,
+                    height: 1.05,
+                  ),
+                ),
+              ),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.poppins(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF111827),
+                ),
+              ),
+              Text(
+                helper,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.poppins(
+                  fontSize: 9,
+                  color: DashboardColors.labelGrey,
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ProductBreakdownRow extends StatelessWidget {
+  const _ProductBreakdownRow({required this.row});
+
+  final DashboardProductBreakdown row;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              row.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF111827),
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 34,
+            child: Text(
+              '${row.quantity}',
+              textAlign: TextAlign.right,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: DashboardColors.labelGrey,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          SizedBox(
+            width: 64,
+            child: Text(
+              CurrencyUtils.format(row.amount),
+              textAlign: TextAlign.right,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: DashboardColors.statGreen,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -5,6 +5,10 @@ class BusinessSettings {
     required this.phone,
     required this.normalPrice,
     required this.coolPrice,
+    this.lorryLiterPrice = 0,
+    this.fullLorryPrice = 0,
+    this.autoLiterPrice = 0,
+    this.autoCanPrice = 0,
     this.email = '',
     this.shopLatitude,
     this.shopLongitude,
@@ -17,6 +21,10 @@ class BusinessSettings {
   String email;
   double normalPrice;
   double coolPrice;
+  double lorryLiterPrice;
+  double fullLorryPrice;
+  double autoLiterPrice;
+  double autoCanPrice;
   /// Pin on map (optional — uses address search if null).
   double? shopLatitude;
   double? shopLongitude;
@@ -33,6 +41,10 @@ class BusinessSettings {
     String? email,
     double? normalPrice,
     double? coolPrice,
+    double? lorryLiterPrice,
+    double? fullLorryPrice,
+    double? autoLiterPrice,
+    double? autoCanPrice,
     double? shopLatitude,
     double? shopLongitude,
     bool? homeDeliveryAvailable,
@@ -45,6 +57,10 @@ class BusinessSettings {
       email: email ?? this.email,
       normalPrice: normalPrice ?? this.normalPrice,
       coolPrice: coolPrice ?? this.coolPrice,
+      lorryLiterPrice: lorryLiterPrice ?? this.lorryLiterPrice,
+      fullLorryPrice: fullLorryPrice ?? this.fullLorryPrice,
+      autoLiterPrice: autoLiterPrice ?? this.autoLiterPrice,
+      autoCanPrice: autoCanPrice ?? this.autoCanPrice,
       shopLatitude: clearMapPin ? null : (shopLatitude ?? this.shopLatitude),
       shopLongitude: clearMapPin ? null : (shopLongitude ?? this.shopLongitude),
       homeDeliveryAvailable:

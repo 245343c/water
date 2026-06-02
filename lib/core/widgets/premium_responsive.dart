@@ -10,21 +10,31 @@ class PremiumResponsiveBody extends StatelessWidget {
     required this.child,
     this.maxWidth = 920,
     this.alignment = Alignment.topCenter,
+    this.horizontalPadding = 12,
   });
 
   final Widget child;
   final double maxWidth;
   final Alignment alignment;
+  final double horizontalPadding;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenWidth = MediaQuery.sizeOf(context).width;
+        final sidePadding = screenWidth >= 1200
+            ? horizontalPadding + 8
+            : horizontalPadding;
         final availableWidth = constraints.hasBoundedWidth
-            ? constraints.maxWidth
+            ? math.max(0, constraints.maxWidth - (sidePadding * 2))
             : screenWidth;
-        final width = math.min(availableWidth, maxWidth);
+        // Keep full-width feeling on common laptop screens, and constrain only
+        // on extra-wide layouts for readability.
+        final shouldUseFullWidth =
+            maxWidth >= 1180 && availableWidth <= 1536;
+        final effectiveMaxWidth = shouldUseFullWidth ? availableWidth : maxWidth;
+        final width = math.min(availableWidth, effectiveMaxWidth).toDouble();
 
         final sizedChild = constraints.hasBoundedHeight
             ? SizedBox(
@@ -37,9 +47,12 @@ class PremiumResponsiveBody extends StatelessWidget {
                 child: child,
               );
 
-        return Align(
-          alignment: alignment,
-          child: sizedChild,
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: sidePadding),
+          child: Align(
+            alignment: alignment,
+            child: sizedChild,
+          ),
         );
       },
     );

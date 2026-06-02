@@ -3,10 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
-import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
+import 'package:sri_sai_ro_water/features/products/models/product_icon_choice.dart';
 
 abstract final class AddDeliveryColors {
   static const Color titleNavy = Color(0xFF111827);
@@ -28,10 +28,29 @@ class AddDeliveryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AdminPageHeader(
-      title: 'Add Delivery',
-      subtitle: 'Record cans and notify customer',
-      onBack: onBack,
+    return Container(
+      decoration: CustomersColors.headerGradient,
+      padding: EdgeInsets.fromLTRB(4, MediaQuery.paddingOf(context).top + 4, 4, 16),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
+            onPressed: onBack,
+          ),
+          Expanded(
+            child: Text(
+              'Add Delivery',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 48),
+        ],
+      ),
     );
   }
 }
@@ -48,8 +67,7 @@ class AddDeliveryCustomerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = CustomersColors
-        .avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
+    final bg = CustomersColors.avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
 
     return Column(
       children: [
@@ -93,19 +111,11 @@ class AddDeliveryCustomerBar extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(
-                Icons.chat,
-                color: AddDeliveryColors.whatsapp,
-                size: 26,
-              ),
+              const Icon(Icons.chat, color: AddDeliveryColors.whatsapp, size: 26),
             ],
           ),
         ),
-        const Divider(
-          height: 1,
-          thickness: 1,
-          color: AddDeliveryColors.divider,
-        ),
+        const Divider(height: 1, thickness: 1, color: AddDeliveryColors.divider),
       ],
     );
   }
@@ -145,10 +155,7 @@ class AddDeliveryDateRow extends StatelessWidget {
                   onTap: onTap,
                   borderRadius: BorderRadius.circular(10),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: AddDeliveryColors.fieldBorder),
@@ -165,11 +172,7 @@ class AddDeliveryDateRow extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        const Icon(
-                          Icons.calendar_today_outlined,
-                          size: 18,
-                          color: AddDeliveryColors.labelGrey,
-                        ),
+                        const Icon(Icons.calendar_today_outlined, size: 18, color: AddDeliveryColors.labelGrey),
                       ],
                     ),
                   ),
@@ -178,22 +181,14 @@ class AddDeliveryDateRow extends StatelessWidget {
             ],
           ),
         ),
-        const Divider(
-          height: 1,
-          thickness: 1,
-          color: AddDeliveryColors.divider,
-        ),
+        const Divider(height: 1, thickness: 1, color: AddDeliveryColors.divider),
       ],
     );
   }
 }
 
 class AddDeliverySectionTitle extends StatelessWidget {
-  const AddDeliverySectionTitle({
-    super.key,
-    required this.title,
-    this.subtitle,
-  });
+  const AddDeliverySectionTitle({super.key, required this.title, this.subtitle});
 
   final String title;
   final String? subtitle;
@@ -217,13 +212,46 @@ class AddDeliverySectionTitle extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               subtitle!,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: AddDeliveryColors.labelGrey,
-              ),
+              style: GoogleFonts.poppins(fontSize: 12, color: AddDeliveryColors.labelGrey),
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class AddDeliveryNoProductsHint extends StatelessWidget {
+  const AddDeliveryNoProductsHint({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: AddDeliveryColors.noteBg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AddDeliveryColors.divider),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.inventory_2_outlined, size: 20, color: AddDeliveryColors.labelGrey),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'No products are enabled for this customer. Open the customer profile, tap the products you want to deliver, then return here.',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  height: 1.45,
+                  color: AddDeliveryColors.labelGrey,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -235,45 +263,46 @@ class AddDeliveryBottleCatalog extends StatelessWidget {
     required this.products,
     required this.quantities,
     required this.onChanged,
+    required this.unitPriceFor,
   });
 
   final List<Product> products;
   final Map<String, int> quantities;
   final void Function(String variantKey, int qty) onChanged;
+  final double Function(String productId, String variantId) unitPriceFor;
 
   @override
   Widget build(BuildContext context) {
-    if (products.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-        child: Text(
-          'Add bottle products from the Products tab first.',
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            color: AddDeliveryColors.labelGrey,
-          ),
-        ),
-      );
-    }
+    if (products.isEmpty) return const SizedBox.shrink();
 
     return Column(
       children: [
         for (final product in products) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Text(
-              product.name,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AddDeliveryColors.labelGrey,
-              ),
+            child: Row(
+              children: [
+                Icon(
+                  productIconByKey(product.iconKey).icon,
+                  size: 16,
+                  color: AddDeliveryColors.labelGrey,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  product.name,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AddDeliveryColors.labelGrey,
+                  ),
+                ),
+              ],
             ),
           ),
           for (final variant in product.variants)
             AddDeliveryBottleRow(
               label: variant.label,
-              price: variant.price,
+              price: unitPriceFor(product.id, variant.id),
               quantity: quantities['${product.id}|${variant.id}'] ?? 0,
               onChanged: (q) => onChanged('${product.id}|${variant.id}', q),
             ),
@@ -319,10 +348,7 @@ class AddDeliveryBottleRow extends StatelessWidget {
                     ),
                     Text(
                       CurrencyUtils.format(price),
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: AddDeliveryColors.labelGrey,
-                      ),
+                      style: GoogleFonts.poppins(fontSize: 12, color: AddDeliveryColors.labelGrey),
                     ),
                   ],
                 ),
@@ -353,11 +379,7 @@ class AddDeliveryBottleRow extends StatelessWidget {
             ],
           ),
         ),
-        const Divider(
-          height: 1,
-          thickness: 1,
-          color: AddDeliveryColors.divider,
-        ),
+        const Divider(height: 1, thickness: 1, color: AddDeliveryColors.divider),
       ],
     );
   }
@@ -369,25 +391,34 @@ class AddDeliveryCanStepper extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    this.maxValue,
+    this.compact = false,
   });
 
   final String label;
   final int value;
   final ValueChanged<int> onChanged;
+  /// When set, the + button stops at this value (e.g. customer can balance).
+  final int? maxValue;
+  final bool compact;
+
+  bool get _atMax => maxValue != null && value >= maxValue!;
 
   @override
   Widget build(BuildContext context) {
+    final vertical = compact ? 10.0 : 14.0;
+    final fontSize = compact ? 14.0 : 15.0;
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: vertical),
           child: Row(
             children: [
               Expanded(
                 child: Text(
                   label,
                   style: GoogleFonts.poppins(
-                    fontSize: 15,
+                    fontSize: fontSize,
                     fontWeight: FontWeight.w500,
                     color: AddDeliveryColors.titleNavy,
                   ),
@@ -395,6 +426,7 @@ class AddDeliveryCanStepper extends StatelessWidget {
               ),
               _StepBtn(
                 icon: Icons.remove,
+                compact: compact,
                 onTap: value > 0 ? () => onChanged(value - 1) : null,
               ),
               SizedBox(
@@ -403,7 +435,7 @@ class AddDeliveryCanStepper extends StatelessWidget {
                   '$value',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
-                    fontSize: 18,
+                    fontSize: compact ? 17 : 18,
                     fontWeight: FontWeight.w700,
                     color: AddDeliveryColors.titleNavy,
                   ),
@@ -411,32 +443,43 @@ class AddDeliveryCanStepper extends StatelessWidget {
               ),
               _StepBtn(
                 icon: Icons.add,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  onChanged(value + 1);
-                },
+                compact: compact,
+                onTap: _atMax
+                    ? null
+                    : () {
+                        HapticFeedback.lightImpact();
+                        final next = value + 1;
+                        onChanged(
+                          maxValue != null
+                              ? next.clamp(0, maxValue!)
+                              : next,
+                        );
+                      },
               ),
             ],
           ),
         ),
-        const Divider(
-          height: 1,
-          thickness: 1,
-          color: AddDeliveryColors.divider,
-        ),
+        if (!compact)
+          const Divider(height: 1, thickness: 1, color: AddDeliveryColors.divider),
       ],
     );
   }
 }
 
 class _StepBtn extends StatelessWidget {
-  const _StepBtn({required this.icon, required this.onTap});
+  const _StepBtn({
+    required this.icon,
+    required this.onTap,
+    this.compact = false,
+  });
 
   final IconData icon;
   final VoidCallback? onTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    final size = compact ? 32.0 : 36.0;
     return Material(
       color: AddDeliveryColors.stepperBg,
       borderRadius: BorderRadius.circular(8),
@@ -444,9 +487,15 @@ class _StepBtn extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: SizedBox(
-          width: 36,
-          height: 36,
-          child: Icon(icon, size: 20, color: AddDeliveryColors.stepperIcon),
+          width: size,
+          height: size,
+          child: Icon(
+            icon,
+            size: compact ? 18 : 20,
+            color: onTap == null
+                ? AddDeliveryColors.stepperIcon.withValues(alpha: 0.35)
+                : AddDeliveryColors.stepperIcon,
+          ),
         ),
       ),
     );
@@ -496,10 +545,7 @@ class AddDeliveryPriceSection extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
               'Add cans or bottles to see price breakdown',
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: AddDeliveryColors.labelGrey,
-              ),
+              style: GoogleFonts.poppins(fontSize: 13, color: AddDeliveryColors.labelGrey),
             ),
           )
         else
@@ -509,11 +555,7 @@ class AddDeliveryPriceSection extends StatelessWidget {
               calc: line.calc,
               amount: CurrencyUtils.format(line.amount),
             ),
-        const Divider(
-          height: 1,
-          thickness: 1,
-          color: AddDeliveryColors.divider,
-        ),
+        const Divider(height: 1, thickness: 1, color: AddDeliveryColors.divider),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
           child: Row(
@@ -549,11 +591,7 @@ class AddDeliveryPriceSection extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.info_outline,
-                  size: 18,
-                  color: AddDeliveryColors.labelGrey,
-                ),
+                const Icon(Icons.info_outline, size: 18, color: AddDeliveryColors.labelGrey),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -595,10 +633,7 @@ class _PriceLine extends StatelessWidget {
             flex: 2,
             child: Text(
               name,
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: AddDeliveryColors.titleNavy,
-              ),
+              style: GoogleFonts.poppins(fontSize: 14, color: AddDeliveryColors.titleNavy),
             ),
           ),
           Expanded(
@@ -606,10 +641,7 @@ class _PriceLine extends StatelessWidget {
             child: Text(
               calc,
               textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: AddDeliveryColors.labelGrey,
-              ),
+              style: GoogleFonts.poppins(fontSize: 13, color: AddDeliveryColors.labelGrey),
             ),
           ),
           Expanded(
@@ -635,12 +667,10 @@ class AddDeliverySaveButton extends StatelessWidget {
     super.key,
     required this.enabled,
     required this.onPressed,
-    this.isSaving = false,
   });
 
   final bool enabled;
   final VoidCallback onPressed;
-  final bool isSaving;
 
   @override
   Widget build(BuildContext context) {
@@ -654,28 +684,12 @@ class AddDeliverySaveButton extends StatelessWidget {
             onPressed: enabled ? onPressed : null,
             style: FilledButton.styleFrom(
               backgroundColor: AddDeliveryColors.primaryBtn,
-              disabledBackgroundColor: AddDeliveryColors.primaryBtn.withValues(
-                alpha: 0.45,
-              ),
+              disabledBackgroundColor: AddDeliveryColors.primaryBtn.withValues(alpha: 0.45),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              textStyle: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              textStyle: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
             ),
-            child: isSaving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Text('Save Delivery'),
+            child: const Text('Save Delivery'),
           ),
         ),
       ),
@@ -695,7 +709,7 @@ class AddDeliveryScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: PremiumResponsiveBody(maxWidth: 1180, child: child),
+      child: child,
     );
   }
 }

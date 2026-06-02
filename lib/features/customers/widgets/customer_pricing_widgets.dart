@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:sri_sai_ro_water/core/constants/customer_pricing_keys.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
+import 'package:sri_sai_ro_water/data/models/delivery_product_type.dart';
 import 'package:sri_sai_ro_water/data/models/customer_product_price.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/add_edit_customer_widgets.dart';
+import 'package:sri_sai_ro_water/features/products/models/product_icon_choice.dart';
+import 'package:sri_sai_ro_water/features/products/widgets/delivery_product_type_widgets.dart';
 
 /// Editable pricing list for Add / Edit Customer.
 class CustomerPricingEditor extends StatefulWidget {
@@ -64,32 +66,39 @@ class _CustomerPricingEditorState extends State<CustomerPricingEditor> {
     setState(() {});
   }
 
-  void _setCanEnabled(String variantId, bool enabled) {
-    final existing = _find(CustomerPricingKeys.canProductId, variantId);
-    final price = existing?.unitPrice ??
-        (variantId == CustomerPricingKeys.normalVariantId
-            ? widget.repo.settings.normalPrice
-            : widget.repo.settings.coolPrice);
+  void _setDeliveryTypeEnabled(DeliveryProductType type, bool enabled) {
+    final existing = _find(type.productId, type.variantId);
+    final price =
+        existing?.unitPrice ?? widget.repo.shopDefaultRateForDeliveryType(type);
     _upsert(
       CustomerProductPrice(
-        productId: CustomerPricingKeys.canProductId,
-        variantId: variantId,
+        productId: type.productId,
+        variantId: type.variantId,
         unitPrice: price,
         enabled: enabled,
       ),
     );
   }
 
-  void _setCanPrice(String variantId, double price) {
-    final existing = _find(CustomerPricingKeys.canProductId, variantId);
+  void _setDeliveryTypePrice(DeliveryProductType type, double price) {
+    final existing = _find(type.productId, type.variantId);
     _upsert(
       CustomerProductPrice(
-        productId: CustomerPricingKeys.canProductId,
-        variantId: variantId,
+        productId: type.productId,
+        variantId: type.variantId,
         unitPrice: price,
-        enabled: existing?.enabled ?? true,
+        enabled: existing?.enabled ?? false,
       ),
     );
+  }
+
+  bool _isDeliveryTypeEnabled(DeliveryProductType type) {
+    return _find(type.productId, type.variantId)?.enabled ?? false;
+  }
+
+  double _deliveryTypePrice(DeliveryProductType type) {
+    return _find(type.productId, type.variantId)?.unitPrice ??
+        widget.repo.shopDefaultRateForDeliveryType(type);
   }
 
   void _addBottleProduct(Product product) {
@@ -119,7 +128,7 @@ class _CustomerPricingEditorState extends State<CustomerPricingEditor> {
         productId: productId,
         variantId: variantId,
         unitPrice: price,
-        enabled: existing?.enabled ?? true,
+        enabled: existing?.enabled ?? false,
       ),
     );
   }
@@ -154,18 +163,74 @@ class _CustomerPricingEditorState extends State<CustomerPricingEditor> {
         .toList();
   }
 
+  List<_CustomerSelectableItem> _allSelectableItems() {
+    final list = <_CustomerSelectableItem>[
+      for (final type in DeliveryProductType.catalog)
+        _CustomerSelectableItem(
+          productId: type.productId,
+          variantId: type.variantId,
+          title: type.title,
+          subtitle: type.subtitle,
+          icon: type.icon,
+          shopRate: widget.repo.shopDefaultRateForDeliveryType(type),
+          enabled: _isDeliveryTypeEnabled(type),
+          currentRate: _deliveryTypePrice(type),
+        ),
+    ];
+
+    for (final product in widget.repo.products) {
+      if (!product.isActive || product.category != ProductCategory.bottle) {
+        continue;
+      }
+      final icon = productIconByKey(product.iconKey).icon;
+      for (final variant in product.variants) {
+        final existing = _find(product.id, variant.id);
+        list.add(
+          _CustomerSelectableItem(
+            productId: product.id,
+            variantId: variant.id,
+            title: product.name,
+            subtitle: variant.label,
+            icon: icon,
+            shopRate: variant.price,
+            enabled: existing?.enabled ?? false,
+            currentRate: existing?.unitPrice ?? variant.price,
+          ),
+        );
+      }
+    }
+    return list;
+  }
+
+  void _toggleItem(_CustomerSelectableItem item) {
+    final nowEnabled = !(item.enabled);
+    _upsert(
+      CustomerProductPrice(
+        productId: item.productId,
+        variantId: item.variantId,
+        unitPrice: item.currentRate,
+        enabled: nowEnabled,
+      ),
+    );
+  }
+
+  void _setItemPrice(_CustomerSelectableItem item, double value) {
+    final existing = _find(item.productId, item.variantId);
+    _upsert(
+      CustomerProductPrice(
+        productId: item.productId,
+        variantId: item.variantId,
+        unitPrice: value,
+        enabled: existing?.enabled ?? item.enabled,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final normalEntry = _find(
-      CustomerPricingKeys.canProductId,
-      CustomerPricingKeys.normalVariantId,
-    );
-    final coolEntry = _find(
-      CustomerPricingKeys.canProductId,
-      CustomerPricingKeys.coolVariantId,
-    );
-
     final hPad = widget.embedded ? 16.0 : 16.0;
+    final allItems = _allSelectableItems();
+    final enabledItems = allItems.where((item) => item.enabled).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -180,7 +245,7 @@ class _CustomerPricingEditorState extends State<CustomerPricingEditor> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Customer assigned rates',
+                        'Products & pricing',
                         style: GoogleFonts.poppins(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -189,7 +254,7 @@ class _CustomerPricingEditorState extends State<CustomerPricingEditor> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'These rates are used by admin, driver, and customer app',
+                        'Set what this customer buys and their rates',
                         style: GoogleFonts.poppins(
                           fontSize: 11,
                           color: AddEditCustomerColors.labelGrey.withValues(alpha: 0.85),
@@ -202,7 +267,7 @@ class _CustomerPricingEditorState extends State<CustomerPricingEditor> {
                   onPressed: _resetToShopRates,
                   icon: const Icon(Icons.refresh_rounded, size: 16),
                   label: Text(
-                    'Default rates',
+                    'Shop rates',
                     style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                   style: TextButton.styleFrom(
@@ -217,62 +282,20 @@ class _CustomerPricingEditorState extends State<CustomerPricingEditor> {
           padding: EdgeInsets.symmetric(horizontal: hPad),
           child: Column(
             children: [
-        _CanPricingCard(
-          embedded: widget.embedded,
-          normalEnabled: normalEntry?.enabled ?? true,
-          coolEnabled: coolEntry?.enabled ?? true,
-          normalPrice: normalEntry?.unitPrice ?? widget.repo.settings.normalPrice,
-          coolPrice: coolEntry?.unitPrice ?? widget.repo.settings.coolPrice,
-          shopNormal: widget.repo.settings.normalPrice,
-          shopCool: widget.repo.settings.coolPrice,
-          onNormalEnabled: (v) => _setCanEnabled(CustomerPricingKeys.normalVariantId, v),
-          onCoolEnabled: (v) => _setCanEnabled(CustomerPricingKeys.coolVariantId, v),
-          onNormalPrice: (v) => _setCanPrice(CustomerPricingKeys.normalVariantId, v),
-          onCoolPrice: (v) => _setCanPrice(CustomerPricingKeys.coolVariantId, v),
-        ),
-        ..._bottleProductsInEntries.map((product) {
-          final variantEntries = product.variants
-              .map((v) => _find(product.id, v.id))
-              .whereType<CustomerProductPrice>()
-              .toList();
-          return _BottlePricingCard(
-            product: product,
-            entries: variantEntries,
-            embedded: widget.embedded,
-            onRemove: () => _removeBottleProduct(product.id),
-            onPriceChanged: (variantId, price) =>
-                _setBottlePrice(product.id, variantId, price),
-            onEnabledChanged: (variantId, enabled) =>
-                _setBottleEnabled(product.id, variantId, enabled),
-          );
-        }),
-        if (_availableToAdd.isNotEmpty)
-          _AddProductDropdown(
-            products: _availableToAdd,
-            embedded: widget.embedded,
-            onSelected: _addBottleProduct,
-          ),
-        if (widget.repo.products.where((p) => p.category == ProductCategory.bottle).isEmpty)
-          Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AddEditCustomerColors.fieldBorder),
+              _UnifiedProductsCard(
+                embedded: widget.embedded,
+                items: allItems,
+                onToggle: _toggleItem,
               ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, size: 18, color: AddEditCustomerColors.labelGrey),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Add bottle products in Products tab to assign custom bottle prices.',
-                      style: GoogleFonts.poppins(fontSize: 11, height: 1.35, color: AddEditCustomerColors.labelGrey),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+              if (enabledItems.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _EnabledItemsPricingCard(
+                  embedded: widget.embedded,
+                  items: enabledItems,
+                  onDisable: (item) => _toggleItem(item),
+                  onPriceChanged: _setItemPrice,
+                ),
+              ],
             ],
           ),
         ),
@@ -282,60 +305,234 @@ class _CustomerPricingEditorState extends State<CustomerPricingEditor> {
   }
 }
 
-class _CanPricingCard extends StatelessWidget {
-  const _CanPricingCard({
-    required this.normalEnabled,
-    required this.coolEnabled,
-    required this.normalPrice,
-    required this.coolPrice,
-    required this.shopNormal,
-    required this.shopCool,
-    required this.onNormalEnabled,
-    required this.onCoolEnabled,
-    required this.onNormalPrice,
-    required this.onCoolPrice,
+class _CustomerSelectableItem {
+  const _CustomerSelectableItem({
+    required this.productId,
+    required this.variantId,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.shopRate,
+    required this.enabled,
+    required this.currentRate,
+  });
+
+  final String productId;
+  final String variantId;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final double shopRate;
+  final bool enabled;
+  final double currentRate;
+}
+
+class _UnifiedProductsCard extends StatelessWidget {
+  const _UnifiedProductsCard({
+    required this.items,
+    required this.onToggle,
     this.embedded = false,
   });
 
-  final bool normalEnabled;
-  final bool coolEnabled;
-  final double normalPrice;
-  final double coolPrice;
-  final double shopNormal;
-  final double shopCool;
-  final ValueChanged<bool> onNormalEnabled;
-  final ValueChanged<bool> onCoolEnabled;
-  final ValueChanged<double> onNormalPrice;
-  final ValueChanged<double> onCoolPrice;
+  final List<_CustomerSelectableItem> items;
+  final ValueChanged<_CustomerSelectableItem> onToggle;
   final bool embedded;
 
   @override
   Widget build(BuildContext context) {
     return _PricingCardShell(
       embedded: embedded,
-      icon: Icons.water_drop_rounded,
+      icon: Icons.grid_view_rounded,
       iconColor: const Color(0xFF2563EB),
-      title: '20L water cans',
-      subtitle: 'Assign this customer normal and cool can rates',
+      title: 'Products',
+      subtitle: 'Tap a card to enable/disable for this customer',
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: items.length,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+          childAspectRatio: 0.88,
+        ),
+        itemBuilder: (context, i) => _SelectableProductBox(
+          item: items[i],
+          onTap: () => onToggle(items[i]),
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectableProductBox extends StatelessWidget {
+  const _SelectableProductBox({
+    required this.item,
+    required this.onTap,
+  });
+
+  final _CustomerSelectableItem item;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: item.enabled ? const Color(0xFFF0F9FF) : Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: item.enabled
+                  ? const Color(0xFF2563EB)
+                  : AddEditCustomerColors.fieldBorder,
+              width: item.enabled ? 2 : 1,
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                item.icon,
+                size: 22,
+                color: item.enabled
+                    ? const Color(0xFF2563EB)
+                    : AddEditCustomerColors.labelGrey,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                item.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF111827),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                item.subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 9,
+                  color: AddEditCustomerColors.labelGrey,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EnabledItemsPricingCard extends StatelessWidget {
+  const _EnabledItemsPricingCard({
+    required this.items,
+    required this.onDisable,
+    required this.onPriceChanged,
+    this.embedded = false,
+  });
+
+  final List<_CustomerSelectableItem> items;
+  final ValueChanged<_CustomerSelectableItem> onDisable;
+  final void Function(_CustomerSelectableItem item, double value) onPriceChanged;
+  final bool embedded;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PricingCardShell(
+      embedded: embedded,
+      icon: Icons.currency_rupee_rounded,
+      iconColor: const Color(0xFF2563EB),
+      title: 'Enabled products',
+      subtitle: 'Set customer-specific price only for selected products',
       child: Column(
         children: [
-          _VariantPriceRow(
-            label: 'Normal Can',
-            enabled: normalEnabled,
-            price: normalPrice,
-            shopHint: shopNormal,
-            onEnabled: onNormalEnabled,
-            onPrice: onNormalPrice,
+          for (var i = 0; i < items.length; i++) ...[
+            _VariantPriceRow(
+              label: items[i].title,
+              enabled: items[i].enabled,
+              price: items[i].currentRate,
+              shopHint: items[i].shopRate,
+              onEnabled: (_) => onDisable(items[i]),
+              onPrice: (v) => onPriceChanged(items[i], v),
+            ),
+            if (i != items.length - 1) const SizedBox(height: 10),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DeliveryTypesCustomerSection extends StatelessWidget {
+  const _DeliveryTypesCustomerSection({
+    required this.isEnabled,
+    required this.priceFor,
+    required this.shopRateFor,
+    required this.onToggle,
+    required this.onPrice,
+    this.embedded = false,
+  });
+
+  final bool Function(DeliveryProductType type) isEnabled;
+  final double Function(DeliveryProductType type) priceFor;
+  final double Function(DeliveryProductType type) shopRateFor;
+  final ValueChanged<DeliveryProductType> onToggle;
+  final void Function(DeliveryProductType type, double price) onPrice;
+  final bool embedded;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabledTypes =
+        DeliveryProductType.catalog.where(isEnabled).toList();
+
+    return _PricingCardShell(
+      embedded: embedded,
+      icon: Icons.grid_view_rounded,
+      iconColor: const Color(0xFF2563EB),
+      title: 'Delivery product types',
+      subtitle: 'Tap to enable or disable for this customer',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DeliveryProductTypeGrid(
+            compact: true,
+            types: DeliveryProductType.catalog,
+            builder: (context, type) {
+              final enabled = isEnabled(type);
+              return DeliveryProductTypeBox(
+                type: type,
+                compact: true,
+                selected: enabled,
+                enabled: enabled,
+                onTap: () => onToggle(type),
+              );
+            },
           ),
-          const SizedBox(height: 10),
-          _VariantPriceRow(
-            label: 'Cool Can',
-            enabled: coolEnabled,
-            price: coolPrice,
-            shopHint: shopCool,
-            onEnabled: onCoolEnabled,
-            onPrice: onCoolPrice,
-          ),
+          if (enabledTypes.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            for (var i = 0; i < enabledTypes.length; i++) ...[
+              _VariantPriceRow(
+                label: enabledTypes[i].title,
+                enabled: true,
+                price: priceFor(enabledTypes[i]),
+                shopHint: shopRateFor(enabledTypes[i]),
+                onEnabled: (_) => onToggle(enabledTypes[i]),
+                onPrice: (v) => onPrice(enabledTypes[i], v),
+              ),
+              if (i != enabledTypes.length - 1) const SizedBox(height: 10),
+            ],
+          ],
         ],
       ),
     );
@@ -363,7 +560,7 @@ class _BottlePricingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _PricingCardShell(
       embedded: embedded,
-      icon: Icons.local_drink_outlined,
+      icon: productIconByKey(product.iconKey).icon,
       iconColor: const Color(0xFF0D9488),
       title: product.name,
       subtitle: product.variantSummary,
@@ -529,7 +726,7 @@ class _VariantPriceRow extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Default: ${CurrencyUtils.format(shopHint)}',
+                  'Shop: ${CurrencyUtils.format(shopHint)}',
                   style: GoogleFonts.poppins(fontSize: 10, color: AddEditCustomerColors.labelGrey),
                 ),
               ],

@@ -28,13 +28,13 @@ class DeliveryRecordingService {
 
   static const int maxCansPerDelivery = 50;
 
-  Future<Delivery> recordCansDelivery({
+  Delivery recordCansDelivery({
     required String customerId,
     required int normalQty,
     required int coolQty,
     String? driverNote,
     bool driverMode = false,
-  }) async {
+  }) {
     final user = _auth.currentUser;
     if (user == null) {
       throw DeliveryValidationException('You must be signed in');
@@ -66,28 +66,22 @@ class DeliveryRecordingService {
       throw DeliveryValidationException('Driver profile not linked');
     }
 
-    if (user.isDriver && !_plant.canDriverAccessCustomer(staffId, customerId)) {
-      throw DeliveryValidationException(
-        'This customer is not assigned to your water plant',
-      );
-    }
-
     final today = DateTime.now();
     final deliveryDate = driverMode
         ? DateTime(today.year, today.month, today.day, today.hour, today.minute)
         : today;
 
-    final driverName = user.isDriver
-        ? (_plant.driverById(user.driverId)?.name ?? user.ownerName)
-        : user.ownerName;
-
-    final delivery = await _plant.addDeliveryToCurrentShop(
+    final delivery = _plant.addDelivery(
       customerId: customerId,
       date: deliveryDate,
       normalQty: normalQty,
       coolQty: coolQty,
       driverId: staffId,
     );
+
+    final driverName = user.isDriver
+        ? (_plant.driverById(user.driverId)?.name ?? user.ownerName)
+        : user.ownerName;
 
     _notifications.recordDelivery(
       delivery: delivery,
@@ -100,6 +94,13 @@ class DeliveryRecordingService {
       title: 'Delivery saved · ${customer.name}',
       body: '${delivery.cansSummary} — admin & customer notified',
       payload: delivery.id,
+    );
+
+    // Second banner simulates customer device (demo).
+    _push.showDeliveryRecordedSafe(
+      title: 'Water delivered',
+      body: '${delivery.cansSummary} recorded for ${customer.name}',
+      payload: 'customer:${customer.id}',
     );
 
     return delivery;

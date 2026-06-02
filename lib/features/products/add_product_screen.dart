@@ -7,6 +7,7 @@ import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/add_edit_customer_widgets.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
+import 'package:sri_sai_ro_water/features/products/models/product_icon_choice.dart';
 import 'package:sri_sai_ro_water/features/products/widgets/add_product_widgets.dart';
 
 class AddProductScreen extends StatefulWidget {
@@ -25,8 +26,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final _notesController = TextEditingController();
   final _picker = ImagePicker();
 
-  ProductCategory _category = ProductCategory.bottle;
-  bool _isCoolCan = false;
+  String _iconKey = kProductIconChoices.first.key;
   String? _imagePath;
   bool _saving = false;
 
@@ -53,26 +53,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
     _stockController.dispose();
     _notesController.dispose();
     super.dispose();
-  }
-
-  void _onCategoryChanged(ProductCategory category) {
-    setState(() {
-      _category = category;
-      if (category == ProductCategory.bottle) {
-        if (_sizeController.text == 'Normal Can' || _sizeController.text == 'Cool Can') {
-          _sizeController.text = '1 L';
-        }
-      } else {
-        _sizeController.text = _isCoolCan ? 'Cool Can' : 'Normal Can';
-      }
-    });
-  }
-
-  void _onCanTypeChanged(bool isCool) {
-    setState(() {
-      _isCoolCan = isCool;
-      _sizeController.text = isCool ? 'Cool Can' : 'Normal Can';
-    });
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -113,11 +93,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
       await repo.addProduct(
         name: _nameController.text,
         description: notes,
-        category: _category,
+        category: ProductCategory.bottle,
         variantLabel: _sizeController.text,
         price: price,
-        isCool: _category == ProductCategory.can && _isCoolCan,
+        isCool: false,
         imageSourcePath: _imagePath,
+        iconKey: _iconKey,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -153,8 +134,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
                           name: _nameController.text,
                           sizeLabel: _sizeController.text,
                           priceText: _priceController.text,
-                          category: _category,
-                          isCool: _isCoolCan,
+                          category: ProductCategory.bottle,
+                          isCool: false,
+                          iconKey: _iconKey,
                           imagePath: _imagePath,
                         ),
                         AddProductPhotoSection(
@@ -163,9 +145,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
                           onPickGallery: () => _pickImage(ImageSource.gallery),
                           onRemove: () => setState(() => _imagePath = null),
                         ),
-                        AddProductCategorySelector(
-                          selected: _category,
-                          onSelected: _onCategoryChanged,
+                        AddProductIconSelector(
+                          selectedKey: _iconKey,
+                          onSelected: (key) => setState(() => _iconKey = key),
                         ),
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -222,17 +204,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
                               validator: (v) =>
                                   v == null || v.trim().isEmpty ? 'Name is required' : null,
                             ),
-                            if (_category == ProductCategory.can)
-                              AddProductCanTypeSelector(
-                                isCool: _isCoolCan,
-                                onChanged: _onCanTypeChanged,
-                              )
-                            else
-                              AddProductQuantityField(
-                                controller: _sizeController,
-                                category: _category,
-                                isCool: _isCoolCan,
-                              ),
+                            AddProductQuantityField(
+                              controller: _sizeController,
+                              category: ProductCategory.bottle,
+                              isCool: false,
+                            ),
                             AddEditCustomerField(
                               label: 'Default rate',
                               controller: _priceController,

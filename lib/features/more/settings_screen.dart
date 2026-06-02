@@ -66,10 +66,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _initialized = true;
   }
 
-  Future<void> _save(WaterPlantRepository repo) async {
+  void _save(WaterPlantRepository repo) {
     if (!_formKey.currentState!.validate()) return;
 
-    await repo.updateSettingsInFirestore(
+    repo.updateSettings(
       repo.settings.copyWith(
         businessName: _nameController.text.trim(),
         address: _addressController.text.trim(),

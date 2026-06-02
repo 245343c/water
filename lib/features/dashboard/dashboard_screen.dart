@@ -9,13 +9,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/widgets/month_year_wheel_picker.dart';
-import 'package:sri_sai_ro_water/data/models/order_status.dart';
 import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/notifications/notifications_screen.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/features/dashboard/widgets/dashboard_home_widgets.dart';
-import 'package:sri_sai_ro_water/routing/app_router.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -254,27 +252,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final business = repo.settings.businessName;
         final today = DateTime.now();
         final todayDeliveries = repo.deliveriesOnDate(today);
-        final todayNormalCans = todayDeliveries.fold<int>(
+        final todayTotalUnits = todayDeliveries.fold<int>(
           0,
-          (sum, d) => sum + d.normalQty,
+          (sum, d) => sum + d.lines.fold<int>(0, (s, l) => s + l.quantity),
         );
-        final todayCoolCans = todayDeliveries.fold<int>(
+        final todaySales = todayDeliveries.fold<double>(
           0,
-          (sum, d) => sum + d.coolQty,
+          (sum, d) => sum + d.totalAmount,
         );
-        final pendingOrders = repo
-            .ordersNewestFirst()
-            .where((o) => o.status == OrderStatus.pending)
-            .toList();
-        final pendingRequestCards = pendingOrders
-            .map(
-              (o) => DashboardPendingRequest(
-                customerId: o.customerId,
-                summary: o.cansSummary,
-                createdAt: o.createdAt,
-              ),
-            )
-            .toList();
+        final productBreakdown = repo.productBreakdownOnDate(today);
+        final shopCanBalance = repo.shopCanBalance();
 
         final overview = DashboardOverviewData(
           totalSales: CurrencyUtils.format(stats.totalSales),
@@ -318,17 +305,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(height: 14),
                         DashboardOwnerSnapshot(
                           todayDeliveries: todayDeliveries.length,
-                          todayNormalCans: todayNormalCans,
-                          todayCoolCans: todayCoolCans,
+                          todayTotalUnits: todayTotalUnits,
+                          todaySales: todaySales,
+                          productBreakdown: productBreakdown,
                         ),
                         const SizedBox(height: 14),
-                        DashboardPendingRequestsCard(
-                          requests: pendingRequestCards,
-                          onOpenOrders: () => context.go(AppRoutes.orders),
-                          customerNameFor: (customerId) =>
-                              repo.customerById(customerId)?.name ??
-                              'Customer',
-                        ),
+                        DashboardShopCanBalanceCard(balance: shopCanBalance),
                         const SizedBox(height: 14),
                         DashboardOverviewCard(
                           month: _month,

@@ -7,6 +7,7 @@ import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/customer_delete_dialog.dart';
 import 'package:sri_sai_ro_water/core/widgets/customer_info_bar.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customer_detail_widgets.dart';
+import 'package:sri_sai_ro_water/features/deliveries/record_empty_can_sheet.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
 class CustomerDetailScreen extends StatefulWidget {
@@ -103,6 +104,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
           widget.customerId,
           currentMonth,
         );
+        final canBalance = repo.customerCanBalance(widget.customerId);
         final idx = repo.customers.indexWhere((c) => c.id == widget.customerId);
 
         return Scaffold(
@@ -128,6 +130,27 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                         advanceCredit: advanceCredit,
                         previousPending: previousPending,
                         monthStats: monthly,
+                      ),
+                      CustomerCanBalanceCard(
+                        balance: canBalance,
+                        onRecordReturn: () async {
+                          final saved = await showRecordEmptyCanReturnSheet(
+                            context,
+                            customerId: widget.customerId,
+                          );
+                          if (!context.mounted || saved != true) return;
+                          final name = customer.name;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Empty return saved for $name',
+                                style: GoogleFonts.poppins(fontSize: 13),
+                              ),
+                              behavior: SnackBarBehavior.floating,
+                              backgroundColor: const Color(0xFF0D9488),
+                            ),
+                          );
+                        },
                       ),
                       CustomerMonthlyOverviewSection(
                         statsForMonth: (m) => repo.monthlyStatsForCustomer(
