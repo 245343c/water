@@ -82,7 +82,7 @@ String? redirectForRole({
   }
 
   if (location == AppRoutes.driverToday || location == AppRoutes.driverOrders) {
-    return AppRoutes.driverRoute;
+    return AppRoutes.driverCustomers;
   }
 
   return switch (user.role) {
@@ -102,7 +102,7 @@ String homeRouteForRole(
 }) {
   return switch (user.role) {
     AppRole.admin => AppRoutes.dashboard,
-    AppRole.driver => AppRoutes.driverRoute,
+    AppRole.driver => AppRoutes.driverCustomers,
     AppRole.customer => _customerHomeRoute(
       user,
       customerProfile: customerProfile,
@@ -142,9 +142,9 @@ String? _driverRedirect(String location) {
   if (location == AppRoutes.customers || location == AppRoutes.orders) {
     return AppRoutes.driverCustomers;
   }
-  if (location == AppRoutes.dashboard) return AppRoutes.driverRoute;
+  if (location == AppRoutes.dashboard) return AppRoutes.driverCustomers;
   if (isCustomerRoute(location) || location == AppRoutes.welcome) {
-    return AppRoutes.driverRoute;
+    return AppRoutes.driverCustomers;
   }
   return null;
 }

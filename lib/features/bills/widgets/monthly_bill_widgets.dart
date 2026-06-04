@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
-import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
+import 'package:sri_sai_ro_water/core/widgets/customer_info_bar.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/data/models/monthly_stats.dart';
@@ -15,16 +13,16 @@ import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_wid
 abstract final class MonthlyBillColors {
   static const Color billBlue = Color(0xFF1E40AF);
   static const Color tableNavy = Color(0xFF1E3A8A);
-  static const Color titleNavy = AppColors.textPrimary;
-  static const Color tableHeaderBg = AppColors.surface;
+  static const Color titleNavy = CustomersColors.titleNavy;
+  static const Color tableHeaderBg = CustomersColors.screenBg;
   static const Color tableTotalBg = Color(0xFFEFF6FF);
-  static const Color screenBg = AppColors.surface;
-  static const Color labelGrey = Color(0xFF6B7280);
-  static const Color balanceRed = Color(0xFFDC2626);
-  static const Color primaryBtn = AppColors.primary;
+  static const Color screenBg = CustomersColors.screenBg;
+  static const Color labelGrey = CustomersColors.labelGrey;
+  static const Color balanceRed = CustomersColors.balanceRed;
+  static const Color primaryBtn = CustomersColors.addButton;
   static const Color whatsappBtn = Color(0xFF25D366);
   static const Color tableBorder = Color(0xFFD1D5DB);
-  static const Color cardBorder = AppColors.cardBorder;
+  static const Color cardBorder = CustomersColors.cardBorder;
   static const Color rowAlt = Color(0xFFF8FAFF);
   static const Color amountGreen = Color(0xFF16A34A);
   static const Color paidStampBg = Color(0xFFDCFCE7);
@@ -98,32 +96,48 @@ class MonthlyBillScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light.copyWith(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-      ),
-      child: PremiumResponsiveBody(maxWidth: 1180, child: child),
-    );
+    return CustomersScaffold(usePageGradient: true, child: child);
   }
 }
 
 class MonthlyBillHeader extends StatelessWidget {
-  const MonthlyBillHeader({super.key, required this.onBack, this.onShare});
+  const MonthlyBillHeader({
+    super.key,
+    required this.onBack,
+    this.monthLabel,
+    this.onShare,
+  });
   final VoidCallback onBack;
+  final String? monthLabel;
   final VoidCallback? onShare;
 
   @override
   Widget build(BuildContext context) {
     return AdminPageHeader(
       title: 'Monthly Bill',
-      subtitle: 'PDF preview and sharing',
+      subtitle: monthLabel ?? 'PDF preview and sharing',
       onBack: onBack,
       trailing: IconButton(
         icon: const Icon(Icons.ios_share_rounded, color: Colors.white, size: 22),
         onPressed: onShare,
       ),
     );
+  }
+}
+
+class MonthlyBillCustomerBar extends StatelessWidget {
+  const MonthlyBillCustomerBar({
+    super.key,
+    required this.customer,
+    required this.colorIndex,
+  });
+
+  final Customer customer;
+  final int colorIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomerInfoBar(customer: customer, colorIndex: colorIndex);
   }
 }
 
@@ -157,7 +171,7 @@ class MonthlyBillDocument extends StatelessWidget {
     final productLabels = productLabelsFrom(deliveries);
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -966,29 +980,29 @@ class MonthlyBillActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: MonthlyBillColors.screenBg,
+      color: CustomersColors.screenBg,
       child: SafeArea(
+        top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
           child: Row(
             children: [
               Expanded(
                 child: SizedBox(
-                  height: 52,
+                  height: 48,
                   child: FilledButton.icon(
                     onPressed: onDownload,
                     icon: const Icon(Icons.download_outlined, size: 20),
-                    label: const Text('Download PDF'),
+                    label: Text(
+                      'Download PDF',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                    ),
                     style: FilledButton.styleFrom(
                       backgroundColor: MonthlyBillColors.primaryBtn,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                      ),
-                      textStyle: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -997,21 +1011,23 @@ class MonthlyBillActionBar extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: SizedBox(
-                  height: 52,
-                  child: FilledButton.icon(
+                  height: 48,
+                  child: OutlinedButton.icon(
                     onPressed: onWhatsApp,
-                    icon: const Icon(Icons.chat, size: 20),
-                    label: const Text('Send via WhatsApp'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: MonthlyBillColors.whatsappBtn,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
+                    icon: const Icon(Icons.chat_rounded, size: 20),
+                    label: Text(
+                      'WhatsApp',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: MonthlyBillColors.whatsappBtn,
+                      side: BorderSide(
+                        color: MonthlyBillColors.whatsappBtn.withValues(
+                          alpha: 0.4,
+                        ),
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                      ),
-                      textStyle: GoogleFonts.poppins(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),

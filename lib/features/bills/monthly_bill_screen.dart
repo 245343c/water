@@ -2,18 +2,27 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/services/bill_share_service.dart';
 import 'package:sri_sai_ro_water/core/services/monthly_bill_pdf_service.dart';
+import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/core/utils/delivery_day_grouping.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/bills/widgets/monthly_bill_widgets.dart';
+import 'package:sri_sai_ro_water/features/bills/widgets/monthly_summary_widgets.dart';
+import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 class MonthlyBillScreen extends StatefulWidget {
-  const MonthlyBillScreen({super.key, required this.customerId});
+  const MonthlyBillScreen({
+    super.key,
+    required this.customerId,
+    this.initialMonth,
+  });
 
   final String customerId;
+  final DateTime? initialMonth;
 
   @override
   State<MonthlyBillScreen> createState() => _MonthlyBillScreenState();
@@ -26,7 +35,11 @@ class _MonthlyBillScreenState extends State<MonthlyBillScreen> {
   @override
   void initState() {
     super.initState();
-    _month = DateTime(DateTime.now().year, DateTime.now().month);
+    final now = DateTime.now();
+    final initial = widget.initialMonth;
+    _month = initial != null
+        ? DateTime(initial.year, initial.month)
+        : DateTime(now.year, now.month);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final repo = context.read<WaterPlantRepository>();
@@ -35,12 +48,26 @@ class _MonthlyBillScreenState extends State<MonthlyBillScreen> {
     });
   }
 
+  void _shiftMonth(int delta) {
+    setState(() {
+      _month = DateTime(_month.year, _month.month + delta);
+    });
+  }
+
+  bool get _canGoNext {
+    final now = DateTime.now();
+    final current = DateTime(now.year, now.month);
+    final next = DateTime(_month.year, _month.month + 1);
+    return !next.isAfter(current);
+  }
+
   void _snack(String msg, {bool isError = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg),
+        content: Text(msg, style: GoogleFonts.poppins()),
         backgroundColor: isError ? Colors.red.shade700 : null,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -85,7 +112,7 @@ class _MonthlyBillScreenState extends State<MonthlyBillScreen> {
         file,
         file.uri.pathSegments.last,
       );
-      _snack('PDF saved (${CurrencySymbol.rupee} amounts)\n$savedPath');
+      _snack('PDF saved (${CurrencyUtils.symbol} amounts)\n$savedPath');
     });
   }
 
@@ -112,8 +139,24 @@ class _MonthlyBillScreenState extends State<MonthlyBillScreen> {
         final customer = repo.customerById(widget.customerId);
         if (customer == null) {
           return Scaffold(
-            appBar: AppBar(title: const Text('Monthly Bill (PDF)')),
-            body: const Center(child: Text('Customer not found')),
+            backgroundColor: CustomersColors.screenBg,
+            body: MonthlyBillScaffold(
+              child: Column(
+                children: [
+                  MonthlyBillHeader(onBack: () => context.pop()),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'Customer not found',
+                        style: GoogleFonts.poppins(
+                          color: CustomersColors.labelGrey,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         }
 
@@ -122,37 +165,62 @@ class _MonthlyBillScreenState extends State<MonthlyBillScreen> {
           repo.deliveriesForCustomer(widget.customerId, month: _month),
         );
         final stats = repo.monthlyStatsForCustomer(widget.customerId, _month);
+        final colorIndex =
+            repo.customers.indexWhere((c) => c.id == widget.customerId);
 
         return Scaffold(
-          backgroundColor: MonthlyBillColors.screenBg,
+          backgroundColor: CustomersColors.screenBg,
           body: Stack(
             children: [
               MonthlyBillScaffold(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     MonthlyBillHeader(
                       onBack: () => context.pop(),
+                      monthLabel: _month.monthYear,
                       onShare: _busy ? null : () => _sharePdf(),
                     ),
                     Expanded(
-                      child: ListView(
-                        children: [
-                          MonthlyBillDocument(
-                            businessName: settings.businessName,
-                            businessAddress: settings.address,
-                            businessPhone: settings.phone,
-                            businessEmail: settings.email,
-                            month: _month,
-                            customer: customer,
-                            deliveries: deliveries,
-                            stats: stats,
-                          ),
-                        ],
+                      child: CustomersListPanel(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            MonthlyBillCustomerBar(
+                              customer: customer,
+                              colorIndex: colorIndex >= 0 ? colorIndex : 0,
+                            ),
+                            MonthlySummaryMonthNav(
+                              month: _month,
+                              onPrev: () => _shiftMonth(-1),
+                              onNext: () => _shiftMonth(1),
+                              canGoNext: _canGoNext,
+                            ),
+                            Expanded(
+                              child: ListView(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                children: [
+                                  MonthlyBillDocument(
+                                    businessName: settings.businessName,
+                                    businessAddress: settings.address,
+                                    businessPhone: settings.phone,
+                                    businessEmail: settings.email,
+                                    month: _month,
+                                    customer: customer,
+                                    deliveries: deliveries,
+                                    stats: stats,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     MonthlyBillActionBar(
                       onDownload: _busy ? () {} : _downloadPdf,
-                      onWhatsApp: _busy ? () {} : () => _sharePdf(forWhatsApp: true),
+                      onWhatsApp:
+                          _busy ? () {} : () => _sharePdf(forWhatsApp: true),
                     ),
                   ],
                 ),
@@ -160,7 +228,9 @@ class _MonthlyBillScreenState extends State<MonthlyBillScreen> {
               if (_busy)
                 const ColoredBox(
                   color: Color(0x66000000),
-                  child: Center(child: CircularProgressIndicator(color: Colors.white)),
+                  child: Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
                 ),
             ],
           ),

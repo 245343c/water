@@ -168,6 +168,9 @@ function orderPayload(orderId, data) {
   const deliveryStartedAt = data.deliveryStartedAt && data.deliveryStartedAt.toDate
     ? data.deliveryStartedAt.toDate()
     : data.deliveryStartedAt;
+  const fulfilledAt = data.fulfilledAt && data.fulfilledAt.toDate
+    ? data.fulfilledAt.toDate()
+    : data.fulfilledAt;
   return {
     id: orderId,
     customerId: data.customerId || "",
@@ -176,8 +179,12 @@ function orderPayload(orderId, data) {
     normalQty: data.normalQty || 0,
     coolQty: data.coolQty || 0,
     status: data.status || "pending",
+    source: data.source || "customerApp",
+    paymentMode: data.paymentMode || "billLater",
     customerNote: data.customerNote || "",
     adminResponse: data.adminResponse || "",
+    lineItems: data.lineItems || [],
+    walkInContact: data.walkInContact || null,
     createdAt: createdAt instanceof Date ? createdAt.toISOString() : "",
     respondedAt: respondedAt instanceof Date ? respondedAt.toISOString() : "",
     driverAcceptedAt: driverAcceptedAt instanceof Date
@@ -186,6 +193,9 @@ function orderPayload(orderId, data) {
     deliveryStartedAt: deliveryStartedAt instanceof Date
       ? deliveryStartedAt.toISOString()
       : "",
+    fulfilledAt: fulfilledAt instanceof Date ? fulfilledAt.toISOString() : "",
+    fulfilledBy: data.fulfilledBy || "",
+    adminDispatchNote: data.adminDispatchNote || "",
   };
 }
 
@@ -203,6 +213,111 @@ function customerPayload(customerId, data) {
     productPrices: data.productPrices || [],
     appUserId: data.appUserId || null,
   };
+}
+
+const CAN_PRODUCT_ID = "__water_cans__";
+const CHANNEL_PRODUCT_ID = "__delivery_channels__";
+
+function cleanOrderLineItems(value) {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new HttpsError("invalid-argument", "Add at least one product.");
+  }
+
+  return value.map((raw) => {
+    const item = raw || {};
+    const productId = cleanText(item.productId, "Product id");
+    const variantId = cleanText(item.variantId, "Variant id");
+    const label = cleanText(item.label, "Label");
+    const quantity = Number(item.quantity);
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      throw new HttpsError("invalid-argument", "Invalid quantity.");
+    }
+    return { productId, variantId, label, quantity };
+  });
+}
+
+function orderLineTotals(lineItems) {
+  return lineItems.reduce(
+    (totals, line) => {
+      if (line.productId === CAN_PRODUCT_ID && line.variantId === "normal") {
+        totals.normalQty += line.quantity;
+      }
+      if (line.productId === CAN_PRODUCT_ID && line.variantId === "cool") {
+        totals.coolQty += line.quantity;
+      }
+      return totals;
+    },
+    { normalQty: 0, coolQty: 0 },
+  );
+}
+
+async function walkInProductPrices(shopId) {
+  const shopSnap = await db.collection("shops").doc(shopId).get();
+  const shop = shopSnap.data() || {};
+  const prices = [
+    {
+      productId: CAN_PRODUCT_ID,
+      variantId: "normal",
+      unitPrice: Number(shop.normalPrice) || 20,
+      enabled: true,
+    },
+    {
+      productId: CAN_PRODUCT_ID,
+      variantId: "cool",
+      unitPrice: Number(shop.coolPrice) || 30,
+      enabled: true,
+    },
+    {
+      productId: CHANNEL_PRODUCT_ID,
+      variantId: "lorryLiters",
+      unitPrice: Number(shop.lorryLiterPrice) || 0,
+      enabled: true,
+    },
+    {
+      productId: CHANNEL_PRODUCT_ID,
+      variantId: "fullLorry",
+      unitPrice: Number(shop.fullLorryPrice) || 0,
+      enabled: true,
+    },
+    {
+      productId: CHANNEL_PRODUCT_ID,
+      variantId: "autoLiters",
+      unitPrice: Number(shop.autoLiterPrice) || 0,
+      enabled: true,
+    },
+    {
+      productId: CHANNEL_PRODUCT_ID,
+      variantId: "autoCans",
+      unitPrice: Number(shop.autoCanPrice) || 0,
+      enabled: true,
+    },
+  ];
+
+  const productsSnap = await db
+    .collection("shops")
+    .doc(shopId)
+    .collection("products")
+    .where("active", "==", true)
+    .get();
+  for (const doc of productsSnap.docs) {
+    const product = doc.data();
+    for (const variant of product.variants || []) {
+      prices.push({
+        productId: doc.id,
+        variantId: String(variant.id || ""),
+        unitPrice: Number(variant.price) || 0,
+        enabled: true,
+      });
+    }
+  }
+  return prices;
+}
+
+function dispatchItemsSummary(lineItems) {
+  return lineItems
+    .filter((line) => line.quantity > 0)
+    .map((line) => `${line.quantity} ${line.label}`)
+    .join(" · ");
 }
 
 function shopPayload(shopId, data) {
@@ -1328,6 +1443,165 @@ exports.respondToCustomerOrder = onCall(callableOptions, async (request) => {
     adminResponse,
     respondedAt: new Date(),
   });
+});
+
+exports.createWalkInDispatch = onCall(callableOptions, async (request) => {
+  const adminCtx = await requireAdmin(request.auth);
+  const callerName = cleanText(request.data.callerName, "Caller name");
+  const callerPhone = normalizePhone(request.data.callerPhone);
+  const callerAddress = cleanText(request.data.callerAddress, "Delivery address");
+  const callerPlace = String(request.data.callerPlace || "").trim();
+  const customerNote = String(request.data.note || "").trim();
+  const lineItems = cleanOrderLineItems(request.data.lineItems);
+  const totals = orderLineTotals(lineItems);
+  const productPrices = await walkInProductPrices(adminCtx.shopId);
+
+  const shopRef = db.collection("shops").doc(adminCtx.shopId);
+  const customerRef = shopRef.collection("customers").doc();
+  const orderRef = shopRef.collection("orders").doc();
+  const now = admin.firestore.FieldValue.serverTimestamp();
+
+  const walkInContact = {
+    name: callerName,
+    phone: callerPhone,
+    address: callerAddress,
+    place: callerPlace,
+  };
+
+  const customer = {
+    name: callerName,
+    phone: callerPhone,
+    normalizedPhone: callerPhone,
+    email: "",
+    place: callerPlace,
+    address: callerAddress,
+    routeId: null,
+    paymentFrequency: "Monthly",
+    billingMode: "instantDispatch",
+    productPrices,
+    appUserId: null,
+    active: true,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const order = {
+    shopId: adminCtx.shopId,
+    customerId: customerRef.id,
+    normalQty: totals.normalQty,
+    coolQty: totals.coolQty,
+    status: "accepted",
+    source: "phoneCall",
+    paymentMode: "collectAtDoor",
+    customerNote,
+    adminResponse: "Walk-in — driver collects payment at door.",
+    lineItems,
+    walkInContact,
+    respondedAt: now,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const batch = db.batch();
+  batch.set(customerRef, customer);
+  batch.set(orderRef, order);
+  appendOrderNotification({
+    batch,
+    shopId: adminCtx.shopId,
+    type: "orderAccepted",
+    audience: "driver",
+    title: "Walk-in delivery",
+    body: `${callerName} · ${dispatchItemsSummary(lineItems)}`,
+    customerId: customerRef.id,
+    orderId: orderRef.id,
+    now,
+  });
+  await batch.commit();
+
+  return {
+    order: orderPayload(orderRef.id, {
+      ...order,
+      createdAt: new Date(),
+      respondedAt: new Date(),
+    }),
+    customer: customerPayload(customerRef.id, customer),
+  };
+});
+
+exports.fulfillDispatchOrder = onCall(callableOptions, async (request) => {
+  const staffCtx = await requireShopStaff(request.auth, { allowDriver: true });
+  const orderId = cleanText(request.data.orderId, "Order id");
+  const orderRef = db
+    .collection("shops")
+    .doc(staffCtx.shopId)
+    .collection("orders")
+    .doc(orderId);
+  const orderSnap = await orderRef.get();
+  const order = orderSnap.data();
+  if (!order || order.status !== "accepted" || order.fulfilledAt) {
+    throw new HttpsError("failed-precondition", "Active dispatch not found.");
+  }
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const fulfilledBy = staffCtx.role === "driver" ? "driver" : "admin";
+  await orderRef.set({
+    fulfilledAt: now,
+    fulfilledBy,
+    updatedAt: now,
+  }, { merge: true });
+
+  return orderPayload(orderId, {
+    ...order,
+    fulfilledAt: new Date(),
+    fulfilledBy,
+  });
+});
+
+exports.updateWalkInDispatch = onCall(callableOptions, async (request) => {
+  const adminCtx = await requireAdmin(request.auth);
+  const orderId = cleanText(request.data.orderId, "Order id");
+  const action = cleanText(request.data.action, "Action");
+  const orderRef = db
+    .collection("shops")
+    .doc(adminCtx.shopId)
+    .collection("orders")
+    .doc(orderId);
+  const orderSnap = await orderRef.get();
+  const order = orderSnap.data();
+  if (!order || order.source !== "phoneCall") {
+    throw new HttpsError("failed-precondition", "Walk-in dispatch not found.");
+  }
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const updates = { updatedAt: now };
+  let responseOrder = { ...order };
+
+  if (action === "cancel") {
+    if (order.fulfilledAt) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Already delivered — cannot cancel.",
+      );
+    }
+    updates.status = "cancelled";
+    responseOrder.status = "cancelled";
+  } else if (action === "updateNote") {
+    updates.adminDispatchNote = String(request.data.adminNote || "").trim();
+    responseOrder.adminDispatchNote = updates.adminDispatchNote;
+  } else if (action === "markDelivered") {
+    if (order.fulfilledAt) {
+      throw new HttpsError("failed-precondition", "Already marked delivered.");
+    }
+    updates.fulfilledAt = now;
+    updates.fulfilledBy = "admin";
+    responseOrder.fulfilledAt = new Date();
+    responseOrder.fulfilledBy = "admin";
+  } else {
+    throw new HttpsError("invalid-argument", "Unsupported action.");
+  }
+
+  await orderRef.set(updates, { merge: true });
+  return orderPayload(orderId, responseOrder);
 });
 
 exports.getCustomerPortalData = onCall(callableOptions, async (request) => {

@@ -65,23 +65,16 @@ class _DriverRouteScreenState extends State<DriverRouteScreen> {
         final driverAlerts = notifications.unreadCountForDriver();
 
         return Scaffold(
-          backgroundColor: DriverColors.screenBg,
-          body: DriverScaffold(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                DriverHeader(
-                  title: 'My route',
-                  subtitle: acceptedOrders.isNotEmpty
-                      ? '${acceptedOrders.length} confirmed request(s) to deliver'
-                      : assignedShop == null
-                      ? 'Driver is not linked to a water plant'
-                      : '${assignedShop.name} customers only',
-                  trailing: _DriverNotificationButton(
-                    unreadCount: driverAlerts,
-                    onTap: () => _showNotifications(context),
-                  ),
-                ),
+          backgroundColor: DriverColors.contentBg,
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _DeliveriesToolbar(
+                dispatchCount: acceptedOrders.length,
+                shopName: assignedShop?.name,
+                unreadAlerts: driverAlerts,
+                onNotifications: () => _showNotifications(context),
+              ),
                 Expanded(
                   child: ListView(
                     children: [
@@ -113,7 +106,7 @@ class _DriverRouteScreenState extends State<DriverRouteScreen> {
                         ),
                       ],
                       DriverSectionTitle(
-                        title: "Today's stops (${pendingRoute.length} left)",
+                        title: 'Regular customers (${pendingRoute.length} left)',
                         trailing: TextButton(
                           onPressed: () =>
                               context.go(AppRoutes.driverCustomers),
@@ -204,8 +197,7 @@ class _DriverRouteScreenState extends State<DriverRouteScreen> {
                     ],
                   ),
                 ),
-              ],
-            ),
+            ],
           ),
         );
       },
@@ -262,29 +254,67 @@ class _DriverRouteScreenState extends State<DriverRouteScreen> {
       customer.routeId == null || customer.routeId!.trim().isEmpty;
 }
 
-class _DriverNotificationButton extends StatelessWidget {
-  const _DriverNotificationButton({
-    required this.unreadCount,
-    required this.onTap,
+class _DeliveriesToolbar extends StatelessWidget {
+  const _DeliveriesToolbar({
+    required this.dispatchCount,
+    required this.shopName,
+    required this.unreadAlerts,
+    required this.onNotifications,
   });
 
-  final int unreadCount;
-  final VoidCallback onTap;
+  final int dispatchCount;
+  final String? shopName;
+  final int unreadAlerts;
+  final VoidCallback onNotifications;
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: 'Notifications',
-      onPressed: onTap,
-      style: IconButton.styleFrom(
-        backgroundColor: Colors.white.withValues(alpha: 0.14),
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    return Container(
+      decoration: const BoxDecoration(
+        color: DriverColors.headerStart,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
       ),
-      icon: Badge(
-        isLabelVisible: unreadCount > 0,
-        label: Text('$unreadCount'),
-        child: const Icon(Icons.notifications_rounded),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        MediaQuery.paddingOf(context).top + 10,
+        12,
+        14,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Deliveries',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  dispatchCount > 0
+                      ? '$dispatchCount dispatch(es) waiting'
+                      : shopName ?? 'Your assigned customers',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white.withValues(alpha: 0.88),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: onNotifications,
+            icon: Badge(
+              isLabelVisible: unreadAlerts > 0,
+              label: Text('$unreadAlerts'),
+              child: const Icon(Icons.notifications_outlined, color: Colors.white),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -235,18 +235,18 @@ GoRouter createAppRouter(AuthRepository auth, WaterPlantRepository plant) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: AppRoutes.driverRoute,
+                path: AppRoutes.driverCustomers,
                 pageBuilder: (context, state) =>
-                    const NoTransitionPage(child: DriverRouteScreen()),
+                    const NoTransitionPage(child: DriverCustomersScreen()),
               ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: AppRoutes.driverCustomers,
+                path: AppRoutes.driverRoute,
                 pageBuilder: (context, state) =>
-                    const NoTransitionPage(child: DriverCustomersScreen()),
+                    const NoTransitionPage(child: DriverRouteScreen()),
               ),
             ],
           ),
@@ -264,8 +264,10 @@ GoRouter createAppRouter(AuthRepository auth, WaterPlantRepository plant) {
       GoRoute(
         path: '/driver/customers/:id',
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) =>
-            DriverCustomerDetailScreen(customerId: state.pathParameters['id']!),
+        builder: (context, state) => DriverCustomerDetailScreen(
+          customerId: state.pathParameters['id']!,
+          dispatchOrderId: state.uri.queryParameters['orderId'],
+        ),
       ),
       GoRoute(
         path: '/customers/add',
@@ -326,8 +328,18 @@ GoRouter createAppRouter(AuthRepository auth, WaterPlantRepository plant) {
       GoRoute(
         path: '/customers/:id/bill',
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) =>
-            MonthlyBillScreen(customerId: state.pathParameters['id']!),
+        builder: (context, state) {
+          final year = int.tryParse(state.uri.queryParameters['year'] ?? '');
+          final month = int.tryParse(state.uri.queryParameters['month'] ?? '');
+          DateTime? initialMonth;
+          if (year != null && month != null && month >= 1 && month <= 12) {
+            initialMonth = DateTime(year, month);
+          }
+          return MonthlyBillScreen(
+            customerId: state.pathParameters['id']!,
+            initialMonth: initialMonth,
+          );
+        },
       ),
       GoRoute(
         path: '/customers/:id/payment',

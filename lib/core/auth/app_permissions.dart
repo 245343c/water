@@ -19,6 +19,7 @@ abstract final class AppPermissions {
             'customers.write',
             'orders.read',
             'orders.respond',
+            'orders.dispatch',
             'delivery.create',
             'payments',
             'bills',

@@ -82,30 +82,28 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return Consumer<WaterPlantRepository>(
       builder: (context, repo, _) {
         final deliveries = repo.deliveriesInRange(_start, _end);
-        final daily = repo.dailyCanTotals(_start, _end);
         final cans = deliveries.fold<int>(0, (s, d) => s + d.normalQty + d.coolQty);
         final normalCans = deliveries.fold<int>(0, (s, d) => s + d.normalQty);
         final coolCans = deliveries.fold<int>(0, (s, d) => s + d.coolQty);
+        final catalogUnits = deliveries.fold<int>(0, (s, d) => s + d.bottleQty);
         final sales = deliveries.fold<double>(0, (s, d) => s + d.totalAmount);
         final collected = repo.paymentsTotalInRange(_start, _end);
         final activeCustomers = repo.activeCustomersInRange(_start, _end);
-        var pending = 0.0;
-        for (final c in repo.customers) {
-          pending += repo.customerBalance(c.id).clamp(0.0, double.infinity);
-        }
         final daysInRange = _end.difference(_start).inDays + 1;
         final avgCansPerDay = daysInRange > 0 ? cans / daysInRange : 0.0;
-        final chartBuckets = reportsChartBuckets(daily, _start, _end);
 
         return Scaffold(
           backgroundColor: ReportsColors.screenBg,
           body: ReportsScaffold(
-            child: Column(
-              children: [
-                ReportsHeader(onBack: () => context.pop()),
-                Expanded(
-                  child: ListView(
-                    children: [
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  ReportsHeader(onBack: () => context.pop()),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      children: [
                       ReportsPeriodChips(
                         selected: _preset,
                         onSelect: (p) {
@@ -127,25 +125,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         cans: cans,
                       ),
                       ReportsKpiGrid(
-                        totalCans: cans,
                         normalCans: normalCans,
                         coolCans: coolCans,
-                        totalSales: sales,
-                        collected: collected,
+                        catalogUnits: catalogUnits,
                         activeCustomers: activeCustomers,
-                        pendingAmount: pending,
                       ),
                       ReportsInsightStrip(
                         deliveryCount: deliveries.length,
                         avgCansPerDay: avgCansPerDay,
                         collectionRate: sales > 0 ? (collected / sales).clamp(0.0, 1.0) : 0,
                       ),
-                      ReportsCansOverviewCard(buckets: chartBuckets),
-                      const SizedBox(height: 24),
-                    ],
+                      const ReportsScopeNote(),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );

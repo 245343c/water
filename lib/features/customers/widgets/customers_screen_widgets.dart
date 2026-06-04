@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
+import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 
 /// Customers screen theme (matches mockup).
 abstract final class CustomersColors {
@@ -33,6 +35,28 @@ abstract final class CustomersColors {
           end: Alignment.bottomCenter,
           colors: [headerTop, headerBottom],
         ),
+      );
+
+  /// Matches dashboard / products list chrome.
+  static BoxDecoration get screenGradient => const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          stops: [0, 0.36, 1],
+          colors: [headerTop, headerBottom, AppColors.surface],
+        ),
+      );
+
+  static BoxDecoration get whiteCard => BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x40000000),
+            blurRadius: 20,
+            offset: Offset(0, 8),
+          ),
+        ],
       );
 }
 
@@ -223,7 +247,7 @@ class CustomersSearchRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: CustomersColors.headerGradient,
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 14),
       child: Row(
         children: [
           Expanded(
@@ -342,9 +366,15 @@ class CustomersFilterChips extends StatelessWidget {
 }
 
 class CustomersScaffold extends StatelessWidget {
-  const CustomersScaffold({super.key, required this.child});
+  const CustomersScaffold({
+    super.key,
+    required this.child,
+    this.usePageGradient = false,
+  });
 
   final Widget child;
+  /// When true, uses dashboard-style gradient + wide layout (Customers / Add customer).
+  final bool usePageGradient;
 
   @override
   Widget build(BuildContext context) {
@@ -353,7 +383,55 @@ class CustomersScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: child,
+      child: usePageGradient
+          ? Container(
+              decoration: CustomersColors.screenGradient,
+              child: PremiumResponsiveBody(
+                maxWidth: 1180,
+                horizontalPadding: 4,
+                child: child,
+              ),
+            )
+          : child,
+    );
+  }
+}
+
+/// Fixed bottom-right add action (Customers list).
+class CustomersAddButton extends StatelessWidget {
+  const CustomersAddButton({super.key, required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 8,
+      shadowColor: const Color(0xFF16A34A).withValues(alpha: 0.45),
+      borderRadius: BorderRadius.circular(16),
+      color: const Color(0xFF16A34A),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.person_add_alt_1_rounded, color: Colors.white, size: 22),
+              const SizedBox(width: 6),
+              Text(
+                'Add customer',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

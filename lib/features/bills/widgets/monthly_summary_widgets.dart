@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
-import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/core/widgets/monthly_metrics_list.dart';
@@ -15,23 +12,23 @@ import 'package:sri_sai_ro_water/core/widgets/customer_info_bar.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class MonthlySummaryColors {
-  static const Color screenBg = AppColors.surface;
-  static const Color titleNavy = AppColors.textPrimary;
+  static const Color screenBg = CustomersColors.screenBg;
+  static const Color titleNavy = CustomersColors.titleNavy;
   static const Color valueNavy = Color(0xFF1E40AF);
   static const Color labelGrey = Color(0xFF6B7280);
-  static const Color cardBorder = AppColors.cardBorder;
-  static const Color divider = AppColors.cardBorder;
+  static const Color cardBorder = CustomersColors.cardBorder;
+  static const Color divider = CustomersColors.divider;
   static const Color statBlue = Color(0xFF2563EB);
   static const Color statGreen = Color(0xFF16A34A);
   static const Color statOrange = Color(0xFFEA580C);
   static const Color statRed = Color(0xFFDC2626);
-  static const Color linkBlue = AppColors.primary;
-  static const Color primaryBtn = AppColors.primary;
+  static const Color linkBlue = CustomersColors.addButton;
+  static const Color primaryBtn = CustomersColors.addButton;
   static const Color whatsapp = Color(0xFF25D366);
 
   static BoxDecoration get cardDecoration => BoxDecoration(
     color: Colors.white,
-    borderRadius: BorderRadius.circular(16),
+    borderRadius: BorderRadius.circular(14),
     border: Border.all(color: cardBorder),
     boxShadow: [
       BoxShadow(
@@ -646,7 +643,7 @@ class MonthlySummaryPdfButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: MonthlySummaryColors.screenBg,
+      color: CustomersColors.screenBg,
       child: SafeArea(
         top: false,
         child: Padding(
@@ -654,10 +651,15 @@ class MonthlySummaryPdfButton extends StatelessWidget {
           child: SizedBox(
             width: double.infinity,
             height: 48,
-            child: FilledButton(
+            child: FilledButton.icon(
               onPressed: onPressed,
+              icon: const Icon(Icons.picture_as_pdf_outlined, size: 20),
+              label: Text(
+                'View Monthly Bill (PDF)',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
               style: FilledButton.styleFrom(
-                backgroundColor: MonthlySummaryColors.primaryBtn,
+                backgroundColor: CustomersColors.addButton,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -667,7 +669,6 @@ class MonthlySummaryPdfButton extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              child: const Text('View Monthly Bill (PDF)'),
             ),
           ),
         ),
@@ -740,12 +741,6 @@ class MonthlySummaryScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light.copyWith(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-      ),
-      child: PremiumResponsiveBody(maxWidth: 1180, child: child),
-    );
+    return CustomersScaffold(usePageGradient: true, child: child);
   }
 }

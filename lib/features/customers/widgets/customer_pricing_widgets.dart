@@ -228,69 +228,91 @@ class _CustomerPricingEditorState extends State<CustomerPricingEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final hPad = widget.embedded ? 16.0 : 16.0;
     final allItems = _allSelectableItems();
     final enabledItems = allItems.where((item) => item.enabled).toList();
+
+    if (widget.embedded) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _UnifiedProductsCard(
+            embedded: true,
+            items: allItems,
+            onToggle: _toggleItem,
+          ),
+          if (enabledItems.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _EnabledItemsPricingCard(
+              embedded: true,
+              items: enabledItems,
+              onDisable: (item) => _toggleItem(item),
+              onPriceChanged: _setItemPrice,
+            ),
+          ],
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (!widget.embedded)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Products & pricing',
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AddEditCustomerColors.labelGrey,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Set what this customer buys and their rates',
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          color: AddEditCustomerColors.labelGrey.withValues(alpha: 0.85),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: _resetToShopRates,
-                  icon: const Icon(Icons.refresh_rounded, size: 16),
-                  label: Text(
-                    'Shop rates',
-                    style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AddEditCustomerColors.primaryBtn,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                  ),
-                ),
-              ],
-            ),
-          ),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: hPad),
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Products & pricing',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AddEditCustomerColors.labelGrey,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Set what this customer buys and their rates',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: AddEditCustomerColors.labelGrey.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _resetToShopRates,
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: Text(
+                  'Shop rates',
+                  style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: AddEditCustomerColors.primaryBtn,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               _UnifiedProductsCard(
-                embedded: widget.embedded,
+                embedded: false,
                 items: allItems,
                 onToggle: _toggleItem,
               ),
               if (enabledItems.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 _EnabledItemsPricingCard(
-                  embedded: widget.embedded,
+                  embedded: false,
                   items: enabledItems,
                   onDisable: (item) => _toggleItem(item),
                   onPriceChanged: _setItemPrice,
@@ -299,7 +321,7 @@ class _CustomerPricingEditorState extends State<CustomerPricingEditor> {
             ],
           ),
         ),
-        SizedBox(height: widget.embedded ? 4 : 8),
+        const SizedBox(height: 8),
       ],
     );
   }
@@ -340,27 +362,31 @@ class _UnifiedProductsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final grid = GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: items.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: 0.88,
+      ),
+      itemBuilder: (context, i) => _SelectableProductBox(
+        item: items[i],
+        onTap: () => onToggle(items[i]),
+      ),
+    );
+
+    if (embedded) return grid;
+
     return _PricingCardShell(
-      embedded: embedded,
+      embedded: false,
       icon: Icons.grid_view_rounded,
       iconColor: const Color(0xFF2563EB),
       title: 'Products',
       subtitle: 'Tap a card to enable/disable for this customer',
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: items.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-          childAspectRatio: 0.88,
-        ),
-        itemBuilder: (context, i) => _SelectableProductBox(
-          item: items[i],
-          onTap: () => onToggle(items[i]),
-        ),
-      ),
+      child: grid,
     );
   }
 }
@@ -449,27 +475,49 @@ class _EnabledItemsPricingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rows = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          _VariantPriceRow(
+            label: items[i].title,
+            enabled: items[i].enabled,
+            price: items[i].currentRate,
+            shopHint: items[i].shopRate,
+            onEnabled: (_) => onDisable(items[i]),
+            onPrice: (v) => onPriceChanged(items[i], v),
+          ),
+          if (i != items.length - 1) SizedBox(height: embedded ? 6 : 10),
+        ],
+      ],
+    );
+
+    if (embedded) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Customer prices',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AddEditCustomerColors.labelGrey,
+            ),
+          ),
+          const SizedBox(height: 8),
+          rows,
+        ],
+      );
+    }
+
     return _PricingCardShell(
-      embedded: embedded,
+      embedded: false,
       icon: Icons.currency_rupee_rounded,
       iconColor: const Color(0xFF2563EB),
       title: 'Enabled products',
       subtitle: 'Set customer-specific price only for selected products',
-      child: Column(
-        children: [
-          for (var i = 0; i < items.length; i++) ...[
-            _VariantPriceRow(
-              label: items[i].title,
-              enabled: items[i].enabled,
-              price: items[i].currentRate,
-              shopHint: items[i].shopRate,
-              onEnabled: (_) => onDisable(items[i]),
-              onPrice: (v) => onPriceChanged(items[i], v),
-            ),
-            if (i != items.length - 1) const SizedBox(height: 10),
-          ],
-        ],
-      ),
+      child: rows,
     );
   }
 }
@@ -610,7 +658,7 @@ class _PricingCardShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.only(bottom: embedded ? 10 : 12),
+      margin: EdgeInsets.only(bottom: embedded ? 0 : 12),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
@@ -668,7 +716,7 @@ class _PricingCardShell extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            padding: EdgeInsets.fromLTRB(14, 12, 14, embedded ? 10 : 14),
             child: child,
           ),
         ],

@@ -5,7 +5,13 @@ import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/data/models/order_status.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
-enum OrderListFilter { all, pending, accepted, rejected }
+enum OrderListFilter {
+  pending,
+  walkIn,
+  outForDelivery,
+  delivered,
+  all,
+}
 
 class OrdersFilterChips extends StatelessWidget {
   const OrdersFilterChips({
@@ -34,15 +40,21 @@ class OrdersFilterChips extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           _Chip(
-            label: 'Accepted',
-            selected: selected == OrderListFilter.accepted,
-            onTap: () => onSelected(OrderListFilter.accepted),
+            label: 'Walk-in',
+            selected: selected == OrderListFilter.walkIn,
+            onTap: () => onSelected(OrderListFilter.walkIn),
           ),
           const SizedBox(width: 8),
           _Chip(
-            label: 'Declined',
-            selected: selected == OrderListFilter.rejected,
-            onTap: () => onSelected(OrderListFilter.rejected),
+            label: 'Out for delivery',
+            selected: selected == OrderListFilter.outForDelivery,
+            onTap: () => onSelected(OrderListFilter.outForDelivery),
+          ),
+          const SizedBox(width: 8),
+          _Chip(
+            label: 'Done',
+            selected: selected == OrderListFilter.delivered,
+            onTap: () => onSelected(OrderListFilter.delivered),
           ),
           const SizedBox(width: 8),
           _Chip(
@@ -133,7 +145,10 @@ class OrderListCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = CustomersColors
         .avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
-    final statusStyle = _statusStyle(order.status);
+    final statusStyle = dispatchStatusStyle(order);
+    final statusLabel = order.isPhoneDispatch || order.isDelivered || order.isCancelled
+        ? order.dispatchTrackerLabel
+        : order.status.label;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -197,7 +212,7 @@ class OrderListCard extends StatelessWidget {
                           ),
                           _StatusBadge(
                             style: statusStyle,
-                            label: order.status.label,
+                            label: statusLabel,
                           ),
                         ],
                       ),
@@ -230,16 +245,31 @@ class OrderListCard extends StatelessWidget {
                               label: customerPhone,
                               color: CustomersColors.labelGrey,
                             ),
-                          if (order.normalQty > 0)
-                            _CanChip(
-                              label: '${order.normalQty} Normal',
-                              cool: false,
+                          if (order.isPhoneDispatch)
+                            _InfoChip(
+                              icon: Icons.call_rounded,
+                              label: 'Walk-in',
+                              color: const Color(0xFF7C3AED),
                             ),
-                          if (order.coolQty > 0)
-                            _CanChip(
-                              label: '${order.coolQty} Cool',
-                              cool: true,
-                            ),
+                          if (order.lineItems.isNotEmpty)
+                            ...order.lineItems.map(
+                              (l) => _CanChip(
+                                label: '${l.quantity} ${l.label}',
+                                cool: l.isCoolCan,
+                              ),
+                            )
+                          else ...[
+                            if (order.normalQty > 0)
+                              _CanChip(
+                                label: '${order.normalQty} Normal',
+                                cool: false,
+                              ),
+                            if (order.coolQty > 0)
+                              _CanChip(
+                                label: '${order.coolQty} Cool',
+                                cool: true,
+                              ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -411,6 +441,45 @@ _StatusStyle _statusStyle(OrderStatus status) {
   };
 }
 
+_StatusStyle dispatchStatusStyle(CustomerOrder order) {
+  if (order.isCancelled) {
+    return const _StatusStyle(
+      bg: Color(0xFFF3F4F6),
+      text: Color(0xFF4B5563),
+      border: Color(0xFFD1D5DB),
+    );
+  }
+  if (order.isDelivered) {
+    return const _StatusStyle(
+      bg: Color(0xFFECFDF5),
+      text: Color(0xFF166534),
+      border: Color(0xFF86EFAC),
+    );
+  }
+  if (order.isActiveDispatch) {
+    return const _StatusStyle(
+      bg: Color(0xFFEFF6FF),
+      text: Color(0xFF1D4ED8),
+      border: Color(0xFF93C5FD),
+    );
+  }
+  return _statusStyle(order.status);
+}
+
+Widget dispatchStatusBadge(CustomerOrder order) {
+  final style = dispatchStatusStyle(order);
+  final label = order.isPhoneDispatch || order.isDelivered || order.isCancelled
+      ? order.dispatchTrackerLabel
+      : order.status.label;
+  return _StatusBadge(style: style, label: label);
+}
+
+String dispatchTimeLabel(DateTime date) {
+  final h = date.hour > 12 ? date.hour - 12 : (date.hour == 0 ? 12 : date.hour);
+  final ampm = date.hour >= 12 ? 'PM' : 'AM';
+  return '$h:${date.minute.toString().padLeft(2, '0')} $ampm';
+}
+
 String _timeAgo(DateTime date) {
   final diff = DateTime.now().difference(date);
   if (diff.inMinutes < 1) return 'Just now';
@@ -425,6 +494,60 @@ String _timeAgo(DateTime date) {
   }
   if (diff.inDays < 7) return '${diff.inDays} days ago';
   return date.dayMonth;
+}
+
+/// View-only sheet for phone dispatch or completed requests.
+Future<void> showDispatchDetailSheet({
+  required BuildContext context,
+  required CustomerOrder order,
+  required String customerName,
+  required String customerPhone,
+  required String shopName,
+  required bool isMonthlyCustomer,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) => Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        12,
+        20,
+        MediaQuery.paddingOf(ctx).bottom + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            order.isPhoneDispatch ? 'Walk-in dispatch' : 'Dispatch details',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _DetailRow(label: 'Customer', value: customerName),
+          _DetailRow(label: 'Phone', value: customerPhone),
+          _DetailRow(label: 'Plant', value: shopName),
+          _DetailRow(label: 'Products', value: order.itemsSummary),
+          _DetailRow(label: 'Status', value: order.status.label),
+          _DetailRow(label: 'Payment', value: order.paymentMode.label),
+          if (order.customerNote != null && order.customerNote!.isNotEmpty)
+            _DetailRow(label: 'Note', value: order.customerNote!),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Close', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// Bottom sheet: view order + accept / decline (pending only).
@@ -551,7 +674,7 @@ class _OrderRespondSheetState extends State<_OrderRespondSheet> {
             label: 'Account',
             value: widget.isMonthlyCustomer ? 'Monthly customer' : 'Customer',
           ),
-          _DetailRow(label: 'Request', value: order.cansSummary),
+          _DetailRow(label: 'Products', value: order.itemsSummary),
           _DetailRow(label: 'Requested', value: _timeAgo(order.createdAt)),
           if (order.customerNote != null && order.customerNote!.isNotEmpty)
             _DetailRow(label: 'Customer note', value: order.customerNote!),

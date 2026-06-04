@@ -20,23 +20,28 @@ class ProductsScreen extends StatelessWidget {
             .where((p) => p.category == ProductCategory.bottle)
             .toList();
 
+        void openAddProduct() => context.push('/products/add');
+
         return Scaffold(
           backgroundColor: CustomersColors.screenBg,
           body: ProductsScaffold(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                CustomersHeader(
-                  title: 'Products',
-                  showAddButton: true,
-                  onAdd: () => context.push('/products/add'),
-                  onMenu: () => context.go(AppRoutes.more),
-                ),
-                CustomersListPanel(
-                  child: ListView(
-                    padding: const EdgeInsets.only(bottom: 28),
-                    children: [
-                      ProductsDeliveryTypesSection(
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  CustomersHeader(
+                    title: 'Products',
+                    showAddButton: false,
+                    onAdd: openAddProduct,
+                    onMenu: () => context.go(AppRoutes.more),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(8, 14, 8, 88),
+                      children: [
+                        ProductsDeliveryTypesSection(
+                        emphasized: true,
                         rateFor: repo.shopDefaultRateForDeliveryType,
                         catalogProducts: catalogProducts,
                         onEditCatalogProduct: (product) async {
@@ -67,12 +72,18 @@ class ProductsScreen extends StatelessWidget {
                           }
                         },
                       ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
+          floatingActionButton: Padding(
+            padding: const EdgeInsets.only(right: 4, bottom: 8),
+            child: ProductsAddProductButton(onPressed: openAddProduct),
+          ),
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         );
       },
     );

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
-import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class AddEditCustomerColors {
@@ -18,10 +17,12 @@ class AddEditCustomerHeader extends StatelessWidget {
     super.key,
     required this.title,
     required this.onBack,
+    this.subtitle = 'Customer account setup',
     this.onDelete,
   });
 
   final String title;
+  final String? subtitle;
   final VoidCallback onBack;
   final VoidCallback? onDelete;
 
@@ -29,7 +30,7 @@ class AddEditCustomerHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return AdminPageHeader(
       title: title,
-      subtitle: 'Customer account setup',
+      subtitle: subtitle,
       onBack: onBack,
       trailing: onDelete == null
           ? null
@@ -52,23 +53,71 @@ class AddEditCustomerFormCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return AddEditCustomerSectionCard(child: Column(children: children));
+  }
+}
+
+/// White card — matches Products / Customers list pages.
+class AddEditCustomerSectionCard extends StatelessWidget {
+  const AddEditCustomerSectionCard({
+    super.key,
+    this.title,
+    this.subtitle,
+    this.trailing,
+    required this.child,
+  });
+
+  final String? title;
+  final String? subtitle;
+  final Widget? trailing;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AddEditCustomerColors.fieldBorder),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D000000),
-            blurRadius: 12,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.all(14),
+      decoration: CustomersColors.whiteCard,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: children,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (title != null) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title!,
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: AddEditCustomerColors.titleNavy,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle!,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            height: 1.35,
+                            color: AddEditCustomerColors.labelGrey,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (trailing != null) trailing!,
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+          child,
+        ],
       ),
     );
   }
@@ -434,15 +483,9 @@ class AddEditCustomerScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light.copyWith(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-      ),
-      child: ColoredBox(
-        color: CustomersColors.screenBg,
-        child: PremiumResponsiveBody(maxWidth: 1180, child: child),
-      ),
+    return CustomersScaffold(
+      usePageGradient: true,
+      child: child,
     );
   }
 }

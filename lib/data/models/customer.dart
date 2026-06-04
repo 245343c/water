@@ -33,6 +33,10 @@ class Customer {
   bool get isMonthlyContract =>
       billingMode == CustomerBillingMode.monthlyContract;
 
+  /// Random caller / today-only — hidden from Customers tab.
+  bool get isInstantDispatch =>
+      billingMode == CustomerBillingMode.instantDispatch;
+
   String get initials {
     final parts = name.trim().split(RegExp(r'\s+'));
     if (parts.isEmpty) return '?';

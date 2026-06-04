@@ -1,5 +1,6 @@
 import 'package:sri_sai_ro_water/core/services/push_notification_service.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
+import 'package:sri_sai_ro_water/data/models/delivery_line_item.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
@@ -32,6 +33,9 @@ class DeliveryRecordingService {
     required String customerId,
     required int normalQty,
     required int coolQty,
+    int emptyNormalReturned = 0,
+    int emptyCoolReturned = 0,
+    List<BottleDeliveryInput> extraBottles = const [],
     String? driverNote,
     bool driverMode = false,
   }) {
@@ -49,16 +53,21 @@ class DeliveryRecordingService {
       throw DeliveryValidationException('Customer not found');
     }
 
-    final totalCans = normalQty + coolQty;
+    final extraQty =
+        extraBottles.fold<int>(0, (sum, b) => sum + b.quantity);
+    final totalCans = normalQty + coolQty + extraQty;
     if (totalCans <= 0) {
-      throw DeliveryValidationException('Enter at least 1 can delivered');
+      throw DeliveryValidationException('Enter at least 1 item delivered');
     }
-    if (totalCans > maxCansPerDelivery) {
+    if (normalQty + coolQty > maxCansPerDelivery) {
       throw DeliveryValidationException('Maximum $maxCansPerDelivery cans per trip');
     }
 
     if (normalQty < 0 || coolQty < 0) {
       throw DeliveryValidationException('Invalid quantity');
+    }
+    if (emptyNormalReturned < 0 || emptyCoolReturned < 0) {
+      throw DeliveryValidationException('Invalid empty return quantity');
     }
 
     final staffId = user.isDriver ? user.driverId : user.id;
@@ -76,6 +85,9 @@ class DeliveryRecordingService {
       date: deliveryDate,
       normalQty: normalQty,
       coolQty: coolQty,
+      emptyNormalReturned: emptyNormalReturned,
+      emptyCoolReturned: emptyCoolReturned,
+      bottles: extraBottles,
       driverId: staffId,
     );
 

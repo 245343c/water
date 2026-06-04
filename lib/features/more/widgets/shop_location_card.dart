@@ -5,6 +5,7 @@ import 'package:sri_sai_ro_water/core/services/shop_location_service.dart';
 import 'package:sri_sai_ro_water/core/services/shop_map_launcher.dart';
 import 'package:sri_sai_ro_water/core/widgets/shop_map_preview.dart';
 import 'package:sri_sai_ro_water/data/models/business_settings.dart';
+import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/features/more/widgets/more_screen_widgets.dart';
 
 class ShopLocationCard extends StatelessWidget {
@@ -22,8 +23,8 @@ class ShopLocationCard extends StatelessWidget {
     final hasPin = settings.hasMapPin;
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      decoration: _locationCardDecoration(),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: CustomersColors.whiteCard,
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(16),
@@ -199,19 +200,6 @@ class ShopLocationCard extends StatelessWidget {
     );
   }
 }
-
-BoxDecoration _locationCardDecoration() => BoxDecoration(
-  color: Colors.white,
-  borderRadius: BorderRadius.circular(16),
-  border: Border.all(color: MoreColors.cardBorder),
-  boxShadow: [
-    BoxShadow(
-      color: Colors.black.withValues(alpha: 0.05),
-      blurRadius: 12,
-      offset: const Offset(0, 4),
-    ),
-  ],
-);
 
 class _MapActionButton extends StatelessWidget {
   const _MapActionButton({

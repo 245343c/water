@@ -1,14 +1,18 @@
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/data/models/order_status.dart';
+import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 
 /// Admin accept/reject -> driver notification pipeline.
 class OrderWorkflowService {
   OrderWorkflowService({
     required WaterPlantRepository plant,
-  }) : _plant = plant;
+    required NotificationRepository notifications,
+  })  : _plant = plant,
+        _notifications = notifications;
 
   final WaterPlantRepository _plant;
+  final NotificationRepository _notifications;
 
   Future<CustomerOrder?> acceptOrder({
     required String orderId,
@@ -25,6 +29,18 @@ class OrderWorkflowService {
     );
     final order = _plant.orderById(orderId);
     if (order == null) return null;
+
+    final customer = _plant.customerById(order.customerId);
+    if (customer != null) {
+      _notifications.notifyDriverOrderAccepted(
+        order: order,
+        customerName: customer.name,
+      );
+      _notifications.notifyAdminOrderAccepted(
+        order: order,
+        customerName: customer.name,
+      );
+    }
 
     return order;
   }

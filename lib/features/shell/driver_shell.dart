@@ -62,6 +62,11 @@ class DriverShell extends StatelessWidget {
                 initialLocation: i == navigationShell.currentIndex,
               ),
               destinations: [
+                const NavigationDestination(
+                  icon: Icon(Icons.people_outline),
+                  selectedIcon: Icon(Icons.people_rounded),
+                  label: 'Customers',
+                ),
                 NavigationDestination(
                   icon: Badge(
                     isLabelVisible: badgeCount > 0,
@@ -73,12 +78,7 @@ class DriverShell extends StatelessWidget {
                     label: Text('$badgeCount'),
                     child: const Icon(Icons.route_rounded),
                   ),
-                  label: 'Route',
-                ),
-                const NavigationDestination(
-                  icon: Icon(Icons.people_outline),
-                  selectedIcon: Icon(Icons.people_rounded),
-                  label: 'Customers',
+                  label: 'Deliveries',
                 ),
                 const NavigationDestination(
                   icon: Icon(Icons.person_outline),

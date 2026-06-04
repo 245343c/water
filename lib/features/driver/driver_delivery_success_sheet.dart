@@ -40,15 +40,34 @@ void showDriverDeliverySuccessSheet(
           ),
           const SizedBox(height: 16),
           Text(
-            'Delivery saved',
+            delivery.isEmptyReturnOnly ? 'Empty return saved' : 'Delivery saved',
             style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           Text(
-            '${delivery.cansSummary} for $customerName',
+            '${delivery.itemsSummary} for $customerName',
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(fontSize: 14, color: DriverColors.labelGrey),
           ),
+          if (delivery.totalEmptyReturned > 0 &&
+              !delivery.isEmptyReturnOnly) ...[
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.recycling_rounded, size: 16, color: DriverColors.accent),
+                const SizedBox(width: 6),
+                Text(
+                  '${delivery.totalEmptyReturned} empty can${delivery.totalEmptyReturned == 1 ? '' : 's'} collected',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: DriverColors.accent,
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(12),

@@ -7,6 +7,9 @@ import 'package:sri_sai_ro_water/data/models/delivery_route.dart';
 /// Driver persona theme — teal field-app accent (see PRODUCT_ARCHITECTURE.md).
 abstract final class DriverColors {
   static const Color screenBg = Color(0xFFF0FDFA);
+
+  /// Flat background for lists and detail body — no gradient bleed.
+  static const Color contentBg = Color(0xFFF3F4F6);
   static const Color headerStart = Color(0xFF0F766E);
   static const Color headerEnd = Color(0xFF14B8A6);
   static const Color accent = Color(0xFF0D9488);
@@ -25,6 +28,29 @@ abstract final class DriverColors {
         ),
       );
 
+  /// Page chrome — teal header fading to field background (matches admin layout).
+  static BoxDecoration get screenGradient => const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          stops: [0, 0.38, 1],
+          colors: [headerStart, headerEnd, screenBg],
+        ),
+      );
+
+  static BoxDecoration get whiteCard => BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      );
+
   static BoxDecoration get cardDecoration => BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -40,9 +66,10 @@ abstract final class DriverColors {
 }
 
 class DriverScaffold extends StatelessWidget {
-  const DriverScaffold({super.key, required this.child});
+  const DriverScaffold({super.key, required this.child, this.usePageGradient = false});
 
   final Widget child;
+  final bool usePageGradient;
 
   @override
   Widget build(BuildContext context) {
@@ -51,10 +78,12 @@ class DriverScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: ColoredBox(
-        color: DriverColors.screenBg,
+      child: Container(
+        decoration: usePageGradient ? DriverColors.screenGradient : null,
+        color: usePageGradient ? null : DriverColors.screenBg,
         child: PremiumResponsiveBody(
           maxWidth: 1180,
+          horizontalPadding: usePageGradient ? 4 : 0,
           child: child,
         ),
       ),
@@ -234,17 +263,16 @@ class DriverSectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 16, 8),
+      padding: const EdgeInsets.fromLTRB(8, 10, 8, 4),
       child: Row(
         children: [
           Expanded(
             child: Text(
-              title.toUpperCase(),
+              title,
               style: GoogleFonts.poppins(
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: FontWeight.w700,
-                letterSpacing: 0.7,
-                color: DriverColors.labelGrey,
+                color: DriverColors.titleNavy,
               ),
             ),
           ),
@@ -274,7 +302,7 @@ class DriverRouteFilter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
       child: DropdownButtonFormField<String?>(
         value: selected,
         isExpanded: true,

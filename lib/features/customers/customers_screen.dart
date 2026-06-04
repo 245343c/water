@@ -66,61 +66,66 @@ class _CustomersScreenState extends State<CustomersScreen> {
       builder: (context, repo, _) {
         final customers = _list(repo);
         final month = DateTime.now();
+        void openAddCustomer() => context.push('/customers/add');
 
         return Scaffold(
-          backgroundColor: CustomersColors.headerBottom,
+          backgroundColor: CustomersColors.screenBg,
           body: CustomersScaffold(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                CustomersHeader(
-                  onAdd: () => context.push('/customers/add'),
-                  onMenu: () => context.go(AppRoutes.more),
-                ),
-                CustomersSearchRow(
-                  controller: _search,
-                  onChanged: (v) => setState(() => _query = v),
-                ),
-                CustomersListPanel(
-                  child: Column(
-                    children: [
-                      CustomersFilterChips(
-                        selected: _filter,
-                        onSelected: (f) => setState(() => _filter = f),
-                      ),
-                      Expanded(
-                        child: customers.isEmpty
-                            ? _EmptyCustomers(
-                                isSearch: _query.isNotEmpty || _filter != CustomerListFilter.all,
-                                onAdd: () => context.push('/customers/add'),
-                              )
-                            : ListView.builder(
-                                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                                itemCount: customers.length,
-                                itemBuilder: (_, i) {
-                                  final c = customers[i];
-                                  final monthly = repo.monthlyStatsForCustomer(c.id, month);
-                                  final deliveries = repo.deliveriesForCustomer(c.id);
-                                  final last = deliveries.isEmpty ? null : deliveries.first.date;
-                                  final idx = repo.customers.indexWhere((x) => x.id == c.id);
-                                  return CustomerListCard(
-                                    customer: c,
-                                    colorIndex: idx >= 0 ? idx : i,
-                                    unitsThisMonth: monthly.totalUnits,
-                                    lastDeliveryLabel: lastDeliveryRelativeLabel(last),
-                                    balance: repo.customerBalance(c.id).clamp(0, double.infinity),
-                                    category: _categoryFor(repo, c, month),
-                                    onTap: () => context.push('/customers/${c.id}'),
-                                  );
-                                },
-                              ),
-                      ),
-                    ],
+            usePageGradient: true,
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  CustomersHeader(
+                    showAddButton: false,
+                    onAdd: openAddCustomer,
+                    onMenu: () => context.go(AppRoutes.more),
                   ),
-                ),
-              ],
+                  CustomersSearchRow(
+                    controller: _search,
+                    onChanged: (v) => setState(() => _query = v),
+                  ),
+                  CustomersFilterChips(
+                    selected: _filter,
+                    onSelected: (f) => setState(() => _filter = f),
+                  ),
+                  Expanded(
+                    child: customers.isEmpty
+                        ? _EmptyCustomers(
+                            isSearch: _query.isNotEmpty || _filter != CustomerListFilter.all,
+                            onAdd: openAddCustomer,
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(8, 4, 8, 88),
+                            itemCount: customers.length,
+                            itemBuilder: (_, i) {
+                              final c = customers[i];
+                              final monthly = repo.monthlyStatsForCustomer(c.id, month);
+                              final deliveries = repo.deliveriesForCustomer(c.id);
+                              final last = deliveries.isEmpty ? null : deliveries.first.date;
+                              final idx = repo.customers.indexWhere((x) => x.id == c.id);
+                              return CustomerListCard(
+                                customer: c,
+                                colorIndex: idx >= 0 ? idx : i,
+                                unitsThisMonth: monthly.totalUnits,
+                                lastDeliveryLabel: lastDeliveryRelativeLabel(last),
+                                balance: repo.customerBalance(c.id).clamp(0, double.infinity),
+                                category: _categoryFor(repo, c, month),
+                                onTap: () => context.push('/customers/${c.id}'),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
             ),
           ),
+          floatingActionButton: Padding(
+            padding: const EdgeInsets.only(right: 4, bottom: 8),
+            child: CustomersAddButton(onPressed: openAddCustomer),
+          ),
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         );
       },
     );
@@ -136,30 +141,37 @@ class _EmptyCustomers extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.people_outline, size: 56, color: CustomersColors.labelGrey.withValues(alpha: 0.5)),
-          const SizedBox(height: 12),
-          Text(
-            isSearch ? 'No customers match your filters' : 'No customers yet',
-            style: GoogleFonts.poppins(
-              fontSize: 15,
-              color: CustomersColors.labelGrey,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.people_outline,
+              size: 56,
+              color: CustomersColors.labelGrey.withValues(alpha: 0.5),
             ),
-          ),
-          if (!isSearch) ...[
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onAdd,
-              icon: const Icon(Icons.add),
-              label: const Text('Add Customer'),
-              style: FilledButton.styleFrom(
-                backgroundColor: CustomersColors.addButton,
+            const SizedBox(height: 12),
+            Text(
+              isSearch ? 'No customers match your filters' : 'No customers yet',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                color: CustomersColors.labelGrey,
               ),
             ),
+            if (!isSearch) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Tap Add customer below',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  color: CustomersColors.labelGrey,
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

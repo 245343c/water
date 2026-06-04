@@ -29,7 +29,14 @@ class MoreScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: PremiumResponsiveBody(maxWidth: 1180, child: child),
+      child: Container(
+        decoration: CustomersColors.screenGradient,
+        child: PremiumResponsiveBody(
+          maxWidth: 1180,
+          horizontalPadding: 4,
+          child: child,
+        ),
+      ),
     );
   }
 }
@@ -46,9 +53,9 @@ class MoreHeader extends StatelessWidget {
       width: double.infinity,
       decoration: CustomersColors.headerGradient,
       padding: EdgeInsets.fromLTRB(
-        20,
+        8,
         MediaQuery.paddingOf(context).top + 16,
-        20,
+        8,
         14,
       ),
       alignment: Alignment.centerLeft,
@@ -94,17 +101,15 @@ class MoreBusinessProfileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           child: Ink(
-            decoration: _cardDecoration.copyWith(
-              borderRadius: BorderRadius.circular(16),
-            ),
+            decoration: CustomersColors.whiteCard,
             child: IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -248,14 +253,12 @@ class MoreHomeDeliveryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
         child: Ink(
-          decoration: _cardDecoration.copyWith(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          decoration: CustomersColors.whiteCard,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
             child: HomeDeliveryChoice(
@@ -271,7 +274,7 @@ class MoreHomeDeliveryCard extends StatelessWidget {
   }
 }
 
-/// Premium insights card with this-month snapshot.
+/// This-month snapshot — white card for clear contrast on gradient background.
 class MoreInsightsReportCard extends StatelessWidget {
   const MoreInsightsReportCard({
     super.key,
@@ -289,48 +292,36 @@ class MoreInsightsReportCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Material(
         color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           child: Ink(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)],
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF2563EB).withValues(alpha: 0.3),
-                  blurRadius: 14,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
+            decoration: CustomersColors.whiteCard,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+              padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
+                        width: 44,
+                        height: 44,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(
                           Icons.insights_rounded,
-                          color: Colors.white,
-                          size: 22,
+                          color: CustomersColors.addButton,
+                          size: 24,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -340,38 +331,46 @@ class MoreInsightsReportCard extends StatelessWidget {
                               style: GoogleFonts.poppins(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                                color: MoreColors.titleNavy,
                               ),
                             ),
                             Text(
                               'This month at a glance',
                               style: GoogleFonts.poppins(
                                 fontSize: 11,
-                                color: Colors.white.withValues(alpha: 0.85),
+                                fontWeight: FontWeight.w500,
+                                color: MoreColors.labelGrey,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      Icon(
-                        Icons.arrow_forward_rounded,
-                        color: Colors.white.withValues(alpha: 0.9),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: MoreColors.labelGrey,
+                        size: 24,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                   Row(
                     children: [
-                      _InsightPill(
+                      _InsightMetric(
                         label: 'Sales',
                         value: _formatCurrency(monthSales),
+                        valueColor: CustomersColors.addButton,
                       ),
                       const SizedBox(width: 8),
-                      _InsightPill(label: 'Cans', value: monthCans.toString()),
+                      _InsightMetric(
+                        label: 'Cans',
+                        value: monthCans.toString(),
+                        valueColor: MoreColors.titleNavy,
+                      ),
                       const SizedBox(width: 8),
-                      _InsightPill(
+                      _InsightMetric(
                         label: 'Collected',
                         value: _formatCurrency(monthCollected),
+                        valueColor: CustomersColors.balanceGreen,
                       ),
                     ],
                   ),
@@ -391,37 +390,46 @@ class MoreInsightsReportCard extends StatelessWidget {
   }
 }
 
-class _InsightPill extends StatelessWidget {
-  const _InsightPill({required this.label, required this.value});
+class _InsightMetric extends StatelessWidget {
+  const _InsightMetric({
+    required this.label,
+    required this.value,
+    required this.valueColor,
+  });
 
   final String label;
   final String value;
+  final Color valueColor;
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.14),
+          color: const Color(0xFFF9FAFB),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+          border: Border.all(color: MoreColors.divider),
         ),
         child: Column(
           children: [
             Text(
               value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
                 fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                color: valueColor,
               ),
             ),
+            const SizedBox(height: 2),
             Text(
               label,
               style: GoogleFonts.poppins(
                 fontSize: 10,
-                color: Colors.white.withValues(alpha: 0.85),
+                fontWeight: FontWeight.w500,
+                color: MoreColors.labelGrey,
               ),
             ),
           ],
@@ -431,22 +439,34 @@ class _InsightPill extends StatelessWidget {
   }
 }
 
-class MoreAccountCard extends StatelessWidget {
-  const MoreAccountCard({
+/// Drivers + sign out in one card — tighter More page layout.
+class MoreManagementCard extends StatelessWidget {
+  const MoreManagementCard({
     super.key,
+    required this.onDrivers,
     required this.onSignOut,
   });
 
+  final VoidCallback onDrivers;
   final VoidCallback onSignOut;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Container(
-        decoration: _cardDecoration,
+        decoration: CustomersColors.whiteCard,
         child: Column(
           children: [
+            _AccountRow(
+              icon: Icons.local_shipping_rounded,
+              iconBg: MoreColors.iconTileBg,
+              iconColor: MoreColors.iconNavy,
+              title: 'Drivers',
+              subtitle: 'Delivery staff logins',
+              onTap: onDrivers,
+            ),
+            const Divider(height: 1, indent: 68, color: MoreColors.divider),
             _AccountRow(
               icon: Icons.logout_rounded,
               iconBg: const Color(0xFFFEE2E2),
@@ -587,15 +607,15 @@ class MoreMenuTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(20),
           child: Ink(
-            decoration: _cardDecoration,
+            decoration: CustomersColors.whiteCard,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
@@ -657,14 +677,13 @@ class MoreSectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 16, 8),
+      padding: const EdgeInsets.fromLTRB(4, 10, 4, 4),
       child: Text(
-        title.toUpperCase(),
+        title,
         style: GoogleFonts.poppins(
-          fontSize: 11,
+          fontSize: 13,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0.8,
-          color: MoreColors.labelGrey,
+          color: MoreColors.titleNavy,
         ),
       ),
     );
@@ -691,7 +710,7 @@ class MoreVersionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 24, bottom: 24),
+      padding: const EdgeInsets.only(top: 8, bottom: 20),
       child: Text(
         'Version $version',
         textAlign: TextAlign.center,
@@ -701,15 +720,3 @@ class MoreVersionLabel extends StatelessWidget {
   }
 }
 
-BoxDecoration get _cardDecoration => BoxDecoration(
-  color: Colors.white,
-  borderRadius: BorderRadius.circular(16),
-  border: Border.all(color: MoreColors.cardBorder),
-  boxShadow: [
-    BoxShadow(
-      color: const Color(0xFF0F172A).withValues(alpha: 0.06),
-      blurRadius: 16,
-      offset: const Offset(0, 6),
-    ),
-  ],
-);

@@ -4,6 +4,7 @@ import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/data/models/delivery_product_type.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/features/products/models/product_icon_choice.dart';
+import 'package:sri_sai_ro_water/features/products/widgets/products_screen_widgets.dart';
 
 abstract final class DeliveryTypeColors {
   static const Color titleNavy = Color(0xFF111827);
@@ -66,18 +67,21 @@ class DeliveryTypeIcon extends StatelessWidget {
     required this.type,
     this.size = 40,
     this.active = true,
+    this.iconScale = 0.52,
   });
 
   final DeliveryProductType type;
   final double size;
   final bool active;
+  /// Icon glyph size relative to container (box size unchanged).
+  final double iconScale;
 
   @override
   Widget build(BuildContext context) {
     final color = active
         ? DeliveryTypeColors.accentBlue
         : DeliveryTypeColors.labelGrey;
-    final iconSize = size * 0.52;
+    final iconSize = size * iconScale;
 
     return Container(
       width: size,
@@ -130,6 +134,7 @@ class DeliveryProductTypeBox extends StatelessWidget {
     this.rateText,
     this.onTap,
     this.compact = false,
+    this.emphasized = false,
   });
 
   final DeliveryProductType type;
@@ -138,14 +143,17 @@ class DeliveryProductTypeBox extends StatelessWidget {
   final String? rateText;
   final VoidCallback? onTap;
   final bool compact;
+  /// Larger labels/icons inside the same grid cell (Products page).
+  final bool emphasized;
 
   @override
   Widget build(BuildContext context) {
     final isActive = selected || enabled;
     final iconSize = compact ? 36.0 : 44.0;
-    final titleSize = compact ? 11.0 : 12.0;
-    final subtitleSize = compact ? 9.0 : 10.0;
-    final rateSize = compact ? 9.0 : 10.0;
+    final titleSize = emphasized ? 13.0 : (compact ? 11.0 : 12.0);
+    final subtitleSize = emphasized ? 10.0 : (compact ? 9.0 : 10.0);
+    final rateSize = emphasized ? 12.0 : (compact ? 9.0 : 10.0);
+    final iconScale = emphasized ? 0.62 : 0.52;
 
     return _UnifiedTypeCard(
       selected: selected,
@@ -156,6 +164,7 @@ class DeliveryProductTypeBox extends StatelessWidget {
         type: type,
         size: iconSize,
         active: isActive,
+        iconScale: iconScale,
       ),
       title: type.title,
       subtitle: type.subtitle,
@@ -174,36 +183,40 @@ class CatalogProductCardBox extends StatelessWidget {
     required this.product,
     this.onTap,
     this.compact = true,
+    this.emphasized = false,
   });
 
   final Product product;
   final VoidCallback? onTap;
   final bool compact;
+  final bool emphasized;
 
   @override
   Widget build(BuildContext context) {
     final icon = productIconByKey(product.iconKey).icon;
+    final box = compact ? 36.0 : 44.0;
+    final glyph = emphasized ? 24.0 : (compact ? 18.0 : 22.0);
     return _UnifiedTypeCard(
       selected: false,
       enabled: true,
       compact: compact,
       onTap: onTap,
       icon: Container(
-        width: compact ? 36 : 44,
-        height: compact ? 36 : 44,
+        width: box,
+        height: box,
         decoration: BoxDecoration(
           color: DeliveryTypeColors.iconBg,
           borderRadius: BorderRadius.circular(compact ? 8 : 10),
           border: Border.all(color: DeliveryTypeColors.cardBorder),
         ),
-        child: Icon(icon, size: compact ? 18 : 22, color: DeliveryTypeColors.accentBlue),
+        child: Icon(icon, size: glyph, color: DeliveryTypeColors.accentBlue),
       ),
       title: product.name,
       subtitle: product.variantSummary,
       rateText: CurrencyUtils.format(product.startingPrice),
-      titleSize: compact ? 11 : 12,
-      subtitleSize: compact ? 9 : 10,
-      rateSize: compact ? 10 : 11,
+      titleSize: emphasized ? 13 : (compact ? 11 : 12),
+      subtitleSize: emphasized ? 10 : (compact ? 9 : 10),
+      rateSize: emphasized ? 12 : (compact ? 10 : 11),
       isActive: true,
     );
   }
@@ -259,13 +272,13 @@ class _UnifiedTypeCard extends StatelessWidget {
           ),
           padding: EdgeInsets.symmetric(
             horizontal: compact ? 6 : 8,
-            vertical: compact ? 8 : 10,
+            vertical: compact ? 6 : 10,
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               icon,
-              SizedBox(height: compact ? 6 : 8),
+              SizedBox(height: compact ? 4 : 8),
               Text(
                 title,
                 textAlign: TextAlign.center,
@@ -323,6 +336,7 @@ class ProductsDeliveryTypesSection extends StatelessWidget {
     this.catalogProducts = const [],
     this.onEditCatalogProduct,
     this.compact = true,
+    this.emphasized = false,
   });
 
   final double Function(DeliveryProductType type) rateFor;
@@ -330,42 +344,22 @@ class ProductsDeliveryTypesSection extends StatelessWidget {
   final List<Product> catalogProducts;
   final void Function(Product product)? onEditCatalogProduct;
   final bool compact;
+  final bool emphasized;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 14, 16, 8),
       padding: EdgeInsets.all(compact ? 12 : 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: DeliveryTypeColors.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: ProductsColors.whiteCard,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Delivery product types',
             style: GoogleFonts.poppins(
-              fontSize: compact ? 14 : 15,
+              fontSize: emphasized ? 16 : (compact ? 14 : 15),
               fontWeight: FontWeight.w800,
               color: DeliveryTypeColors.titleNavy,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            'Tap a type to set shop default rate. Enable per customer when adding them.',
-            style: GoogleFonts.poppins(
-              fontSize: compact ? 10 : 11,
-              height: 1.35,
-              color: DeliveryTypeColors.labelGrey,
             ),
           ),
           SizedBox(height: compact ? 10 : 14),
@@ -380,19 +374,20 @@ class ProductsDeliveryTypesSection extends StatelessWidget {
               return DeliveryProductTypeBox(
                 type: type,
                 compact: compact,
+                emphasized: emphasized,
                 rateText: rateLabel,
                 onTap: () => onEditRate(type, rate),
               );
             },
           ),
           if (catalogProducts.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 14),
             Text(
               'Catalog',
               style: GoogleFonts.poppins(
-                fontSize: compact ? 10 : 11,
+                fontSize: emphasized ? 13 : (compact ? 10 : 11),
                 fontWeight: FontWeight.w700,
-                color: DeliveryTypeColors.labelGrey,
+                color: DeliveryTypeColors.titleNavy,
               ),
             ),
             const SizedBox(height: 8),
@@ -407,6 +402,7 @@ class ProductsDeliveryTypesSection extends StatelessWidget {
                 return CatalogProductCardBox(
                   product: product,
                   compact: compact,
+                  emphasized: emphasized,
                   onTap: onEditCatalogProduct == null
                       ? null
                       : () => onEditCatalogProduct!(product),
@@ -415,6 +411,45 @@ class ProductsDeliveryTypesSection extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Fixed bottom-right control to add a catalog product (Products page).
+class ProductsAddProductButton extends StatelessWidget {
+  const ProductsAddProductButton({super.key, required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 8,
+      shadowColor: const Color(0xFF1A73E8).withValues(alpha: 0.45),
+      borderRadius: BorderRadius.circular(16),
+      color: const Color(0xFF1A73E8),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.add_rounded, color: Colors.white, size: 24),
+              const SizedBox(width: 6),
+              Text(
+                'Add product',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

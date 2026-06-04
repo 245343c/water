@@ -77,7 +77,7 @@ class DashboardHeader extends StatelessWidget {
     final greeting = _greetingText();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      padding: const EdgeInsets.fromLTRB(8, 14, 8, 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -977,36 +977,36 @@ class _QuickActionTile extends StatelessWidget {
         onTap: onTap,
         borderRadius: radius,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Icon square with solid bg
               Container(
-                width: 46,
-                height: 46,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
                   color: iconBg,
-                  borderRadius: BorderRadius.circular(13),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: Colors.white, size: 24),
+                child: Icon(icon, color: Colors.white, size: 18),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF111827),
                     height: 1.2,
                   ),
                 ),
               ),
-              // Chevron
               Icon(
                 Icons.chevron_right_rounded,
-                size: 20,
+                size: 18,
                 color: DashboardColors.labelGrey,
               ),
             ],
@@ -1402,7 +1402,11 @@ class DashboardScaffold extends StatelessWidget {
       ),
       child: Container(
         decoration: DashboardColors.screenGradient,
-        child: PremiumResponsiveBody(maxWidth: 1180, child: child),
+        child: PremiumResponsiveBody(
+          maxWidth: 1180,
+          horizontalPadding: 4,
+          child: child,
+        ),
       ),
     );
   }

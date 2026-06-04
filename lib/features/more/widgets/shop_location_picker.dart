@@ -16,6 +16,7 @@ class ShopLocationPicker extends StatefulWidget {
     required this.addressText,
     required this.onChanged,
     this.minimal = false,
+    this.embedded = false,
   });
 
   final double? latitude;
@@ -24,6 +25,8 @@ class ShopLocationPicker extends StatefulWidget {
   final void Function(double? lat, double? lng, String? placeLabel) onChanged;
   /// Compact map + My location / From address only (settings).
   final bool minimal;
+  /// Inside [AddEditCustomerSectionCard] — no extra box chrome.
+  final bool embedded;
 
   @override
   State<ShopLocationPicker> createState() => _ShopLocationPickerState();
@@ -163,23 +166,27 @@ class _ShopLocationPickerState extends State<ShopLocationPicker> {
     final hasPin = _confirmedPin != null;
     final minimal = widget.minimal;
 
+    final useOuterBox = !widget.embedded;
+
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AddEditCustomerColors.fieldBorder),
-        boxShadow: minimal
-            ? null
-            : const [
-                BoxShadow(
-                  color: Color(0x0D000000),
-                  blurRadius: 12,
-                  offset: Offset(0, 4),
-                ),
-              ],
-      ),
-      clipBehavior: Clip.antiAlias,
+      margin: useOuterBox ? const EdgeInsets.fromLTRB(16, 0, 16, 0) : EdgeInsets.zero,
+      decoration: useOuterBox
+          ? BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AddEditCustomerColors.fieldBorder),
+              boxShadow: minimal
+                  ? null
+                  : const [
+                      BoxShadow(
+                        color: Color(0x0D000000),
+                        blurRadius: 12,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+            )
+          : null,
+      clipBehavior: useOuterBox ? Clip.antiAlias : Clip.none,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

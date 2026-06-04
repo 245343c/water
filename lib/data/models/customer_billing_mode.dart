@@ -1,16 +1,19 @@
 /// How a CRM customer is billed.
-///
-/// Current product scope has only monthly customers. They can still use the
-/// customer app to request/order water from linked admins/plants.
 enum CustomerBillingMode {
   /// Monthly contract — ledger, PDF bill, WhatsApp, and app requests.
   monthlyContract,
+
+  /// One-off walk-in / phone caller — not in customer list; pay at door.
+  instantDispatch,
 }
 
 extension CustomerBillingModeX on CustomerBillingMode {
   String get label => switch (this) {
     CustomerBillingMode.monthlyContract => 'Monthly contract',
+    CustomerBillingMode.instantDispatch => 'Walk-in today',
   };
 
   bool get isMonthlyContract => this == CustomerBillingMode.monthlyContract;
+
+  bool get isInstantDispatch => this == CustomerBillingMode.instantDispatch;
 }

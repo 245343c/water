@@ -271,25 +271,68 @@ class _DriversScreenState extends State<DriversScreen> {
 
         return Scaffold(
           backgroundColor: DriversColors.screenBg,
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () => _showAddDriver(context),
+            backgroundColor: CustomersColors.addButton,
+            icon: const Icon(Icons.person_add_rounded, color: Colors.white),
+            label: Text(
+              'Add driver',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ),
           body: DriversScaffold(
-            child: Column(
-              children: [
-                DriversHeader(
-                  onBack: () => Navigator.pop(context),
-                  onAdd: () => _showAddDriver(context),
-                ),
-                Expanded(
-                  child: drivers.isEmpty
-                      ? Center(
-                          child: Text(
-                            'No drivers yet',
-                            style: GoogleFonts.poppins(color: DriversColors.labelGrey),
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                          itemCount: drivers.length,
-                          itemBuilder: (_, i) => _DriverCard(
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  DriversHeader(
+                    onBack: () => Navigator.pop(context),
+                  ),
+                  Expanded(
+                    child: drivers.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.local_shipping_outlined,
+                                    size: 48,
+                                    color: DriversColors.labelGrey.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'No drivers yet',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: DriversColors.titleNavy,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Tap Add driver to create staff login',
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: DriversColors.labelGrey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(8, 12, 8, 88),
+                            itemCount: drivers.length,
+                            itemBuilder: (_, i) => _DriverCard(
                             driver: drivers[i],
                             hasLogin: true,
                             accountEmail: drivers[i].phone,
@@ -316,9 +359,10 @@ class _DriversScreenState extends State<DriversScreen> {
                                 _resetDriverPassword(context, drivers[i]),
                             onDelete: () => _deleteDriver(context, drivers[i]),
                           ),
-                        ),
-                ),
-              ],
+                          ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -349,8 +393,8 @@ class _DriverCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
       decoration: DriversColors.cardDecoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

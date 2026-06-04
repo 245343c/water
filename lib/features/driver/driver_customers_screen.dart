@@ -7,6 +7,7 @@ import 'package:sri_sai_ro_water/data/models/delivery_route.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customer_list_card.dart';
+import 'package:sri_sai_ro_water/features/driver/widgets/driver_customers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_theme.dart';
 
 class DriverCustomersScreen extends StatefulWidget {
@@ -20,6 +21,7 @@ class _DriverCustomersScreenState extends State<DriverCustomersScreen> {
   final _search = TextEditingController();
   String _query = '';
   String? _routeFilter;
+  DriverCustomerListFilter _listFilter = DriverCustomerListFilter.all;
 
   @override
   void initState() {
@@ -45,117 +47,77 @@ class _DriverCustomersScreenState extends State<DriverCustomersScreen> {
         final driverId = auth.currentUser?.driverId;
         final assignedShop = repo.shopForDriver(driverId);
         final assignedCustomers = repo.customersForDriver(driverId);
-        final totalAssigned = assignedCustomers.length;
         final routes = _routesFor(assignedCustomers, repo);
         final hasUnassigned = assignedCustomers.any(_isUnassignedRoute);
-        final month = DateTime.now();
-        final customers = List<Customer>.of(
+
+        var customers = List<Customer>.of(
           repo.searchCustomersForDriver(driverId, _query),
-        ).where(_matchesRoute).toList()
+        ).where(_matchesRoute).toList();
+
+        customers = customers.where((c) {
+          final done = repo.hasDeliveryToday(c.id);
+          return switch (_listFilter) {
+            DriverCustomerListFilter.all => true,
+            DriverCustomerListFilter.pendingToday => !done,
+            DriverCustomerListFilter.deliveredToday => done,
+          };
+        }).toList()
           ..sort((a, b) => a.name.compareTo(b.name));
 
         return Scaffold(
-          backgroundColor: DriverColors.screenBg,
-          body: DriverScaffold(
-            child: Column(
-              children: [
-                DriverHeader(
-                  title: 'Customers',
-                  subtitle: assignedShop == null
-                      ? 'Driver is not linked to a water plant'
-                      : '${assignedShop.name} - $totalAssigned assigned customers',
-                ),
+          backgroundColor: DriverColors.contentBg,
+          body: Column(
+            children: [
+              DriverCustomersToolbar(
+                title: 'Customers',
+                subtitle: assignedShop == null
+                    ? null
+                    : '${assignedShop.name} · ${assignedCustomers.length}',
+                searchController: _search,
+                onSearchChanged: (v) => setState(() => _query = v),
+              ),
+              if (routes.isNotEmpty || hasUnassigned)
                 DriverRouteFilter(
                   routes: routes,
                   selected: _routeFilter,
                   showUnassigned: hasUnassigned,
-                  onSelected: (routeId) =>
-                      setState(() => _routeFilter = routeId),
+                  onSelected: (id) => setState(() => _routeFilter = id),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: DriverColors.cardDecoration,
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.storefront_rounded,
-                          color: DriverColors.accent,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            assignedShop == null
-                                ? 'Only customers from the assigned plant will appear here.'
-                                : 'Showing customers linked to ${assignedShop.name} only.',
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: DriverColors.labelGrey,
-                            ),
+              DriverCustomersFilterChips(
+                selected: _listFilter,
+                onSelected: (f) => setState(() => _listFilter = f),
+              ),
+              Expanded(
+                child: customers.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No customers found',
+                          style: GoogleFonts.poppins(
+                            color: DriverColors.labelGrey,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: TextField(
-                    controller: _search,
-                    onChanged: (v) => setState(() => _query = v),
-                    decoration: InputDecoration(
-                      hintText: 'Search name or phone…',
-                      hintStyle: GoogleFonts.poppins(fontSize: 14, color: DriverColors.labelGrey),
-                      prefixIcon: const Icon(Icons.search_rounded, color: DriverColors.accent),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(color: DriverColors.cardBorder),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+                        itemCount: customers.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (_, i) {
+                          final c = customers[i];
+                          final deliveries = repo.deliveriesForCustomer(c.id);
+                          final last = deliveries.isEmpty
+                              ? null
+                              : deliveries.first.date;
+                          return DriverCustomerListCard(
+                            customer: c,
+                            lastDeliveryLabel: lastDeliveryRelativeLabel(last),
+                            deliveredToday: repo.hasDeliveryToday(c.id),
+                            onTap: () =>
+                                context.push('/driver/customers/${c.id}'),
+                          );
+                        },
                       ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(color: DriverColors.cardBorder),
-                      ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: customers.isEmpty
-                      ? Center(
-                          child: Text(
-                            'No customers found',
-                            style: GoogleFonts.poppins(color: DriverColors.labelGrey),
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-                          itemCount: customers.length,
-                          itemBuilder: (_, i) {
-                            final c = customers[i];
-                            final monthly = repo.monthlyStatsForCustomer(c.id, month);
-                            final deliveries = repo.deliveriesForCustomer(c.id);
-                            final last = deliveries.isEmpty ? null : deliveries.first.date;
-                            final idx = repo.customers.indexWhere((x) => x.id == c.id);
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: CustomerListCard(
-                                customer: c,
-                                colorIndex: idx >= 0 ? idx : i,
-                                unitsThisMonth: monthly.totalUnits,
-                                lastDeliveryLabel: lastDeliveryRelativeLabel(last),
-                                balance: 0,
-                                category: CustomerPaymentCategory.paid,
-                                onTap: () => context.push('/driver/customers/${c.id}'),
-                              ),
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },

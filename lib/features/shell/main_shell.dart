@@ -62,7 +62,7 @@ class MainShell extends StatelessWidget {
                     label: Text('$pendingOrders'),
                     child: const Icon(Icons.receipt_long),
                   ),
-                  label: 'Orders',
+                  label: 'Dispatch',
                 ),
                 const NavigationDestination(
                   icon: Icon(Icons.inventory_2_outlined),

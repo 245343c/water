@@ -35,6 +35,28 @@ abstract final class ProductsColors {
       ),
     ],
   );
+
+  /// Matches admin dashboard cards and page chrome.
+  static BoxDecoration get screenGradient => const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          stops: [0, 0.36, 1],
+          colors: [AppColors.headerTop, AppColors.headerBottom, AppColors.surface],
+        ),
+      );
+
+  static BoxDecoration get whiteCard => BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x40000000),
+            blurRadius: 20,
+            offset: Offset(0, 8),
+          ),
+        ],
+      );
 }
 
 // ─── Scaffold ────────────────────────────────────────────────────────────────
@@ -50,7 +72,14 @@ class ProductsScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: PremiumResponsiveBody(maxWidth: 1180, child: child),
+      child: Container(
+        decoration: ProductsColors.screenGradient,
+        child: PremiumResponsiveBody(
+          maxWidth: 1180,
+          horizontalPadding: 4,
+          child: child,
+        ),
+      ),
     );
   }
 }

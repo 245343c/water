@@ -22,160 +22,111 @@ class DriverAcceptedOrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final customer = repo.customerById(order.customerId);
-    if (customer == null) return const SizedBox.shrink();
-    final shopName = order.shopId == null
-        ? 'Assigned water plant'
-        : repo.shopById(order.shopId!)?.name ?? 'Assigned water plant';
-
+    final walkIn = order.walkInContact;
+    final displayName = walkIn?.name ?? customer?.name ?? 'Walk-in';
+    final displayPhone = walkIn?.phone ?? customer?.phone ?? '';
+    final displayAddress = walkIn?.address ?? customer?.address ?? '';
+    final displayPlace = walkIn?.place ?? customer?.place ?? '';
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
       child: Material(
-        elevation: 0,
-        borderRadius: BorderRadius.circular(18),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
-          onTap: () => context.push('/driver/customers/${customer.id}'),
-          borderRadius: BorderRadius.circular(18),
-          child: Ink(
+          onTap: () => context.push(
+            '/driver/customers/${order.customerId}?orderId=${order.id}',
+          ),
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFFFFF7ED), Colors.white],
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: order.isPhoneDispatch
+                    ? const Color(0xFF7C3AED).withValues(alpha: 0.45)
+                    : const Color(0xFFFDBA74).withValues(alpha: 0.8),
               ),
-              border: Border.all(color: const Color(0xFFFDBA74), width: 1.5),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFEA580C).withValues(alpha: 0.12),
-                  blurRadius: 14,
-                  offset: const Offset(0, 4),
-                ),
-              ],
             ),
-            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
                   children: [
-                    const _RequestBadge(
-                      label: 'Admin confirmed',
-                      icon: Icons.verified_rounded,
+                    Expanded(
+                      child: Text(
+                        displayName,
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: DriverColors.titleNavy,
+                        ),
+                      ),
                     ),
-                    const Spacer(),
-                    Icon(
-                      Icons.local_shipping_rounded,
-                      color: const Color(0xFFEA580C).withValues(alpha: 0.9),
-                      size: 22,
+                    _RequestBadge(
+                      label: order.isPhoneDispatch ? 'Walk-in' : 'Dispatch',
+                      icon: order.isPhoneDispatch
+                          ? Icons.call_rounded
+                          : Icons.verified_rounded,
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 4),
                 Text(
-                  customer.name,
-                  style: GoogleFonts.poppins(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    color: DriverColors.titleNavy,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  shopName,
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: DriverColors.accent,
-                  ),
-                ),
-                Text(
-                  customer.place,
+                  displayPhone,
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     color: DriverColors.labelGrey,
                   ),
                 ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    const _InfoChip(
-                      icon: Icons.account_balance_wallet_outlined,
-                      label: 'Monthly account',
-                      color: Color(0xFFEA580C),
-                    ),
-                    _InfoChip(
-                      icon: Icons.schedule_rounded,
-                      label: _timeAgo(order.createdAt),
-                      color: DriverColors.labelGrey,
-                    ),
-                    if (order.normalQty > 0)
-                      _CanChip(
-                        label: '${order.normalQty} Normal',
-                        color: const Color(0xFF2563EB),
-                      ),
-                    if (order.coolQty > 0)
-                      _CanChip(
-                        label: '${order.coolQty} Cool',
-                        color: DriverColors.accent,
-                      ),
-                  ],
+                Text(
+                  displayPlace.isNotEmpty
+                      ? '$displayPlace · $displayAddress'
+                      : displayAddress,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: DriverColors.titleNavy,
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  order.itemsSummary,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: DriverColors.accent,
+                  ),
+                ),
+                Text(
+                  'Collect payment at door',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: const Color(0xFFEA580C),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 if (order.customerNote != null &&
                     order.customerNote!.isNotEmpty) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 6),
                   Text(
                     order.customerNote!,
                     style: GoogleFonts.poppins(
-                      fontSize: 12,
+                      fontSize: 11,
+                      color: DriverColors.labelGrey,
                       fontStyle: FontStyle.italic,
-                      color: DriverColors.titleNavy,
                     ),
                   ),
                 ],
-                const SizedBox(height: 14),
-                Text(
-                  'Record only the actual cans delivered at the doorstep.',
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    color: DriverColors.labelGrey,
+                const SizedBox(height: 12),
+                DriverPrimaryButton(
+                  label: 'Deliver now',
+                  icon: Icons.arrow_forward_rounded,
+                  onPressed: () => context.push(
+                    '/driver/customers/${order.customerId}?orderId=${order.id}',
                   ),
                 ),
-                const SizedBox(height: 10),
-                if (!order.isDriverAssigned)
-                  DriverPrimaryButton(
-                    label: 'Accept delivery',
-                    icon: Icons.assignment_turned_in_outlined,
-                    onPressed: () async {
-                      final id = driverId;
-                      if (id == null) return;
-                      await repo.driverAcceptOrder(
-                        orderId: order.id,
-                        driverId: id,
-                      );
-                    },
-                  )
-                else if (!order.isOutForDelivery)
-                  DriverPrimaryButton(
-                    label: 'Start delivery',
-                    icon: Icons.delivery_dining_rounded,
-                    onPressed: () async {
-                      final id = driverId;
-                      if (id == null) return;
-                      await repo.driverStartDelivery(
-                        orderId: order.id,
-                        driverId: id,
-                      );
-                    },
-                  )
-                else
-                  DriverPrimaryButton(
-                    label: 'Open & record delivery',
-                    icon: Icons.arrow_forward_rounded,
-                    onPressed: () =>
-                        context.push('/driver/customers/${customer.id}'),
-                  ),
               ],
             ),
           ),

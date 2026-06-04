@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:sri_sai_ro_water/core/services/product_image_service.dart';
-import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/add_edit_customer_widgets.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
@@ -24,113 +22,147 @@ class AddProductHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return AdminPageHeader(
       title: 'Add Product',
-      subtitle: 'Catalog item and default rate',
+      subtitle: 'For your product catalog',
       onBack: onBack,
     );
   }
 }
 
-/// Live preview of what will be saved.
-class AddProductLivePreview extends StatelessWidget {
-  const AddProductLivePreview({
+/// White card shell — matches Products page sections.
+class AddProductSectionCard extends StatelessWidget {
+  const AddProductSectionCard({
     super.key,
-    required this.name,
-    required this.sizeLabel,
-    required this.priceText,
-    required this.category,
-    required this.isCool,
-    required this.iconKey,
-    this.imagePath,
+    this.title,
+    required this.child,
   });
 
-  final String name;
-  final String sizeLabel;
-  final String priceText;
-  final ProductCategory category;
-  final bool isCool;
-  final String iconKey;
-  final String? imagePath;
+  final String? title;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final isBottle = category == ProductCategory.bottle;
-    final accent = isCool
-        ? ProductsColors.coolAccent
-        : (isBottle ? ProductsColors.statBlue : ProductsColors.statGreen);
-    final price = double.tryParse(priceText.replaceAll(',', '').trim());
-    final file = ProductImageService.fileForPath(imagePath);
-    final selectedIcon = productIconByKey(iconKey).icon;
-    final displayName = name.trim().isEmpty ? 'Product name' : name.trim();
-    final displaySize = sizeLabel.trim().isEmpty
-        ? (isBottle ? 'Size' : (isCool ? 'Cool can' : 'Normal can'))
-        : sizeLabel.trim();
-
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      padding: const EdgeInsets.all(12),
-      decoration: ProductsColors.cardDecoration,
-      child: Row(
+      padding: const EdgeInsets.all(14),
+      decoration: ProductsColors.whiteCard,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              width: 56,
-              height: 56,
-              child: file != null
-                  ? Image.file(file, fit: BoxFit.cover)
-                  : ColoredBox(
-                      color: accent.withValues(alpha: 0.1),
-                      child: Icon(
-                        selectedIcon,
-                        color: accent,
-                        size: 32,
+          if (title != null) ...[
+            Text(
+              title!,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: AddProductColors.titleNavy,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+/// Optional stock & notes — collapsed by default.
+class AddProductAdvancedSection extends StatefulWidget {
+  const AddProductAdvancedSection({
+    super.key,
+    required this.stockController,
+    required this.notesController,
+  });
+
+  final TextEditingController stockController;
+  final TextEditingController notesController;
+
+  @override
+  State<AddProductAdvancedSection> createState() =>
+      _AddProductAdvancedSectionState();
+}
+
+class _AddProductAdvancedSectionState extends State<AddProductAdvancedSection> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: ProductsColors.whiteCard,
+      child: Column(
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => setState(() => _expanded = !_expanded),
+              borderRadius: BorderRadius.circular(20),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.tune_rounded,
+                      size: 20,
+                      color: AddProductColors.labelGrey,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Advanced',
+                            style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AddProductColors.titleNavy,
+                            ),
+                          ),
+                          Text(
+                            'Stock & internal notes (optional)',
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: AddProductColors.labelGrey,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
+                    Icon(
+                      _expanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      color: AddProductColors.labelGrey,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Live preview',
-                  style: GoogleFonts.poppins(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: AddProductColors.labelGrey,
+          if (_expanded) ...[
+            const Divider(height: 1, color: AddProductColors.fieldBorder),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Column(
+                children: [
+                  AddEditCustomerField(
+                    label: 'Stock quantity',
+                    controller: widget.stockController,
+                    hint: 'e.g. 50',
+                    icon: Icons.numbers_outlined,
+                    keyboardType: TextInputType.number,
+                    validator: validateStockQty,
                   ),
-                ),
-                Text(
-                  displayName,
-                  style: GoogleFonts.poppins(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: AddProductColors.titleNavy,
+                  AddEditCustomerField(
+                    label: 'Notes',
+                    controller: widget.notesController,
+                    hint: 'Visible to your team only',
+                    icon: Icons.notes_outlined,
+                    maxLines: 2,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  displaySize,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: AddProductColors.labelGrey,
-                  ),
-                ),
-                Text(
-                  price != null
-                      ? 'Default ${CurrencyUtils.format(price)}'
-                      : 'Default rate',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: accent,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -149,232 +181,66 @@ class AddProductIconSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'ICON',
-            style: GoogleFonts.poppins(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
-              color: AddProductColors.labelGrey,
-            ),
-          ),
-          const SizedBox(height: 10),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: kProductIconChoices.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 1.32,
-            ),
-            itemBuilder: (context, i) {
-              final choice = kProductIconChoices[i];
-              final selected = choice.key == selectedKey;
-              return Material(
-                color: selected
-                    ? ProductsColors.statBlue.withValues(alpha: 0.12)
-                    : Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                child: InkWell(
-                  onTap: () => onSelected(choice.key),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: selected
-                            ? ProductsColors.statBlue
-                            : AddProductColors.fieldBorder,
-                        width: selected ? 2 : 1,
-                      ),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          choice.icon,
-                          size: 20,
-                          color: selected
-                              ? ProductsColors.statBlue
-                              : AddProductColors.labelGrey,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          choice.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AddProductColors.titleNavy,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: kProductIconChoices.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: 0.88,
       ),
-    );
-  }
-}
-
-class AddProductPhotoSection extends StatelessWidget {
-  const AddProductPhotoSection({
-    super.key,
-    required this.imagePath,
-    required this.onPickCamera,
-    required this.onPickGallery,
-    required this.onRemove,
-  });
-
-  final String? imagePath;
-  final VoidCallback onPickCamera;
-  final VoidCallback onPickGallery;
-  final VoidCallback onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final file = ProductImageService.fileForPath(imagePath);
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      padding: const EdgeInsets.all(12),
-      decoration: ProductsColors.cardDecoration,
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: onPickGallery,
-            child: Container(
-              width: 62,
-              height: 62,
+      itemBuilder: (context, i) {
+        final choice = kProductIconChoices[i];
+        final selected = choice.key == selectedKey;
+        return Material(
+          color: selected
+              ? ProductsColors.statBlue.withValues(alpha: 0.12)
+              : const Color(0xFFFAFBFC),
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            onTap: () => onSelected(choice.key),
+            borderRadius: BorderRadius.circular(12),
+            child: Ink(
               decoration: BoxDecoration(
-                color: ProductsColors.bottleBg,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AddProductColors.fieldBorder),
-                image: file != null
-                    ? DecorationImage(image: FileImage(file), fit: BoxFit.cover)
-                    : null,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: selected
+                      ? ProductsColors.statBlue
+                      : AddProductColors.fieldBorder,
+                  width: selected ? 2 : 1,
+                ),
               ),
-              child: file == null
-                  ? const Icon(
-                      Icons.add_a_photo_outlined,
-                      color: ProductsColors.statBlue,
-                    )
-                  : null,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Product photo',
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: AddProductColors.titleNavy,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    choice.icon,
+                    size: 24,
+                    color: selected
+                        ? ProductsColors.statBlue
+                        : AddProductColors.labelGrey,
                   ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _PhotoBtn(
-                        icon: Icons.photo_camera_outlined,
-                        label: 'Camera',
-                        onTap: onPickCamera,
-                      ),
+                  const SizedBox(height: 4),
+                  Text(
+                    choice.label,
+                    maxLines: 2,
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      height: 1.15,
+                      color: AddProductColors.titleNavy,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _PhotoBtn(
-                        icon: Icons.photo_library_outlined,
-                        label: 'Gallery',
-                        onTap: onPickGallery,
-                        outlined: true,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
-          if (file != null)
-            IconButton(
-              onPressed: onRemove,
-              icon: const Icon(Icons.close_rounded, size: 20),
-              color: AddProductColors.labelGrey,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PhotoBtn extends StatelessWidget {
-  const _PhotoBtn({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.outlined = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool outlined;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: outlined ? Colors.white : AddProductColors.primaryBtn,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          height: 36,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: outlined
-                ? Border.all(color: AddProductColors.fieldBorder)
-                : null,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 16,
-                color: outlined ? ProductsColors.statBlue : Colors.white,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: outlined ? ProductsColors.statBlue : Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

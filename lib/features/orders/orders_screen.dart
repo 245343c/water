@@ -7,6 +7,8 @@ import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/data/models/order_status.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
+import 'package:sri_sai_ro_water/features/orders/widgets/admin_dispatch_manage_sheet.dart';
+import 'package:sri_sai_ro_water/features/orders/widgets/create_dispatch_sheet.dart';
 import 'package:sri_sai_ro_water/features/orders/widgets/orders_screen_widgets.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
@@ -20,7 +22,7 @@ class OrdersScreen extends StatefulWidget {
 class _OrdersScreenState extends State<OrdersScreen> {
   final _search = TextEditingController();
   String _query = '';
-  OrderListFilter _filter = OrderListFilter.pending;
+  OrderListFilter _filter = OrderListFilter.outForDelivery;
 
   @override
   void dispose() {
@@ -35,27 +37,27 @@ class _OrdersScreenState extends State<OrdersScreen> {
       final qDigits = q.replaceAll(RegExp(r'\D'), '');
       list = list.where((o) {
         final c = repo.customerById(o.customerId);
+        final walkIn = o.walkInContact;
+        final displayName = c?.name ?? walkIn?.name ?? '';
+        final displayPhone = c?.phone ?? walkIn?.phone ?? '';
         final shopName = o.shopId == null
             ? ''
             : repo.shopById(o.shopId!)?.name.toLowerCase() ?? '';
-        final phone = c?.phone.replaceAll(RegExp(r'\D'), '') ?? '';
-        return (c?.name.toLowerCase().contains(q) ?? false) ||
+        final phone = displayPhone.replaceAll(RegExp(r'\D'), '');
+        return displayName.toLowerCase().contains(q) ||
             (qDigits.isNotEmpty && phone.contains(qDigits)) ||
             shopName.contains(q) ||
-            o.cansSummary.toLowerCase().contains(q);
+            o.itemsSummary.toLowerCase().contains(q);
       }).toList();
     }
     if (_filter == OrderListFilter.all) return list;
-    return list
-        .where(
-          (o) => switch (_filter) {
-            OrderListFilter.pending => o.status == OrderStatus.pending,
-            OrderListFilter.accepted => o.status == OrderStatus.accepted,
-            OrderListFilter.rejected => o.status == OrderStatus.rejected,
-            OrderListFilter.all => true,
-          },
-        )
-        .toList();
+    return list.where((o) => switch (_filter) {
+          OrderListFilter.pending => o.status == OrderStatus.pending,
+          OrderListFilter.walkIn => o.isPhoneDispatch,
+          OrderListFilter.outForDelivery => o.isActiveDispatch,
+          OrderListFilter.delivered => o.isDelivered,
+          OrderListFilter.all => true,
+        }).toList();
   }
 
   void _openOrder(
@@ -64,18 +66,47 @@ class _OrdersScreenState extends State<OrdersScreen> {
     CustomerOrder order,
   ) {
     final customer = repo.customerById(order.customerId);
-    if (customer == null) return;
+    final walkIn = order.walkInContact;
+    final customerName = customer?.name ?? walkIn?.name ?? 'Unknown';
+    final customerPhone = customer?.phone ?? walkIn?.phone ?? '';
+    final customerAddress = customer?.address ?? walkIn?.address ?? '';
+    if (customer == null && walkIn == null) return;
+
     final shopName = order.shopId == null
         ? 'Your water plant'
         : repo.shopById(order.shopId!)?.name ?? 'Your water plant';
 
+    if (order.isPhoneDispatch) {
+      showAdminDispatchManageSheet(
+        context: context,
+        order: order,
+        customerName: customerName,
+        customerPhone: customerPhone,
+        customerAddress: customerAddress,
+        shopName: shopName,
+      );
+      return;
+    }
+
+    if (!order.isPending) {
+      showDispatchDetailSheet(
+        context: context,
+        order: order,
+        customerName: customerName,
+        customerPhone: customerPhone,
+        shopName: shopName,
+        isMonthlyCustomer: customer?.isMonthlyContract ?? false,
+      );
+      return;
+    }
+
     showOrderRespondSheet(
       context: context,
       order: order,
-      customerName: customer.name,
-      customerPhone: customer.phone,
+      customerName: customerName,
+      customerPhone: customerPhone,
       shopName: shopName,
-      isMonthlyCustomer: customer.isMonthlyContract,
+      isMonthlyCustomer: customer?.isMonthlyContract ?? false,
       onAccept: () async {
         await context.read<OrderWorkflowService>().acceptOrder(
           orderId: order.id,
@@ -84,7 +115,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Request accepted. Driver notified to deliver to ${customer.name}',
+              'Request accepted. Driver notified to deliver to $customerName',
               style: GoogleFonts.poppins(),
             ),
             behavior: SnackBarBehavior.floating,
@@ -121,14 +152,26 @@ class _OrdersScreenState extends State<OrdersScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 CustomersHeader(
-                  title: 'Customer requests',
-                  showAddButton: false,
-                  onAdd: () {},
+                  title: 'Dispatch',
+                  showAddButton: true,
+                  onAdd: () async {
+                    final saved = await showCreateDispatchSheet(context);
+                    if (!context.mounted || saved != true) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Walk-in dispatch sent to driver',
+                          style: GoogleFonts.poppins(),
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
                   onMenu: () => context.go(AppRoutes.more),
                 ),
                 CustomersSearchRow(
                   controller: _search,
-                  hintText: 'Search requests, customer, plant...',
+                  hintText: 'Search dispatch, customer, phone...',
                   onChanged: (v) => setState(() => _query = v),
                 ),
                 CustomersListPanel(
@@ -158,6 +201,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                   final customer = repo.customerById(
                                     order.customerId,
                                   );
+                                  final walkIn = order.walkInContact;
+                                  final customerName =
+                                      customer?.name ?? walkIn?.name ?? 'Unknown';
+                                  final customerPhone =
+                                      customer?.phone ?? walkIn?.phone ?? '';
                                   final shopName = order.shopId == null
                                       ? 'Your water plant'
                                       : repo.shopById(order.shopId!)?.name ??
@@ -169,8 +217,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                         );
                                   return OrderListCard(
                                     order: order,
-                                    customerName: customer?.name ?? 'Unknown',
-                                    customerPhone: customer?.phone ?? '',
+                                    customerName: customerName,
+                                    customerPhone: customerPhone,
                                     shopName: shopName,
                                     isMonthlyCustomer:
                                         customer?.isMonthlyContract ?? false,
@@ -205,10 +253,11 @@ class _EmptyOrders extends StatelessWidget {
     final message = isSearch
         ? 'No requests match your search'
         : switch (filter) {
-            OrderListFilter.pending => 'No new requests',
-            OrderListFilter.accepted => 'No accepted requests',
-            OrderListFilter.rejected => 'No declined requests',
-            OrderListFilter.all => 'No requests yet',
+            OrderListFilter.pending => 'No new app requests',
+            OrderListFilter.walkIn => 'No walk-in dispatches yet',
+            OrderListFilter.outForDelivery => 'Nothing out for delivery',
+            OrderListFilter.delivered => 'No completed dispatches',
+            OrderListFilter.all => 'No dispatches yet',
           };
 
     return Center(
@@ -230,7 +279,7 @@ class _EmptyOrders extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Customer app requests will appear here',
+            'Tap + when someone calls for water today',
             style: GoogleFonts.poppins(
               fontSize: 12,
               color: CustomersColors.labelGrey,

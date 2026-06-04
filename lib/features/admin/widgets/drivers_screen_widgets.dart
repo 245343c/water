@@ -13,18 +13,7 @@ abstract final class DriversColors {
   static const Color accent = AppColors.primary;
   static const Color warning = Color(0xFFD97706);
 
-  static BoxDecoration get cardDecoration => BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(16),
-    border: Border.all(color: cardBorder),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black.withValues(alpha: 0.05),
-        blurRadius: 8,
-        offset: const Offset(0, 2),
-      ),
-    ],
-  );
+  static BoxDecoration get cardDecoration => CustomersColors.whiteCard;
 }
 
 class DriversScaffold extends StatelessWidget {
@@ -39,16 +28,22 @@ class DriversScaffold extends StatelessWidget {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: PremiumResponsiveBody(maxWidth: 1180, child: child),
+      child: Container(
+        decoration: CustomersColors.screenGradient,
+        child: PremiumResponsiveBody(
+          maxWidth: 1180,
+          horizontalPadding: 4,
+          child: child,
+        ),
+      ),
     );
   }
 }
 
 class DriversHeader extends StatelessWidget {
-  const DriversHeader({super.key, required this.onBack, required this.onAdd});
+  const DriversHeader({super.key, required this.onBack});
 
   final VoidCallback onBack;
-  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -56,17 +51,6 @@ class DriversHeader extends StatelessWidget {
       title: 'Drivers',
       subtitle: 'Team access and delivery staff',
       onBack: onBack,
-      trailing: TextButton.icon(
-        onPressed: onAdd,
-        icon: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
-        label: Text(
-          'Add',
-          style: GoogleFonts.poppins(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
     );
   }
 }

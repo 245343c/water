@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/services/delivery_recording_service.dart';
+import 'package:sri_sai_ro_water/core/services/admin_dispatch_service.dart';
 import 'package:sri_sai_ro_water/core/services/order_workflow_service.dart';
 import 'package:sri_sai_ro_water/core/services/push_notification_service.dart';
 import 'package:sri_sai_ro_water/core/theme/app_theme.dart';
@@ -27,6 +28,7 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
   late final PushNotificationService _push;
   late final DeliveryRecordingService _deliveryRecording;
   late final OrderWorkflowService _orderWorkflow;
+  late final AdminDispatchService _adminDispatch;
   late final GoRouter _router;
   String? _lastLoadedUserId;
 
@@ -45,6 +47,11 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
     );
     _orderWorkflow = OrderWorkflowService(
       plant: _repository,
+      notifications: _notifications,
+    );
+    _adminDispatch = AdminDispatchService(
+      plant: _repository,
+      notifications: _notifications,
     );
     _router = createAppRouter(_auth, _repository);
     _push.initialize();
@@ -85,6 +92,7 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
         Provider.value(value: _push),
         Provider.value(value: _deliveryRecording),
         Provider.value(value: _orderWorkflow),
+        Provider.value(value: _adminDispatch),
       ],
       child: MaterialApp.router(
         title: 'Sri Sai RO Water',

@@ -381,7 +381,7 @@ class NotificationRepository extends ChangeNotifier {
         type: AppNotificationType.orderPlaced,
         title: 'New water request',
         body:
-            '$customerName requested ${order.cansSummary} from $shopName. Accept or decline from Orders.',
+            '$customerName requested ${order.itemsSummary} from $shopName. Accept or decline from Dispatch.',
         audience: AppRole.admin,
         customerId: order.customerId,
         orderId: order.id,
@@ -400,9 +400,12 @@ class NotificationRepository extends ChangeNotifier {
       AppNotification(
         id: _uuid.v4(),
         type: AppNotificationType.orderAccepted,
-        title: 'Go deliver — $customerName',
-        body:
-            'Admin confirmed: ${order.cansSummary}. Ask customer & record actual cans delivered.',
+        title: order.isPhoneDispatch
+            ? 'Walk-in — $customerName'
+            : 'Go deliver — $customerName',
+        body: order.isPhoneDispatch
+            ? '${order.itemsSummary} · collect payment at door'
+            : 'Admin confirmed: ${order.itemsSummary}. Open customer & save delivery.',
         audience: AppRole.driver,
         customerId: order.customerId,
         orderId: order.id,
@@ -422,7 +425,7 @@ class NotificationRepository extends ChangeNotifier {
         id: _uuid.v4(),
         type: AppNotificationType.orderAccepted,
         title: 'Order sent to driver',
-        body: '$customerName · ${order.cansSummary} — driver notified',
+        body: '$customerName · ${order.itemsSummary} — driver notified',
         audience: AppRole.admin,
         customerId: order.customerId,
         orderId: order.id,
@@ -443,7 +446,7 @@ class NotificationRepository extends ChangeNotifier {
         type: AppNotificationType.orderAccepted,
         title: 'Request accepted',
         body:
-            '$shopName confirmed ${order.cansSummary}. Driver will deliver soon.',
+            '$shopName confirmed ${order.itemsSummary}. Driver will deliver soon.',
         audience: AppRole.customer,
         customerId: order.customerId,
         orderId: order.id,
