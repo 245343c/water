@@ -4,9 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
+import 'package:sri_sai_ro_water/core/constants/delivery_route_constants.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customer_list_card.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
-import 'package:sri_sai_ro_water/routing/app_router.dart';
+import 'package:sri_sai_ro_water/features/routes/widgets/delivery_routes_widgets.dart';
 
 class CustomersScreen extends StatefulWidget {
   const CustomersScreen({super.key});
@@ -19,6 +20,16 @@ class _CustomersScreenState extends State<CustomersScreen> {
   final _search = TextEditingController();
   String _query = '';
   CustomerListFilter _filter = CustomerListFilter.all;
+  String? _routeFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await context.read<WaterPlantRepository>().loadDeliveryRoutesForCurrentAdmin();
+    });
+  }
 
   @override
   void dispose() {
@@ -26,22 +37,107 @@ class _CustomersScreenState extends State<CustomersScreen> {
     super.dispose();
   }
 
-  List<Customer> _list(WaterPlantRepository repo) {
-    final month = DateTime.now();
-    final all = List<Customer>.from(repo.searchCustomers(_query))
+  List<Customer> _searched(WaterPlantRepository repo) {
+    return List<Customer>.from(repo.searchCustomers(_query))
       ..sort((a, b) => a.name.compareTo(b.name));
+  }
 
-    if (_filter == CustomerListFilter.all) return all;
-
-    return all.where((c) {
+  List<Customer> _applyPaymentFilter(
+    List<Customer> customers,
+    WaterPlantRepository repo,
+    CustomerListFilter filter,
+  ) {
+    if (filter == CustomerListFilter.all) return customers;
+    final month = DateTime.now();
+    return customers.where((c) {
       final category = _categoryFor(repo, c, month);
-      return switch (_filter) {
-        CustomerListFilter.pending => category == CustomerPaymentCategory.pending,
+      return switch (filter) {
+        CustomerListFilter.pending =>
+          category == CustomerPaymentCategory.pending,
         CustomerListFilter.paid => category == CustomerPaymentCategory.paid,
-        CustomerListFilter.overdue => category == CustomerPaymentCategory.overdue,
+        CustomerListFilter.overdue =>
+          category == CustomerPaymentCategory.overdue,
         CustomerListFilter.all => true,
       };
     }).toList();
+  }
+
+  List<Customer> _applyRouteFilter(
+    List<Customer> customers,
+    String? routeFilter,
+  ) {
+    if (routeFilter == null) return customers;
+    if (routeFilter == DeliveryRouteFilters.unassigned) {
+      return customers
+          .where((c) => c.routeId == null || c.routeId!.trim().isEmpty)
+          .toList();
+    }
+    return customers.where((c) => c.routeId == routeFilter).toList();
+  }
+
+  List<Customer> _list(WaterPlantRepository repo) {
+    final searched = _searched(repo);
+    return _applyRouteFilter(
+      _applyPaymentFilter(searched, repo, _filter),
+      _routeFilter,
+    );
+  }
+
+  Map<CustomerListFilter, int> _paymentCounts(WaterPlantRepository repo) {
+    final scoped = _applyRouteFilter(_searched(repo), _routeFilter);
+    return {
+      for (final f in CustomerListFilter.values)
+        f: _applyPaymentFilter(scoped, repo, f).length,
+    };
+  }
+
+  Map<String?, int> _routeCounts(WaterPlantRepository repo) {
+    final scoped = _applyPaymentFilter(_searched(repo), repo, _filter);
+    final counts = <String?, int>{
+      null: scoped.length,
+      DeliveryRouteFilters.unassigned: scoped
+          .where((c) => c.routeId == null || c.routeId!.trim().isEmpty)
+          .length,
+    };
+    for (final route in repo.activeDeliveryRoutes) {
+      counts[route.id] =
+          scoped.where((c) => c.routeId == route.id).length;
+    }
+    return counts;
+  }
+
+  Future<String?> _createRouteFromFilter(
+    WaterPlantRepository repo,
+  ) async {
+    final name = await showDeliveryRouteNameDialog(
+      context,
+      title: 'Create route',
+      confirmLabel: 'Create',
+    );
+    if (name == null || name.isEmpty || !mounted) return null;
+    try {
+      final route = await repo.addDeliveryRoute(name);
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Route "${route.name}" created', style: GoogleFonts.poppins()),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return route.id;
+    } catch (e) {
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().replaceFirst('ArgumentError: ', ''),
+            style: GoogleFonts.poppins(),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return null;
+    }
   }
 
   CustomerPaymentCategory _categoryFor(
@@ -78,22 +174,32 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   CustomersHeader(
+                    icon: Icons.people_rounded,
                     showAddButton: false,
                     onAdd: openAddCustomer,
-                    onMenu: () => context.go(AppRoutes.more),
+                    searchController: _search,
+                    onSearchChanged: (v) => setState(() => _query = v),
                   ),
-                  CustomersSearchRow(
-                    controller: _search,
-                    onChanged: (v) => setState(() => _query = v),
-                  ),
-                  CustomersFilterChips(
-                    selected: _filter,
-                    onSelected: (f) => setState(() => _filter = f),
+                  CustomersDualFilterBar(
+                    routes: repo.activeDeliveryRoutes,
+                    selectedRouteId: _routeFilter,
+                    selectedPayment: _filter,
+                    routeCounts: _routeCounts(repo),
+                    paymentCounts: _paymentCounts(repo),
+                    onRouteChanged: (id) => setState(() => _routeFilter = id),
+                    onPaymentChanged: (f) => setState(() => _filter = f),
+                    onCreateRouteRequested: () => _createRouteFromFilter(repo),
+                    routeCountsFor: _routeCounts,
+                    onRouteRemoved: (routeId) => setState(() {
+                      if (_routeFilter == routeId) _routeFilter = null;
+                    }),
                   ),
                   Expanded(
                     child: customers.isEmpty
                         ? _EmptyCustomers(
-                            isSearch: _query.isNotEmpty || _filter != CustomerListFilter.all,
+                            isSearch: _query.isNotEmpty ||
+                                _filter != CustomerListFilter.all ||
+                                _routeFilter != null,
                             onAdd: openAddCustomer,
                           )
                         : ListView.builder(
@@ -105,6 +211,9 @@ class _CustomersScreenState extends State<CustomersScreen> {
                               final deliveries = repo.deliveriesForCustomer(c.id);
                               final last = deliveries.isEmpty ? null : deliveries.first.date;
                               final idx = repo.customers.indexWhere((x) => x.id == c.id);
+                              final routeName = repo.deliveryRouteName(c.routeId);
+                              final unassigned =
+                                  c.routeId == null || c.routeId!.trim().isEmpty;
                               return CustomerListCard(
                                 customer: c,
                                 colorIndex: idx >= 0 ? idx : i,
@@ -112,6 +221,8 @@ class _CustomersScreenState extends State<CustomersScreen> {
                                 lastDeliveryLabel: lastDeliveryRelativeLabel(last),
                                 balance: repo.customerBalance(c.id).clamp(0, double.infinity),
                                 category: _categoryFor(repo, c, month),
+                                routeName: unassigned ? 'No route' : routeName,
+                                routeUnassigned: unassigned,
                                 onTap: () => context.push('/customers/${c.id}'),
                               );
                             },

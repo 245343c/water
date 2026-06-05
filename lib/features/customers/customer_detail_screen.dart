@@ -107,6 +107,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         final canBalance = repo.customerCanBalance(widget.customerId);
         final idx = repo.customers.indexWhere((c) => c.id == widget.customerId);
 
+        void openAddDelivery() => context.push(
+              '/customers/${widget.customerId}/delivery',
+            );
+
         return Scaffold(
           backgroundColor: CustomerDetailColors.screenBg,
           body: CustomerDetailScaffold(
@@ -119,7 +123,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 ),
                 Expanded(
                   child: ListView(
-                    padding: const EdgeInsets.only(bottom: 24),
+                    padding: const EdgeInsets.only(bottom: 88),
                     children: [
                       CustomerInfoBar(
                         customer: customer,
@@ -162,9 +166,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                         initialMonth: now.month,
                       ),
                       QuickActionsSection(
-                        onAddDelivery: () => context.push(
-                          '/customers/${widget.customerId}/delivery',
-                        ),
                         onRecordPayment: () => context.push(
                           '/customers/${widget.customerId}/payment',
                         ),
@@ -183,6 +184,11 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               ],
             ),
           ),
+          floatingActionButton: Padding(
+            padding: const EdgeInsets.only(right: 4, bottom: 8),
+            child: CustomerAddDeliveryButton(onPressed: openAddDelivery),
+          ),
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         );
       },
     );

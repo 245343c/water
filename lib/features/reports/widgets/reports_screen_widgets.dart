@@ -71,9 +71,297 @@ class ReportsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AdminPageHeader(
-      title: 'Reports',
-      subtitle: 'Sales, deliveries and collections',
+      title: 'Sales report',
+      subtitle: 'Deliveries and collections',
       onBack: onBack,
+    );
+  }
+}
+
+/// Simple month switch — This month or Last month only.
+class ReportsSimpleMonthPicker extends StatelessWidget {
+  const ReportsSimpleMonthPicker({
+    super.key,
+    required this.selected,
+    required this.start,
+    required this.end,
+    required this.onThisMonth,
+    required this.onLastMonth,
+    required this.onPickDates,
+  });
+
+  final ReportsPeriodPreset selected;
+  final DateTime start;
+  final DateTime end;
+  final VoidCallback onThisMonth;
+  final VoidCallback onLastMonth;
+  final VoidCallback onPickDates;
+
+  @override
+  Widget build(BuildContext context) {
+    final isThisMonth = selected == ReportsPeriodPreset.thisMonth;
+    final isLastMonth = selected == ReportsPeriodPreset.lastMonth;
+    final isCustom = selected == ReportsPeriodPreset.custom;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: CustomersColors.whiteCard,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Which month?',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: ReportsColors.titleNavy,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _MonthChoice(
+                    label: 'This month',
+                    selected: isThisMonth,
+                    onTap: onThisMonth,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _MonthChoice(
+                    label: 'Last month',
+                    selected: isLastMonth,
+                    onTap: onLastMonth,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              ReportsFormat.dateRange(start, end),
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: ReportsColors.labelGrey,
+              ),
+            ),
+            if (isCustom)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Custom dates selected',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: ReportsColors.heroEnd,
+                  ),
+                ),
+              ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: onPickDates,
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  'Pick other dates',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: ReportsColors.heroEnd,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MonthChoice extends StatelessWidget {
+  const _MonthChoice({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? ReportsColors.heroEnd : const Color(0xFFF3F4F6),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: selected ? Colors.white : ReportsColors.titleNavy,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One clear summary — no extra KPI boxes.
+class ReportsSimpleSummaryCard extends StatelessWidget {
+  const ReportsSimpleSummaryCard({
+    super.key,
+    required this.sales,
+    required this.collected,
+    required this.cans,
+  });
+
+  final double sales;
+  final double collected;
+  final int cans;
+
+  @override
+  Widget build(BuildContext context) {
+    final pending = (sales - collected).clamp(0.0, double.infinity);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+        decoration: CustomersColors.whiteCard,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              CurrencyUtils.format(sales),
+              style: GoogleFonts.poppins(
+                fontSize: 34,
+                fontWeight: FontWeight.w800,
+                color: ReportsColors.titleNavy,
+                height: 1,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Total sales in period',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: ReportsColors.labelGrey,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Divider(height: 1, color: ReportsColors.divider),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                _SummaryColumn(
+                  label: 'Collected',
+                  value: CurrencyUtils.format(collected),
+                  color: ReportsColors.statGreen,
+                ),
+                _summaryDivider(),
+                _SummaryColumn(
+                  label: 'Pending',
+                  value: CurrencyUtils.format(pending),
+                  color: pending > 0
+                      ? ReportsColors.statRed
+                      : ReportsColors.titleNavy,
+                ),
+                _summaryDivider(),
+                _SummaryColumn(
+                  label: 'Cans',
+                  value: ReportsFormat.count(cans),
+                  color: ReportsColors.titleNavy,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static Widget _summaryDivider() => Container(
+        width: 1,
+        height: 36,
+        margin: const EdgeInsets.symmetric(horizontal: 10),
+        color: ReportsColors.divider,
+      );
+}
+
+class _SummaryColumn extends StatelessWidget {
+  const _SummaryColumn({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              color: ReportsColors.labelGrey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ReportsSimpleFootnote extends StatelessWidget {
+  const ReportsSimpleFootnote({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      child: Text(
+        'Numbers come from deliveries and payments recorded in this app.',
+        style: GoogleFonts.poppins(
+          fontSize: 11,
+          height: 1.45,
+          color: ReportsColors.labelGrey,
+        ),
+      ),
     );
   }
 }

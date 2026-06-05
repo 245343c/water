@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/constants/empty_can_balance.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/core/widgets/month_wheel_scroll.dart';
@@ -117,7 +118,7 @@ class CustomerPendingCard extends StatelessWidget {
             ? 'ADVANCE'
             : 'PAID';
     final headline = _hasPending
-        ? 'Total Pending'
+        ? 'Total Due'
         : _hasAdvance
             ? 'Advance Credit'
             : 'All Clear';
@@ -169,7 +170,7 @@ class CustomerPendingCard extends StatelessWidget {
                       Text(
                         headline,
                         style: GoogleFonts.poppins(
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: FontWeight.w500,
                           color: CustomerDetailColors.labelGrey,
                         ),
@@ -179,7 +180,7 @@ class CustomerPendingCard extends StatelessWidget {
                       Text(
                         CurrencyUtils.format(mainAmount),
                         style: GoogleFonts.poppins(
-                          fontSize: 28,
+                          fontSize: 22,
                           fontWeight: FontWeight.w800,
                           color: textColor,
                           height: 1.05,
@@ -341,6 +342,9 @@ class CustomerCanBalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final totalOut = balance.totalWithCustomer;
+    final showJarWarning = emptyCanCountIsWarning(totalOut);
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       decoration: CustomerDetailColors.borderedCard,
@@ -353,24 +357,46 @@ class CustomerCanBalanceCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDFA),
+                  color: showJarWarning
+                      ? const Color(0xFFFEF2F2)
+                      : const Color(0xFFF0FDFA),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.recycling_rounded,
                   size: 16,
-                  color: Color(0xFF0D9488),
+                  color: showJarWarning
+                      ? const Color(0xFFDC2626)
+                      : const Color(0xFF0D9488),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  'Empty Can Balance',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: CustomerDetailColors.titleNavy,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Empty Can Balance',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: CustomerDetailColors.titleNavy,
+                      ),
+                    ),
+                    if (totalOut > 0)
+                      Text(
+                        showJarWarning
+                            ? '$totalOut jars out — collect before next delivery'
+                            : '$totalOut empty jar${totalOut == 1 ? '' : 's'} with customer',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: showJarWarning
+                              ? const Color(0xFFDC2626)
+                              : CustomerDetailColors.labelGrey,
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ],
@@ -381,6 +407,7 @@ class CustomerCanBalanceCard extends StatelessWidget {
               Expanded(
                 child: _CanBalanceMiniTile(
                   label: 'Normal',
+                  withCustomer: balance.normalWithCustomer,
                   delivered: balance.normalDelivered,
                   returned: balance.normalReturned,
                   color: const Color(0xFF2563EB),
@@ -390,6 +417,7 @@ class CustomerCanBalanceCard extends StatelessWidget {
               Expanded(
                 child: _CanBalanceMiniTile(
                   label: 'Cool',
+                  withCustomer: balance.coolWithCustomer,
                   delivered: balance.coolDelivered,
                   returned: balance.coolReturned,
                   color: const Color(0xFF0D9488),
@@ -431,24 +459,32 @@ class CustomerCanBalanceCard extends StatelessWidget {
 class _CanBalanceMiniTile extends StatelessWidget {
   const _CanBalanceMiniTile({
     required this.label,
+    required this.withCustomer,
     required this.delivered,
     required this.returned,
     required this.color,
   });
 
   final String label;
+  final int withCustomer;
   final int delivered;
   final int returned;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
+    final countColor = emptyCanCountColor(withCustomer, normalColor: color);
+
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.06),
+        color: countColor.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
+        border: Border.all(
+          color: emptyCanCountIsWarning(withCustomer)
+              ? const Color(0xFFFECACA)
+              : color.withValues(alpha: 0.18),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -461,18 +497,29 @@ class _CanBalanceMiniTile extends StatelessWidget {
               color: color,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
-            'Delivered: $delivered',
+            '$withCustomer',
             style: GoogleFonts.poppins(
-              fontSize: 10,
-              color: CustomerDetailColors.labelGrey,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: countColor,
+              height: 1,
             ),
           ),
           Text(
-            'Empty returned: $returned',
+            'with customer',
             style: GoogleFonts.poppins(
               fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: countColor,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Delivered $delivered · returned $returned',
+            style: GoogleFonts.poppins(
+              fontSize: 9,
               color: CustomerDetailColors.labelGrey,
             ),
           ),
@@ -839,16 +886,57 @@ class _StatusBadge extends StatelessWidget {
 
 // ─── Quick Actions ───────────────────────────────────────────────────────────
 
+/// Fixed bottom-right primary action (Customer detail).
+class CustomerAddDeliveryButton extends StatelessWidget {
+  const CustomerAddDeliveryButton({super.key, required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 8,
+      shadowColor: const Color(0xFF2563EB).withValues(alpha: 0.45),
+      borderRadius: BorderRadius.circular(16),
+      color: const Color(0xFF2563EB),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.local_shipping_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Add delivery',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class QuickActionsSection extends StatelessWidget {
   const QuickActionsSection({
     super.key,
-    required this.onAddDelivery,
     required this.onRecordPayment,
     required this.onViewBills,
     required this.onCall,
   });
 
-  final VoidCallback onAddDelivery;
   final VoidCallback onRecordPayment;
   final VoidCallback onViewBills;
   final VoidCallback onCall;
@@ -881,8 +969,6 @@ class QuickActionsSection extends StatelessWidget {
               color: CustomerDetailColors.titleNavy,
             ),
           ),
-          const SizedBox(height: 12),
-          AddDeliveryBar(onTap: onAddDelivery),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -918,116 +1004,6 @@ class QuickActionsSection extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Full-width gradient bar for adding a delivery (animated van).
-class AddDeliveryBar extends StatefulWidget {
-  const AddDeliveryBar({super.key, required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  State<AddDeliveryBar> createState() => _AddDeliveryBarState();
-}
-
-class _AddDeliveryBarState extends State<AddDeliveryBar>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _drive;
-
-  @override
-  void initState() {
-    super.initState();
-    _drive = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1600),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _drive.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      borderRadius: BorderRadius.circular(14),
-      elevation: 0,
-      child: InkWell(
-        onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            gradient: const LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [Color(0xFF1A73E8), Color(0xFF2563EB)],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Color(0xFF1A73E8).withValues(alpha: 0.35),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-          child: Row(
-            children: [
-              AnimatedBuilder(
-                animation: _drive,
-                builder: (context, child) {
-                  return Transform.translate(
-                    offset: Offset(_drive.value * 10, 0),
-                    child: child,
-                  );
-                },
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.22),
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: const Icon(
-                    Icons.local_shipping_rounded,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Add Delivery',
-                  style: GoogleFonts.poppins(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              AnimatedBuilder(
-                animation: _drive,
-                builder: (context, _) {
-                  return Opacity(
-                    opacity: 0.55 + _drive.value * 0.45,
-                    child: const Icon(
-                      Icons.arrow_forward_rounded,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

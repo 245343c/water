@@ -90,7 +90,11 @@ service cloud.firestore {
       match /orders/{orderId} {
         allow read: if isStaffForShop(shopId)
           || isLinkedCustomer(shopId, resource.data.customerId);
-        allow write: if false;
+        allow create: if isAdmin() && userData().shopId == shopId
+          && request.resource.data.source == 'phoneCall';
+        allow update: if isAdmin() && userData().shopId == shopId
+          && resource.data.source == 'phoneCall';
+        allow delete: if false;
       }
 
       match /notifications/{notificationId} {
@@ -108,7 +112,9 @@ service cloud.firestore {
           )
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['read', 'updatedAt']);
-        allow create, delete: if false;
+        allow create: if isAdmin() && userData().shopId == shopId
+          && request.resource.data.audience in ['driver', 'admin'];
+        allow delete: if false;
       }
 
       match /products/{productId} {

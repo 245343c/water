@@ -23,7 +23,7 @@ class DriverAcceptedOrderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final customer = repo.customerById(order.customerId);
     final walkIn = order.walkInContact;
-    final displayName = walkIn?.name ?? customer?.name ?? 'Walk-in';
+    final displayName = walkIn?.name ?? customer?.name ?? 'Instant';
     final displayPhone = walkIn?.phone ?? customer?.phone ?? '';
     final displayAddress = walkIn?.address ?? customer?.address ?? '';
     final displayPlace = walkIn?.place ?? customer?.place ?? '';
@@ -63,9 +63,9 @@ class DriverAcceptedOrderCard extends StatelessWidget {
                       ),
                     ),
                     _RequestBadge(
-                      label: order.isPhoneDispatch ? 'Walk-in' : 'Dispatch',
+                      label: order.isPhoneDispatch ? 'Instant' : 'Dispatch',
                       icon: order.isPhoneDispatch
-                          ? Icons.call_rounded
+                          ? Icons.bolt_rounded
                           : Icons.verified_rounded,
                     ),
                   ],

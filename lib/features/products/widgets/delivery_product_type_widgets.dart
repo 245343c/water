@@ -3,8 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/data/models/delivery_product_type.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
+import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/features/products/models/product_icon_choice.dart';
-import 'package:sri_sai_ro_water/features/products/widgets/products_screen_widgets.dart';
 
 abstract final class DeliveryTypeColors {
   static const Color titleNavy = Color(0xFF111827);
@@ -120,6 +120,199 @@ class DeliveryTypeIcon extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Section title on the page gradient (between white cards).
+class ProductsGradientSectionTitle extends StatelessWidget {
+  const ProductsGradientSectionTitle({
+    super.key,
+    required this.title,
+    this.subtitle,
+  });
+
+  final String title;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              subtitle!,
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                color: Colors.white.withValues(alpha: 0.72),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// One product row — same card chrome as [CustomerListCard].
+class ProductListCard extends StatelessWidget {
+  const ProductListCard({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.rateText,
+    required this.leading,
+    this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final String rateText;
+  final Widget leading;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: Colors.white,
+        elevation: 0,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: CustomersColors.cardBorder),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                leading,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: DeliveryTypeColors.titleNavy,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: DeliveryTypeColors.labelGrey,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        rateText,
+                        style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: DeliveryTypeColors.accentBlue,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: DeliveryTypeColors.labelGrey,
+                  size: 22,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class DeliveryProductTypeListCard extends StatelessWidget {
+  const DeliveryProductTypeListCard({
+    super.key,
+    required this.type,
+    required this.rateText,
+    this.onTap,
+  });
+
+  final DeliveryProductType type;
+  final String rateText;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ProductListCard(
+      title: type.title,
+      subtitle: type.subtitle,
+      rateText: rateText,
+      onTap: onTap,
+      leading: DeliveryTypeIcon(type: type, size: 48, iconScale: 0.55),
+    );
+  }
+}
+
+class CatalogProductListCard extends StatelessWidget {
+  const CatalogProductListCard({
+    super.key,
+    required this.product,
+    this.onTap,
+  });
+
+  final Product product;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = productIconByKey(product.iconKey).icon;
+
+    return ProductListCard(
+      title: product.name,
+      subtitle: product.variantSummary,
+      rateText: CurrencyUtils.format(product.startingPrice),
+      onTap: onTap,
+      leading: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: DeliveryTypeColors.iconBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: DeliveryTypeColors.cardBorder),
+        ),
+        child: Icon(icon, size: 28, color: DeliveryTypeColors.accentBlue),
       ),
     );
   }
@@ -327,93 +520,89 @@ class _UnifiedTypeCard extends StatelessWidget {
   }
 }
 
-/// Fixed catalog on Products — shop default rates, tap to edit.
-class ProductsDeliveryTypesSection extends StatelessWidget {
-  const ProductsDeliveryTypesSection({
-    super.key,
-    required this.rateFor,
-    required this.onEditRate,
-    this.catalogProducts = const [],
-    this.onEditCatalogProduct,
-    this.compact = true,
-    this.emphasized = false,
-  });
+/// Builds separated list cards for the Products screen (Customers-style layout).
+List<Widget> buildProductsListChildren({
+  required double Function(DeliveryProductType type) rateFor,
+  required void Function(DeliveryProductType type, double currentRate) onEditRate,
+  required List<Product> catalogProducts,
+  void Function(Product product)? onEditCatalogProduct,
+  String query = '',
+}) {
+  final q = query.trim().toLowerCase();
+  bool matches(String title, String subtitle, String rate) {
+    if (q.isEmpty) return true;
+    return title.toLowerCase().contains(q) ||
+        subtitle.toLowerCase().contains(q) ||
+        rate.toLowerCase().contains(q);
+  }
 
-  final double Function(DeliveryProductType type) rateFor;
-  final void Function(DeliveryProductType type, double currentRate) onEditRate;
-  final List<Product> catalogProducts;
-  final void Function(Product product)? onEditCatalogProduct;
-  final bool compact;
-  final bool emphasized;
+  final children = <Widget>[
+    const ProductsGradientSectionTitle(
+      title: 'Delivery types',
+      subtitle: 'Tap a card to set shop default rate',
+    ),
+  ];
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(compact ? 12 : 14),
-      decoration: ProductsColors.whiteCard,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Delivery product types',
-            style: GoogleFonts.poppins(
-              fontSize: emphasized ? 16 : (compact ? 14 : 15),
-              fontWeight: FontWeight.w800,
-              color: DeliveryTypeColors.titleNavy,
-            ),
-          ),
-          SizedBox(height: compact ? 10 : 14),
-          DeliveryProductTypeGrid(
-            compact: compact,
-            types: DeliveryProductType.catalog,
-            builder: (context, type) {
-              final rate = rateFor(type);
-              final rateLabel = rate > 0
-                  ? '${CurrencyUtils.format(rate)} ${type.rateLabel}'
-                  : 'Set rate';
-              return DeliveryProductTypeBox(
-                type: type,
-                compact: compact,
-                emphasized: emphasized,
-                rateText: rateLabel,
-                onTap: () => onEditRate(type, rate),
-              );
-            },
-          ),
-          if (catalogProducts.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            Text(
-              'Catalog',
-              style: GoogleFonts.poppins(
-                fontSize: emphasized ? 13 : (compact ? 10 : 11),
-                fontWeight: FontWeight.w700,
-                color: DeliveryTypeColors.titleNavy,
-              ),
-            ),
-            const SizedBox(height: 8),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.zero,
-              itemCount: catalogProducts.length,
-              gridDelegate: productTypeGridDelegate(compact: compact),
-              itemBuilder: (context, i) {
-                final product = catalogProducts[i];
-                return CatalogProductCardBox(
-                  product: product,
-                  compact: compact,
-                  emphasized: emphasized,
-                  onTap: onEditCatalogProduct == null
-                      ? null
-                      : () => onEditCatalogProduct!(product),
-                );
-              },
-            ),
-          ],
-        ],
+  var typeCount = 0;
+  for (final type in DeliveryProductType.catalog) {
+    final rate = rateFor(type);
+    final rateLabel = rate > 0
+        ? '${CurrencyUtils.format(rate)} ${type.rateLabel}'
+        : 'Set rate';
+    if (!matches(type.title, type.subtitle, rateLabel)) continue;
+    typeCount++;
+    children.add(
+      DeliveryProductTypeListCard(
+        type: type,
+        rateText: rateLabel,
+        onTap: () => onEditRate(type, rate),
       ),
     );
   }
+
+  final filteredCatalog = catalogProducts.where((p) {
+    final rate = CurrencyUtils.format(p.startingPrice);
+    return matches(p.name, p.variantSummary, rate);
+  }).toList();
+
+  if (filteredCatalog.isNotEmpty) {
+    children.add(
+      const ProductsGradientSectionTitle(
+        title: 'Bottle catalog',
+        subtitle: 'Extra sizes for your shop',
+      ),
+    );
+    final onEditCatalog = onEditCatalogProduct;
+    for (final product in filteredCatalog) {
+      children.add(
+        CatalogProductListCard(
+          product: product,
+          onTap: onEditCatalog == null
+              ? null
+              : () => onEditCatalog(product),
+        ),
+      );
+    }
+  }
+
+  if (typeCount == 0 && filteredCatalog.isEmpty && q.isNotEmpty) {
+    children.add(
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        child: Center(
+          child: Text(
+            'No products match your search',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: DeliveryTypeColors.labelGrey,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  return children;
 }
 
 /// Fixed bottom-right control to add a catalog product (Products page).

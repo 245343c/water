@@ -14,6 +14,7 @@ import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/notifications/notifications_screen.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/features/dashboard/widgets/dashboard_home_widgets.dart';
+import 'package:sri_sai_ro_water/routing/app_router.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -316,6 +317,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           month: _month,
                           onMonthTap: _pickMonth,
                           data: overview,
+                          onReportTap: () => context.push(AppRoutes.reports),
                         ),
                       ],
                     ),

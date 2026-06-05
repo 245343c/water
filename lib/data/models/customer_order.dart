@@ -1,3 +1,4 @@
+import 'package:sri_sai_ro_water/data/models/dispatch_collection_status.dart';
 import 'package:sri_sai_ro_water/data/models/dispatch_payment_mode.dart';
 import 'package:sri_sai_ro_water/data/models/order_line_item.dart';
 import 'package:sri_sai_ro_water/data/models/order_source.dart';
@@ -25,6 +26,11 @@ class CustomerOrder {
     this.source = OrderSource.customerApp,
     this.paymentMode = DispatchPaymentMode.billLater,
     this.walkInContact,
+    this.collectionStatus,
+    this.collectedAmount,
+    this.collectionMethod,
+    this.collectionRecordedBy,
+    this.instantOutcome,
     List<OrderLineItem> lineItems = const [],
   })  : lineItems = List.unmodifiable(lineItems),
         createdAt = createdAt ?? DateTime.now();
@@ -48,11 +54,37 @@ class CustomerOrder {
   final OrderSource source;
   final DispatchPaymentMode paymentMode;
   final WalkInContact? walkInContact;
+  DispatchCollectionStatus? collectionStatus;
+  double? collectedAmount;
+  String? collectionMethod;
+  String? collectionRecordedBy;
+  String? instantOutcome;
   final List<OrderLineItem> lineItems;
 
   int get totalCans => normalQty + coolQty;
 
   bool get isPhoneDispatch => source == OrderSource.phoneCall;
+
+  bool get isInstantNoStock =>
+      instantOutcome == 'noStock' ||
+      (isPhoneDispatch &&
+          status == OrderStatus.rejected &&
+          (adminResponse?.toLowerCase().contains('no stock') ?? false));
+
+  bool get isPaymentPending =>
+      isDelivered && collectionStatus == DispatchCollectionStatus.pending;
+
+  String get collectionSummary {
+    final status = collectionStatus;
+    if (status == null) return '';
+    if (status == DispatchCollectionStatus.collected &&
+        collectedAmount != null &&
+        collectedAmount! > 0) {
+      final method = collectionMethod == 'upi' ? 'UPI' : 'Cash';
+      return '${status.shortLabel} · $method';
+    }
+    return status.label;
+  }
 
   bool get isOpenForDriver =>
       status == OrderStatus.accepted && fulfilledAt == null;
@@ -65,8 +97,15 @@ class CustomerOrder {
       status == OrderStatus.accepted && fulfilledAt == null && !isCancelled;
 
   String get dispatchTrackerLabel {
+    if (isInstantNoStock) return 'No stock';
     if (isCancelled) return 'Cancelled';
-    if (isDelivered) return 'Delivered';
+    if (isDelivered) {
+      if (isPaymentPending) return 'Delivered · pay pending';
+      if (collectionStatus == DispatchCollectionStatus.collected) {
+        return 'Delivered · paid';
+      }
+      return 'Delivered';
+    }
     if (status == OrderStatus.accepted) return 'Out for delivery';
     return status.label;
   }
@@ -131,6 +170,11 @@ class CustomerOrder {
     OrderSource source = OrderSource.customerApp,
     DispatchPaymentMode paymentMode = DispatchPaymentMode.billLater,
     WalkInContact? walkInContact,
+    DispatchCollectionStatus? collectionStatus,
+    double? collectedAmount,
+    String? collectionMethod,
+    String? collectionRecordedBy,
+    String? instantOutcome,
   }) {
     return CustomerOrder(
       id: id,
@@ -152,6 +196,11 @@ class CustomerOrder {
       source: source,
       paymentMode: paymentMode,
       walkInContact: walkInContact,
+      collectionStatus: collectionStatus,
+      collectedAmount: collectedAmount,
+      collectionMethod: collectionMethod,
+      collectionRecordedBy: collectionRecordedBy,
+      instantOutcome: instantOutcome,
       lineItems: lineItems,
     );
   }

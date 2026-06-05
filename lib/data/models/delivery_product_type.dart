@@ -74,6 +74,11 @@ enum DeliveryProductType {
 
   String get pricingKey => '$productId|$variantId';
 
+  /// Quantity is litres (keyboard entry), not count via (+/−).
+  bool get quantityIsVolumeLiters =>
+      this == DeliveryProductType.lorryLiters ||
+      this == DeliveryProductType.autoLiters;
+
   static DeliveryProductType? fromPricingKey({
     required String productId,
     required String variantId,

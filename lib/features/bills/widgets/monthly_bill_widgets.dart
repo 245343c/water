@@ -137,7 +137,11 @@ class MonthlyBillCustomerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomerInfoBar(customer: customer, colorIndex: colorIndex);
+    return CustomerInfoBar(
+      customer: customer,
+      colorIndex: colorIndex,
+      margin: const EdgeInsets.only(top: 4),
+    );
   }
 }
 
@@ -171,7 +175,7 @@ class MonthlyBillDocument extends StatelessWidget {
     final productLabels = productLabelsFrom(deliveries);
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      margin: const EdgeInsets.only(top: 4),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -980,7 +984,7 @@ class MonthlyBillActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: CustomersColors.screenBg,
+      color: Colors.transparent,
       child: SafeArea(
         top: false,
         child: Padding(

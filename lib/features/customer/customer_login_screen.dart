@@ -1,14 +1,12 @@
-import 'dart:math' as math;
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
-import 'package:sri_sai_ro_water/features/customer/widgets/customer_theme.dart';
+import 'package:sri_sai_ro_water/features/auth/widgets/auth_screen_widgets.dart';
+import 'package:sri_sai_ro_water/features/auth/widgets/login_screen_widgets.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
 class CustomerLoginScreen extends StatefulWidget {
@@ -19,6 +17,7 @@ class CustomerLoginScreen extends StatefulWidget {
 }
 
 class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
   final _otpController = TextEditingController();
   bool _otpSent = false;
@@ -126,124 +125,128 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
 
   void _snack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
+      SnackBar(
+        content: Text(msg, style: GoogleFonts.poppins()),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
-      body: Stack(
+    return AuthPremiumScreenLayout(
+      heroTitle: 'Order pure water',
+      heroSubtitle: 'Home delivery · Fresh RO water · Fast and reliable',
+      heroIcon: Icons.water_drop_rounded,
+      onBack: () => context.canPop()
+          ? context.pop()
+          : context.go(AppRoutes.welcome),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox.expand(
-            child: CustomPaint(painter: _CustomerLoginBgPainter()),
+          Text(
+            'Sign in',
+            style: GoogleFonts.poppins(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              letterSpacing: -0.3,
+            ),
           ),
-          SafeArea(
-            child: PremiumResponsiveBody(
-              maxWidth: 560,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
-                      ),
-                      child: IntrinsicHeight(
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 8),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: IconButton(
-                                icon: const Icon(
-                                  Icons.arrow_back_rounded,
-                                  color: Colors.white,
-                                ),
-                                onPressed: () => context.canPop()
-                                    ? context.pop()
-                                    : context.go(AppRoutes.welcome),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(28, 8, 28, 24),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.15,
-                                      ),
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: const Icon(
-                                      Icons.water_drop_rounded,
-                                      color: Colors.white,
-                                      size: 32,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    'Order\npure water',
-                                    style: GoogleFonts.poppins(
-                                      color: Colors.white,
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.w800,
-                                      height: 1.08,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Home delivery - Fresh RO water - Fast and reliable',
-                                    style: GoogleFonts.poppins(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.75,
-                                      ),
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Spacer(),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.fromLTRB(
-                                24,
-                                26,
-                                24,
-                                30,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(32),
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.2),
-                                    blurRadius: 24,
-                                    offset: const Offset(0, -8),
-                                  ),
-                                ],
-                              ),
-                              child: _LoginCard(
-                                otpSent: _otpSent,
-                                loading: _loading,
-                                phoneController: _phoneController,
-                                otpController: _otpController,
-                                onSendOtp: _sendOtp,
-                                onVerify: _verify,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+          const SizedBox(height: 4),
+          Text(
+            'Use the mobile number added by your water plant',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: Colors.white.withValues(alpha: 0.72),
+            ),
+          ),
+          const SizedBox(height: 16),
+          LoginAuthCard(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    _otpSent ? 'Enter OTP' : 'Mobile number',
+                    style: GoogleFonts.poppins(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: LoginColors.brandNavy,
+                      letterSpacing: -0.3,
                     ),
-                  );
-                },
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _otpSent
+                        ? 'We sent a code to ${_phoneController.text.trim()}'
+                        : 'Receive a one-time code to sign in',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: LoginColors.labelGrey,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  LoginTextField(
+                    label: 'Mobile number',
+                    controller: _phoneController,
+                    hint: '9876543210',
+                    icon: Icons.phone_android_rounded,
+                    keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next,
+                    validator: (v) {
+                      final digits = v?.replaceAll(RegExp(r'\D'), '') ?? '';
+                      if (digits.length != 10) return 'Enter 10-digit mobile';
+                      return null;
+                    },
+                  ),
+                  if (_otpSent) ...[
+                    LoginTextField(
+                      label: 'OTP code',
+                      controller: _otpController,
+                      hint: '6-digit code',
+                      icon: Icons.sms_outlined,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _verify(),
+                      validator: (v) {
+                        if (v == null || v.trim().length < 4) {
+                          return 'Enter the OTP code';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                  const SizedBox(height: 6),
+                  AuthPrimaryButton(
+                    premium: true,
+                    label: _otpSent ? 'Verify & continue' : 'Send OTP',
+                    icon: _otpSent ? Icons.verified_rounded : Icons.send_rounded,
+                    loading: _loading,
+                    onPressed: () {
+                      if (!_formKey.currentState!.validate()) return;
+                      if (_otpSent) {
+                        _verify();
+                      } else {
+                        _sendOtp();
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  Center(
+                    child: Text(
+                      'Your admin must add this number before you can sign in.',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: LoginColors.labelGrey,
+                        height: 1.4,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -251,202 +254,4 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
       ),
     );
   }
-}
-
-class _LoginCard extends StatelessWidget {
-  const _LoginCard({
-    required this.otpSent,
-    required this.loading,
-    required this.phoneController,
-    required this.otpController,
-    required this.onSendOtp,
-    required this.onVerify,
-  });
-
-  final bool otpSent;
-  final bool loading;
-  final TextEditingController phoneController;
-  final TextEditingController otpController;
-  final VoidCallback onSendOtp;
-  final VoidCallback onVerify;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'Sign in',
-          style: GoogleFonts.poppins(
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            color: CustomerColors.titleNavy,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Enter your mobile number to receive OTP',
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            color: CustomerColors.labelGrey,
-          ),
-        ),
-        const SizedBox(height: 20),
-        CustomerTextField(
-          label: 'Mobile number',
-          controller: phoneController,
-          hint: '9876543210',
-          icon: Icons.phone_android_rounded,
-          keyboardType: TextInputType.phone,
-        ),
-        if (otpSent) ...[
-          const SizedBox(height: 12),
-          CustomerTextField(
-            label: 'OTP code',
-            controller: otpController,
-            hint: '6-digit code',
-            icon: Icons.sms_outlined,
-            keyboardType: TextInputType.number,
-          ),
-        ],
-        const SizedBox(height: 20),
-        CustomerPrimaryButton(
-          label: otpSent ? 'Verify & continue' : 'Send OTP',
-          loading: loading,
-          icon: otpSent ? Icons.verified_rounded : Icons.send_rounded,
-          onPressed: otpSent ? onVerify : onSendOtp,
-        ),
-        const SizedBox(height: 14),
-        Center(
-          child: Text(
-            'Use the mobile number added by your water plant admin.',
-            style: GoogleFonts.poppins(
-              fontSize: 11,
-              color: CustomerColors.labelGrey,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _CustomerLoginBgPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    final bg = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF0F172A), Color(0xFF1E3A8A), Color(0xFF1D4ED8)],
-        stops: [0, 0.55, 1],
-      ).createShader(Rect.fromLTWH(0, 0, w, h));
-    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), bg);
-
-    final starPaint = Paint()..color = Colors.white.withValues(alpha: 0.6);
-    final rnd = math.Random(42);
-    for (var i = 0; i < 35; i++) {
-      final x = rnd.nextDouble() * w;
-      final y = rnd.nextDouble() * h * 0.45;
-      final r = rnd.nextDouble() * 1.5 + 0.5;
-      canvas.drawCircle(Offset(x, y), r, starPaint);
-    }
-
-    final orbPaint = Paint()..color = Colors.white.withValues(alpha: 0.06);
-    canvas.drawCircle(Offset(w * 0.9, h * 0.1), w * 0.35, orbPaint);
-    canvas.drawCircle(Offset(w * 0.05, h * 0.22), w * 0.22, orbPaint);
-
-    _drawWave(canvas, w, h, 0.75, 0.09, const Color(0xFF1E40AF));
-    _drawWave(canvas, w, h, 0.82, 0.07, const Color(0xFF1D4ED8));
-
-    _drawCan(canvas, Offset(w * 0.15, h * 0.52), 26, const Color(0xFF60A5FA));
-    _drawCan(canvas, Offset(w * 0.28, h * 0.48), 20, const Color(0xFF93C5FD));
-    _drawCan(canvas, Offset(w * 0.78, h * 0.50), 28, const Color(0xFF3B82F6));
-    _drawCan(canvas, Offset(w * 0.90, h * 0.46), 18, const Color(0xFF60A5FA));
-    _drawVan(canvas, Offset(w * 0.35, h * 0.60), w * 0.32);
-  }
-
-  void _drawWave(
-    Canvas canvas,
-    double w,
-    double h,
-    double yFrac,
-    double amp,
-    Color color,
-  ) {
-    final paint = Paint()
-      ..color = color.withValues(alpha: 0.22)
-      ..style = PaintingStyle.fill;
-    final path = Path()..moveTo(0, h * yFrac);
-    for (var x = 0.0; x <= w; x += 3) {
-      final y = h * yFrac + math.sin((x / w) * math.pi * 4) * (h * amp);
-      path.lineTo(x, y);
-    }
-    path.lineTo(w, h);
-    path.lineTo(0, h);
-    path.close();
-    canvas.drawPath(path, paint);
-  }
-
-  void _drawCan(Canvas canvas, Offset center, double r, Color color) {
-    final paint = Paint()..color = color.withValues(alpha: 0.35);
-    final body = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: center, width: r, height: r * 2.2),
-      Radius.circular(r * 0.3),
-    );
-    canvas.drawRRect(body, paint);
-
-    final hi = Paint()..color = Colors.white.withValues(alpha: 0.15);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(center.dx - r * 0.2, center.dy - r * 0.3),
-          width: r * 0.25,
-          height: r,
-        ),
-        Radius.circular(r * 0.12),
-      ),
-      hi,
-    );
-  }
-
-  void _drawVan(Canvas canvas, Offset origin, double w) {
-    final h = w * 0.5;
-    final paint = Paint()..color = Colors.white.withValues(alpha: 0.15);
-    final body = RRect.fromRectAndRadius(
-      Rect.fromLTWH(origin.dx, origin.dy, w, h * 0.65),
-      const Radius.circular(6),
-    );
-    canvas.drawRRect(body, paint);
-
-    final cabin = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        origin.dx + w * 0.62,
-        origin.dy - h * 0.3,
-        w * 0.38,
-        h * 0.62,
-      ),
-      const Radius.circular(5),
-    );
-    canvas.drawRRect(cabin, paint);
-
-    final wheel = Paint()..color = Colors.white.withValues(alpha: 0.25);
-    canvas.drawCircle(
-      Offset(origin.dx + w * 0.2, origin.dy + h * 0.65),
-      h * 0.18,
-      wheel,
-    );
-    canvas.drawCircle(
-      Offset(origin.dx + w * 0.78, origin.dy + h * 0.65),
-      h * 0.18,
-      wheel,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

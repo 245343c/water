@@ -1041,11 +1041,13 @@ class DashboardOverviewCard extends StatelessWidget {
     required this.month,
     required this.onMonthTap,
     required this.data,
+    this.onReportTap,
   });
 
   final DateTime month;
   final VoidCallback onMonthTap;
   final DashboardOverviewData data;
+  final VoidCallback? onReportTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1071,6 +1073,38 @@ class DashboardOverviewCard extends StatelessWidget {
               _MonthChip(month: month, onTap: onMonthTap),
             ],
           ),
+          if (onReportTap != null) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: InkWell(
+                onTap: onReportTap,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Full sales report',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: DashboardColors.linkBlue,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 11,
+                        color: DashboardColors.linkBlue,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
 
           // ── Total Sales hero (teal gradient) ──────────────────────────
@@ -1179,7 +1213,7 @@ class _SalesHero extends StatelessWidget {
                 Text(
                   'Total Sales',
                   style: GoogleFonts.poppins(
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: FontWeight.w500,
                     color: Colors.white.withValues(alpha: 0.88),
                   ),
@@ -1191,7 +1225,7 @@ class _SalesHero extends StatelessWidget {
                   child: Text(
                     totalSales,
                     style: GoogleFonts.poppins(
-                      fontSize: 30,
+                      fontSize: 24,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
                       height: 1.1,

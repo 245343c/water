@@ -11,11 +11,13 @@ class CustomerInfoBar extends StatelessWidget {
     required this.customer,
     required this.colorIndex,
     this.onWhatsAppTap,
+    this.margin,
   });
 
   final Customer customer;
   final int colorIndex;
   final VoidCallback? onWhatsAppTap;
+  final EdgeInsetsGeometry? margin;
 
   static const Color _titleNavy = AppColors.textPrimary;
   static const Color _labelGrey = Color(0xFF6B7280);
@@ -27,7 +29,7 @@ class CustomerInfoBar extends StatelessWidget {
     final bg = CustomersColors.avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      margin: margin ?? const EdgeInsets.fromLTRB(16, 12, 16, 0),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: const LinearGradient(

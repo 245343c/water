@@ -182,39 +182,33 @@ class _MonthlyBillScreenState extends State<MonthlyBillScreen> {
                       onShare: _busy ? null : () => _sharePdf(),
                     ),
                     Expanded(
-                      child: CustomersListPanel(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            MonthlyBillCustomerBar(
-                              customer: customer,
-                              colorIndex: colorIndex >= 0 ? colorIndex : 0,
-                            ),
-                            MonthlySummaryMonthNav(
-                              month: _month,
-                              onPrev: () => _shiftMonth(-1),
-                              onNext: () => _shiftMonth(1),
-                              canGoNext: _canGoNext,
-                            ),
-                            Expanded(
-                              child: ListView(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                children: [
-                                  MonthlyBillDocument(
-                                    businessName: settings.businessName,
-                                    businessAddress: settings.address,
-                                    businessPhone: settings.phone,
-                                    businessEmail: settings.email,
-                                    month: _month,
-                                    customer: customer,
-                                    deliveries: deliveries,
-                                    stats: stats,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
+                        children: [
+                          MonthlyBillCustomerBar(
+                            customer: customer,
+                            colorIndex: colorIndex >= 0 ? colorIndex : 0,
+                          ),
+                          const SizedBox(height: 10),
+                          MonthlySummaryMonthNav(
+                            month: _month,
+                            onPrev: () => _shiftMonth(-1),
+                            onNext: () => _shiftMonth(1),
+                            canGoNext: _canGoNext,
+                            contentPadding: const EdgeInsets.only(top: 4),
+                          ),
+                          const SizedBox(height: 10),
+                          MonthlyBillDocument(
+                            businessName: settings.businessName,
+                            businessAddress: settings.address,
+                            businessPhone: settings.phone,
+                            businessEmail: settings.email,
+                            month: _month,
+                            customer: customer,
+                            deliveries: deliveries,
+                            stats: stats,
+                          ),
+                        ],
                       ),
                     ),
                     MonthlyBillActionBar(

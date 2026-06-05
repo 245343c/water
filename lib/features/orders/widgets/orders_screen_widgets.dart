@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
+import 'package:sri_sai_ro_water/data/models/dispatch_collection_status.dart';
 import 'package:sri_sai_ro_water/data/models/order_status.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
@@ -9,114 +11,364 @@ enum OrderListFilter {
   pending,
   walkIn,
   outForDelivery,
+  payPending,
   delivered,
   all,
 }
 
-class OrdersFilterChips extends StatelessWidget {
-  const OrdersFilterChips({
+extension OrderListFilterX on OrderListFilter {
+  String get label => switch (this) {
+        OrderListFilter.pending => 'New requests',
+        OrderListFilter.walkIn => 'Instant / phone',
+        OrderListFilter.outForDelivery => 'Out for delivery',
+        OrderListFilter.payPending => 'Pay pending',
+        OrderListFilter.delivered => 'Completed',
+        OrderListFilter.all => 'All orders',
+      };
+
+  String get shortLabel => switch (this) {
+        OrderListFilter.pending => 'New',
+        OrderListFilter.walkIn => 'Instant',
+        OrderListFilter.outForDelivery => 'Out for delivery',
+        OrderListFilter.payPending => 'Pay pending',
+        OrderListFilter.delivered => 'Done',
+        OrderListFilter.all => 'All',
+      };
+
+  Color get accent => switch (this) {
+        OrderListFilter.pending => const Color(0xFFEA580C),
+        OrderListFilter.walkIn => const Color(0xFF7C3AED),
+        OrderListFilter.outForDelivery => CustomersColors.addButton,
+        OrderListFilter.payPending => const Color(0xFFD97706),
+        OrderListFilter.delivered => const Color(0xFF16A34A),
+        OrderListFilter.all => CustomersColors.titleNavy,
+      };
+
+  IconData get icon => switch (this) {
+        OrderListFilter.pending => Icons.notifications_active_outlined,
+        OrderListFilter.walkIn => Icons.bolt_rounded,
+        OrderListFilter.outForDelivery => Icons.local_shipping_outlined,
+        OrderListFilter.payPending => Icons.payments_outlined,
+        OrderListFilter.delivered => Icons.check_circle_outline,
+        OrderListFilter.all => Icons.list_alt_rounded,
+      };
+}
+
+/// Compact status filter — same pill pattern as Customers route/payment bar.
+class OrdersStatusFilterBar extends StatelessWidget {
+  const OrdersStatusFilterBar({
     super.key,
     required this.selected,
-    required this.onSelected,
     required this.pendingCount,
+    required this.counts,
+    required this.onSelected,
   });
 
   final OrderListFilter selected;
-  final ValueChanged<OrderListFilter> onSelected;
   final int pendingCount;
+  final Map<OrderListFilter, int> counts;
+  final ValueChanged<OrderListFilter> onSelected;
+
+  bool get _active => selected != OrderListFilter.outForDelivery;
+
+  Future<void> _openSheet(BuildContext context) async {
+    final picked = await showModalBottomSheet<OrderListFilter?>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _OrdersStatusFilterSheet(
+        selected: selected,
+        pendingCount: pendingCount,
+        counts: counts,
+      ),
+    );
+    if (picked != null) onSelected(picked);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-      child: Row(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+      child: _OrdersFilterPill(
+        label: selected.shortLabel,
+        icon: selected.icon,
+        active: _active,
+        accent: selected.accent,
+        badge: selected == OrderListFilter.pending && pendingCount > 0
+            ? pendingCount
+            : null,
+        onTap: () => _openSheet(context),
+      ),
+    );
+  }
+}
+
+class _OrdersFilterPill extends StatelessWidget {
+  const _OrdersFilterPill({
+    required this.label,
+    required this.icon,
+    required this.active,
+    required this.accent,
+    required this.onTap,
+    this.badge,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool active;
+  final Color accent;
+  final VoidCallback onTap;
+  final int? badge;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: active ? accent.withValues(alpha: 0.1) : Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: active ? accent : CustomersColors.cardBorder,
+              width: active ? 1.5 : 1,
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: active ? accent : CustomersColors.labelGrey),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: active ? accent : CustomersColors.titleNavy,
+                  ),
+                ),
+              ),
+              if (badge != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEA580C),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$badge',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
+              Icon(
+                Icons.expand_more_rounded,
+                size: 20,
+                color: active ? accent : CustomersColors.labelGrey,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OrdersStatusFilterSheet extends StatelessWidget {
+  const _OrdersStatusFilterSheet({
+    required this.selected,
+    required this.pendingCount,
+    required this.counts,
+  });
+
+  final OrderListFilter selected;
+  final int pendingCount;
+  final Map<OrderListFilter, int> counts;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.paddingOf(context).bottom;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, bottom + 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _Chip(
-            label: pendingCount > 0 ? 'New ($pendingCount)' : 'New',
-            selected: selected == OrderListFilter.pending,
-            onTap: () => onSelected(OrderListFilter.pending),
-            highlight: pendingCount > 0,
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: CustomersColors.divider,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
           ),
-          const SizedBox(width: 8),
-          _Chip(
-            label: 'Walk-in',
-            selected: selected == OrderListFilter.walkIn,
-            onTap: () => onSelected(OrderListFilter.walkIn),
+          const SizedBox(height: 16),
+          Text(
+            'Show orders',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: CustomersColors.titleNavy,
+            ),
           ),
-          const SizedBox(width: 8),
-          _Chip(
-            label: 'Out for delivery',
-            selected: selected == OrderListFilter.outForDelivery,
-            onTap: () => onSelected(OrderListFilter.outForDelivery),
+          const SizedBox(height: 4),
+          Text(
+            'Filter by delivery status',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: CustomersColors.labelGrey,
+            ),
           ),
-          const SizedBox(width: 8),
-          _Chip(
-            label: 'Done',
-            selected: selected == OrderListFilter.delivered,
-            onTap: () => onSelected(OrderListFilter.delivered),
-          ),
-          const SizedBox(width: 8),
-          _Chip(
-            label: 'All',
-            selected: selected == OrderListFilter.all,
-            onTap: () => onSelected(OrderListFilter.all),
-          ),
+          const SizedBox(height: 14),
+          ...OrderListFilter.values.map((filter) {
+            final isSelected = filter == selected;
+            final count = counts[filter] ?? 0;
+            final badge = filter == OrderListFilter.pending && pendingCount > 0
+                ? pendingCount
+                : count;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Material(
+                color: isSelected
+                    ? filter.accent.withValues(alpha: 0.08)
+                    : const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  onTap: () => Navigator.pop(context, filter),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Ink(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected ? filter.accent : CustomersColors.cardBorder,
+                        width: isSelected ? 1.5 : 1,
+                      ),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                    child: Row(
+                      children: [
+                        Icon(filter.icon, size: 20, color: filter.accent),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            filter.label,
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: CustomersColors.titleNavy,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '$badge',
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: CustomersColors.labelGrey,
+                          ),
+                        ),
+                        if (isSelected) ...[
+                          const SizedBox(width: 8),
+                          Icon(Icons.check_rounded, size: 20, color: filter.accent),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
         ],
       ),
     );
   }
 }
 
-class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.highlight = false,
-  });
+/// Fixed bottom-right — matches Customers / Products add buttons.
+class OrdersQuickAddButton extends StatelessWidget {
+  const OrdersQuickAddButton({super.key, required this.onPressed});
 
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final bool highlight;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected
-        ? CustomersColors.addButton
-        : (highlight ? const Color(0xFFFFF7ED) : Colors.white);
-    final border = selected
-        ? CustomersColors.addButton
-        : (highlight ? const Color(0xFFFED7AA) : CustomersColors.cardBorder);
-    final fg = selected
-        ? Colors.white
-        : (highlight ? const Color(0xFF9A3412) : CustomersColors.titleNavy);
-
     return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(20),
+      elevation: 8,
+      shadowColor: CustomersColors.addButton.withValues(alpha: 0.45),
+      borderRadius: BorderRadius.circular(16),
+      color: CustomersColors.addButton,
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: border),
-          ),
-          child: Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: fg,
-            ),
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.add_rounded, color: Colors.white, size: 24),
+              const SizedBox(width: 6),
+              Text(
+                'New order',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+}
+
+/// Amount + payment line for instant / phone-call jobs on the admin list.
+String? instantOrderAmountLabel(CustomerOrder order, double estimatedTotal) {
+  if (!order.isPhoneDispatch || order.isInstantNoStock) return null;
+
+  if (order.isDelivered) {
+    final amount = order.collectedAmount;
+    final status = order.collectionStatus;
+    if (status == DispatchCollectionStatus.collected &&
+        amount != null &&
+        amount > 0) {
+      final method = order.collectionMethod == 'upi' ? 'UPI' : 'Cash';
+      return '${CurrencyUtils.format(amount)} · $method';
+    }
+    if (order.isPaymentPending && estimatedTotal > 0) {
+      return '${CurrencyUtils.format(estimatedTotal)} · Pay pending';
+    }
+    if (status == DispatchCollectionStatus.waived) {
+      return estimatedTotal > 0
+          ? '${CurrencyUtils.format(estimatedTotal)} · Pay later'
+          : 'Pay later';
+    }
+    if (estimatedTotal > 0) {
+      return CurrencyUtils.format(estimatedTotal);
+    }
+    return null;
+  }
+
+  if (order.isActiveDispatch && estimatedTotal > 0) {
+    return 'Est. ${CurrencyUtils.format(estimatedTotal)}';
+  }
+  return null;
 }
 
 class OrderListCard extends StatelessWidget {
@@ -130,6 +382,7 @@ class OrderListCard extends StatelessWidget {
     required this.initials,
     required this.colorIndex,
     required this.onTap,
+    this.estimatedTotal = 0,
   });
 
   final CustomerOrder order;
@@ -140,6 +393,7 @@ class OrderListCard extends StatelessWidget {
   final String initials;
   final int colorIndex;
   final VoidCallback onTap;
+  final double estimatedTotal;
 
   @override
   Widget build(BuildContext context) {
@@ -149,11 +403,12 @@ class OrderListCard extends StatelessWidget {
     final statusLabel = order.isPhoneDispatch || order.isDelivered || order.isCancelled
         ? order.dispatchTrackerLabel
         : order.status.label;
+    final amountLabel = instantOrderAmountLabel(order, estimatedTotal);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
-        color: Colors.white,
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: onTap,
@@ -167,13 +422,14 @@ class OrderListCard extends StatelessWidget {
                     : CustomersColors.cardBorder,
                 width: order.isPending ? 1.5 : 1,
               ),
-              boxShadow: [
+              boxShadow: const [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: Color(0x0D000000),
                   blurRadius: 10,
-                  offset: const Offset(0, 2),
+                  offset: Offset(0, 2),
                 ),
               ],
+              color: Colors.white,
             ),
             padding: const EdgeInsets.all(14),
             child: Row(
@@ -227,6 +483,23 @@ class OrderListCard extends StatelessWidget {
                           color: CustomersColors.addButton,
                         ),
                       ),
+                      if (amountLabel != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          amountLabel,
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: order.isPaymentPending
+                                ? const Color(0xFFEA580C)
+                                : order.isDelivered &&
+                                        order.collectionStatus ==
+                                            DispatchCollectionStatus.collected
+                                    ? const Color(0xFF16A34A)
+                                    : CustomersColors.titleNavy,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 6),
                       Wrap(
                         spacing: 6,
@@ -247,9 +520,25 @@ class OrderListCard extends StatelessWidget {
                             ),
                           if (order.isPhoneDispatch)
                             _InfoChip(
-                              icon: Icons.call_rounded,
-                              label: 'Walk-in',
-                              color: const Color(0xFF7C3AED),
+                              icon: Icons.bolt_rounded,
+                              label: order.isInstantNoStock ? 'No stock' : 'Instant',
+                              color: order.isInstantNoStock
+                                  ? const Color(0xFF6B7280)
+                                  : const Color(0xFF7C3AED),
+                            ),
+                          if (order.isPaymentPending)
+                            _InfoChip(
+                              icon: Icons.schedule_rounded,
+                              label: 'Pay pending',
+                              color: const Color(0xFFEA580C),
+                            ),
+                          if (order.isDelivered &&
+                              order.collectionStatus ==
+                                  DispatchCollectionStatus.collected)
+                            _InfoChip(
+                              icon: Icons.check_circle_outline,
+                              label: 'Paid',
+                              color: const Color(0xFF16A34A),
                             ),
                           if (order.lineItems.isNotEmpty)
                             ...order.lineItems.map(

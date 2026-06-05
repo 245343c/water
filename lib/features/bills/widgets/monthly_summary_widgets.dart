@@ -100,17 +100,19 @@ class MonthlySummaryMonthNav extends StatelessWidget {
     required this.onPrev,
     required this.onNext,
     this.canGoNext = true,
+    this.contentPadding,
   });
 
   final DateTime month;
   final VoidCallback onPrev;
   final VoidCallback onNext;
   final bool canGoNext;
+  final EdgeInsetsGeometry? contentPadding;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      padding: contentPadding ?? const EdgeInsets.fromLTRB(16, 10, 16, 0),
       child: Container(
         decoration: MonthlySummaryColors.cardDecoration,
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),

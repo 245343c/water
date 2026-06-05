@@ -28,6 +28,8 @@ import 'package:sri_sai_ro_water/features/products/add_product_screen.dart';
 import 'package:sri_sai_ro_water/features/products/product_detail_screen.dart';
 import 'package:sri_sai_ro_water/features/products/products_screen.dart';
 import 'package:sri_sai_ro_water/features/reports/reports_screen.dart';
+import 'package:sri_sai_ro_water/features/routes/delivery_route_detail_screen.dart';
+import 'package:sri_sai_ro_water/features/routes/delivery_routes_screen.dart';
 import 'package:sri_sai_ro_water/features/auth/role_picker_screen.dart';
 import 'package:sri_sai_ro_water/features/customer/customer_month_readonly_screen.dart';
 import 'package:sri_sai_ro_water/features/customer/customer_monthly_bill_screen.dart';
@@ -65,6 +67,7 @@ class AppRoutes {
   static const more = '/more';
   static const reports = '/reports';
   static const drivers = '/drivers';
+  static const deliveryRoutes = '/routes';
 
   static const driverRoute = '/driver/route';
 
@@ -378,6 +381,19 @@ GoRouter createAppRouter(AuthRepository auth, WaterPlantRepository plant) {
         path: AppRoutes.drivers,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const DriversScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.deliveryRoutes,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const DeliveryRoutesScreen(),
+        routes: [
+          GoRoute(
+            path: ':id',
+            builder: (context, state) => DeliveryRouteDetailScreen(
+              routeId: state.pathParameters['id']!,
+            ),
+          ),
+        ],
       ),
     ],
   );

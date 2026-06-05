@@ -62,7 +62,7 @@ class MainShell extends StatelessWidget {
                     label: Text('$pendingOrders'),
                     child: const Icon(Icons.receipt_long),
                   ),
-                  label: 'Dispatch',
+                  label: 'Quick order',
                 ),
                 const NavigationDestination(
                   icon: Icon(Icons.inventory_2_outlined),
@@ -70,9 +70,9 @@ class MainShell extends StatelessWidget {
                   label: 'Products',
                 ),
                 const NavigationDestination(
-                  icon: Icon(Icons.more_horiz_rounded),
-                  selectedIcon: Icon(Icons.more_horiz_rounded),
-                  label: 'More',
+                  icon: Icon(Icons.account_circle_outlined),
+                  selectedIcon: Icon(Icons.account_circle),
+                  label: 'Account',
                 ),
               ],
             ),

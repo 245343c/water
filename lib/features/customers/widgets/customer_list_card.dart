@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/constants/empty_can_balance.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
+import 'package:sri_sai_ro_water/features/customers/widgets/customer_route_widgets.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 enum CustomerPaymentCategory { paid, pending, overdue }
@@ -17,6 +19,9 @@ class CustomerListCard extends StatelessWidget {
     required this.balance,
     required this.category,
     required this.onTap,
+    this.emptyJarsWithCustomer = 0,
+    this.routeName,
+    this.routeUnassigned = false,
   });
 
   final Customer customer;
@@ -26,11 +31,16 @@ class CustomerListCard extends StatelessWidget {
   final double balance;
   final CustomerPaymentCategory category;
   final VoidCallback onTap;
+  final int emptyJarsWithCustomer;
+  final String? routeName;
+  final bool routeUnassigned;
 
   @override
   Widget build(BuildContext context) {
     final accent = CustomersColors.avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
     final owed = balance > 0;
+    final jarsLabel = emptyJarsDueLabel(emptyJarsWithCustomer);
+    final jarsWarning = emptyCanCountIsWarning(emptyJarsWithCustomer);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -81,6 +91,13 @@ class CustomerListCard extends StatelessWidget {
                           color: CustomersColors.labelGrey,
                         ),
                       ),
+                      if (routeName != null) ...[
+                        const SizedBox(height: 6),
+                        CustomerRouteBadge(
+                          routeName: routeName!,
+                          unassigned: routeUnassigned,
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       _MetaRow(
                         icon: Icons.water_drop_outlined,
@@ -106,6 +123,36 @@ class CustomerListCard extends StatelessWidget {
                         color: owed ? CustomersColors.balanceRed : CustomersColors.balanceGreen,
                       ),
                     ),
+                    if (jarsLabel.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.water_drop_rounded,
+                            size: 13,
+                            color: jarsWarning
+                                ? const Color(0xFFDC2626)
+                                : const Color(0xFFEA580C),
+                          ),
+                          const SizedBox(width: 3),
+                          Flexible(
+                            child: Text(
+                              jarsLabel,
+                              style: GoogleFonts.poppins(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: jarsWarning
+                                    ? const Color(0xFFDC2626)
+                                    : const Color(0xFFEA580C),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 6),
                     _StatusBadge(category: category),
                   ],

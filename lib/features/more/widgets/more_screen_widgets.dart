@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
+import 'package:sri_sai_ro_water/core/widgets/admin_tab_header.dart';
 import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/core/widgets/home_delivery_choice.dart';
 import 'package:sri_sai_ro_water/data/models/business_settings.dart';
@@ -42,48 +43,16 @@ class MoreScaffold extends StatelessWidget {
 }
 
 class MoreHeader extends StatelessWidget {
-  const MoreHeader({super.key, required this.title, this.subtitle});
+  const MoreHeader({super.key, required this.title});
 
   final String title;
-  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(
-        8,
-        MediaQuery.paddingOf(context).top + 16,
-        8,
-        14,
-      ),
-      alignment: Alignment.centerLeft,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: GoogleFonts.poppins(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              height: 1.12,
-            ),
-          ),
-          if (subtitle != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              subtitle!,
-              style: GoogleFonts.poppins(
-                color: Colors.white.withValues(alpha: 0.72),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ],
-      ),
+    return AdminTabPageHeader(
+      title: title,
+      icon: Icons.account_circle_rounded,
+      iconColor: const Color(0xFF38BDF8),
     );
   }
 }
@@ -166,22 +135,30 @@ class MoreBusinessProfileCard extends StatelessWidget {
                                 Text(
                                   settings.businessName,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 16,
+                                    fontSize: 17,
                                     fontWeight: FontWeight.w700,
                                     color: MoreColors.titleNavy,
                                     height: 1.25,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 6),
                                 Text(
-                                  'Business profile, prices and map pin',
+                                  'Tap Edit to update shop details',
                                   style: GoogleFonts.poppins(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w500,
                                     color: MoreColors.iconNavy,
                                   ),
                                 ),
-                                const SizedBox(height: 10),
+                                if (settings.address.trim().isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  _ProfileLine(
+                                    icon: Icons.location_on_outlined,
+                                    text: settings.address,
+                                    maxLines: 2,
+                                  ),
+                                ],
+                                const SizedBox(height: 6),
                                 _ProfileLine(
                                   icon: Icons.phone_outlined,
                                   text: settings.phone,
@@ -193,6 +170,41 @@ class MoreBusinessProfileCard extends StatelessWidget {
                                     text: settings.email,
                                   ),
                                 ],
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    _StatusChip(
+                                      icon: settings.homeDeliveryAvailable
+                                          ? Icons.delivery_dining_rounded
+                                          : Icons.storefront_outlined,
+                                      label: settings.homeDeliveryAvailable
+                                          ? 'Home delivery on'
+                                          : 'Pickup only',
+                                      color: settings.homeDeliveryAvailable
+                                          ? const Color(0xFF059669)
+                                          : MoreColors.labelGrey,
+                                      bg: settings.homeDeliveryAvailable
+                                          ? const Color(0xFFECFDF5)
+                                          : const Color(0xFFF3F4F6),
+                                    ),
+                                    _StatusChip(
+                                      icon: settings.hasMapPin
+                                          ? Icons.place_rounded
+                                          : Icons.place_outlined,
+                                      label: settings.hasMapPin
+                                          ? 'Map pin set'
+                                          : 'No map pin',
+                                      color: settings.hasMapPin
+                                          ? CustomersColors.addButton
+                                          : MoreColors.labelGrey,
+                                      bg: settings.hasMapPin
+                                          ? const Color(0xFFEFF6FF)
+                                          : const Color(0xFFF3F4F6),
+                                    ),
+                                  ],
+                                ),
                               ],
                             ),
                           ),
@@ -209,7 +221,7 @@ class MoreBusinessProfileCard extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  'Settings',
+                                  'Edit',
                                   style: GoogleFonts.poppins(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
@@ -274,172 +286,7 @@ class MoreHomeDeliveryCard extends StatelessWidget {
   }
 }
 
-/// This-month snapshot — white card for clear contrast on gradient background.
-class MoreInsightsReportCard extends StatelessWidget {
-  const MoreInsightsReportCard({
-    super.key,
-    required this.monthSales,
-    required this.monthCans,
-    required this.monthCollected,
-    required this.onTap,
-  });
-
-  final double monthSales;
-  final int monthCans;
-  final double monthCollected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
-          child: Ink(
-            decoration: CustomersColors.whiteCard,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.insights_rounded,
-                          color: CustomersColors.addButton,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Sales & delivery reports',
-                              style: GoogleFonts.poppins(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: MoreColors.titleNavy,
-                              ),
-                            ),
-                            Text(
-                              'This month at a glance',
-                              style: GoogleFonts.poppins(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: MoreColors.labelGrey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(
-                        Icons.chevron_right_rounded,
-                        color: MoreColors.labelGrey,
-                        size: 24,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      _InsightMetric(
-                        label: 'Sales',
-                        value: _formatCurrency(monthSales),
-                        valueColor: CustomersColors.addButton,
-                      ),
-                      const SizedBox(width: 8),
-                      _InsightMetric(
-                        label: 'Cans',
-                        value: monthCans.toString(),
-                        valueColor: MoreColors.titleNavy,
-                      ),
-                      const SizedBox(width: 8),
-                      _InsightMetric(
-                        label: 'Collected',
-                        value: _formatCurrency(monthCollected),
-                        valueColor: CustomersColors.balanceGreen,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  static String _formatCurrency(double v) {
-    if (v >= 100000) return '₹${(v / 1000).toStringAsFixed(0)}k';
-    if (v >= 1000) return '₹${(v / 1000).toStringAsFixed(1)}k';
-    return '₹${v.round()}';
-  }
-}
-
-class _InsightMetric extends StatelessWidget {
-  const _InsightMetric({
-    required this.label,
-    required this.value,
-    required this.valueColor,
-  });
-
-  final String label;
-  final String value;
-  final Color valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF9FAFB),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: MoreColors.divider),
-        ),
-        child: Column(
-          children: [
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-                color: valueColor,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                color: MoreColors.labelGrey,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Drivers + sign out in one card — tighter More page layout.
+/// Drivers + sign out — routes live under Customers → Route filter.
 class MoreManagementCard extends StatelessWidget {
   const MoreManagementCard({
     super.key,
@@ -457,7 +304,19 @@ class MoreManagementCard extends StatelessWidget {
       child: Container(
         decoration: CustomersColors.whiteCard,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+              child: Text(
+                'Staff & account',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: MoreColors.titleNavy,
+                ),
+              ),
+            ),
             _AccountRow(
               icon: Icons.local_shipping_rounded,
               iconBg: MoreColors.iconTileBg,
@@ -490,7 +349,6 @@ class _AccountRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
-    this.showChevron = true,
   });
 
   final IconData icon;
@@ -499,7 +357,6 @@ class _AccountRow extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onTap;
-  final bool showChevron;
 
   @override
   Widget build(BuildContext context) {
@@ -544,12 +401,11 @@ class _AccountRow extends StatelessWidget {
                   ],
                 ),
               ),
-              if (showChevron)
-                const Icon(
-                  Icons.chevron_right,
-                  color: MoreColors.labelGrey,
-                  size: 22,
-                ),
+              const Icon(
+                Icons.chevron_right,
+                color: MoreColors.labelGrey,
+                size: 22,
+              ),
             ],
           ),
         ),
@@ -559,10 +415,15 @@ class _AccountRow extends StatelessWidget {
 }
 
 class _ProfileLine extends StatelessWidget {
-  const _ProfileLine({required this.icon, required this.text});
+  const _ProfileLine({
+    required this.icon,
+    required this.text,
+    this.maxLines = 1,
+  });
 
   final IconData icon;
   final String text;
+  final int maxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -579,11 +440,51 @@ class _ProfileLine extends StatelessWidget {
               height: 1.35,
               color: MoreColors.labelGrey,
             ),
-            maxLines: 1,
+            maxLines: maxLines,
             overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.bg,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final Color bg;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

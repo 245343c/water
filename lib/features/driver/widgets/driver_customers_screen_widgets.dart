@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/constants/empty_can_balance.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_theme.dart';
 
@@ -13,17 +14,22 @@ class DriverCustomerListCard extends StatelessWidget {
     required this.lastDeliveryLabel,
     required this.deliveredToday,
     required this.onTap,
+    this.emptyJarsWithCustomer = 0,
   });
 
   final Customer customer;
   final String lastDeliveryLabel;
   final bool deliveredToday;
   final VoidCallback onTap;
+  final int emptyJarsWithCustomer;
 
   static const Color _avatar = DriverColors.accent;
 
   @override
   Widget build(BuildContext context) {
+    final jarsLabel = emptyJarsDueLabel(emptyJarsWithCustomer);
+    final jarsWarning = emptyCanCountIsWarning(emptyJarsWithCustomer);
+
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(14),
@@ -87,6 +93,31 @@ class DriverCustomerListCard extends StatelessWidget {
                         color: DriverColors.labelGrey,
                       ),
                     ),
+                    if (jarsLabel.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.water_drop_rounded,
+                            size: 12,
+                            color: jarsWarning
+                                ? const Color(0xFFDC2626)
+                                : const Color(0xFFEA580C),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            jarsLabel,
+                            style: GoogleFonts.poppins(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: jarsWarning
+                                  ? const Color(0xFFDC2626)
+                                  : const Color(0xFFEA580C),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

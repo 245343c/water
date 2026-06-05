@@ -28,6 +28,32 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
   int _emptyCoolReturned = 0;
   final Map<String, int> _bottleQty = {};
   final Map<String, int> _channelQty = {};
+  final Map<String, TextEditingController> _volumeQty = {};
+
+  TextEditingController _volumeController(String variantId) {
+    return _volumeQty.putIfAbsent(variantId, TextEditingController.new);
+  }
+
+  int _volumeQuantity(String variantId) {
+    final raw = _volumeQty[variantId]?.text.trim() ?? '';
+    if (raw.isEmpty) return 0;
+    return int.tryParse(raw) ?? 0;
+  }
+
+  int _channelQuantity(DeliveryProductType type) {
+    if (type.quantityIsVolumeLiters) {
+      return _volumeQuantity(type.variantId);
+    }
+    return _channelQty[type.variantId] ?? 0;
+  }
+
+  @override
+  void dispose() {
+    for (final c in _volumeQty.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
@@ -103,7 +129,7 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
       );
     }
     for (final type in channelTypes) {
-      final qty = _channelQty[type.variantId] ?? 0;
+      final qty = _channelQuantity(type);
       if (qty <= 0) continue;
       final unit = repo.customerUnitPrice(
         customer,
@@ -155,7 +181,7 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
     if (showNormalCans && _normal > 0) return true;
     if (showCoolCans && _cool > 0) return true;
     for (final type in channelTypes) {
-      if ((_channelQty[type.variantId] ?? 0) > 0) return true;
+      if (_channelQuantity(type) > 0) return true;
     }
     return _bottleInputs(customer, repo, catalog).isNotEmpty;
   }
@@ -195,79 +221,112 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
         final colorIndex = repo.customers.indexWhere((c) => c.id == widget.customerId);
 
         return Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: AddDeliveryColors.screenBg,
           body: AddDeliveryScaffold(
             child: Column(
               children: [
                 AddDeliveryHeader(onBack: () => context.pop()),
                 Expanded(
                   child: ListView(
+                    padding: const EdgeInsets.only(bottom: 16),
                     children: [
                       AddDeliveryCustomerBar(
                         customer: customer,
                         colorIndex: colorIndex >= 0 ? colorIndex : 0,
                       ),
-                      AddDeliveryDateRow(date: _date, onTap: _pickDate),
+                      AddDeliverySurfaceCard(
+                        child: AddDeliveryDateRow(date: _date, onTap: _pickDate),
+                      ),
                       if (!hasEnabledProducts)
                         const AddDeliveryNoProductsHint()
                       else ...[
-                        const AddDeliverySectionTitle(
-                          title: 'Products',
-                          subtitle: 'Only products enabled for this customer',
-                        ),
-                        if (showNormalCans)
-                          AddDeliveryCanStepper(
-                            label: 'Normal Can',
-                            value: _normal,
-                            onChanged: (v) => setState(() => _normal = v),
-                          ),
-                        if (showCoolCans)
-                          AddDeliveryCanStepper(
-                            label: 'Cool Can',
-                            value: _cool,
-                            onChanged: (v) => setState(() => _cool = v),
-                          ),
-                        ...channelTypes.map(
-                          (type) => AddDeliveryCanStepper(
-                            label: type.title,
-                            value: _channelQty[type.variantId] ?? 0,
-                            onChanged: (v) =>
-                                setState(() => _channelQty[type.variantId] = v),
-                          ),
-                        ),
-                        AddDeliveryBottleCatalog(
-                          products: bottleCatalog,
-                          quantities: _bottleQty,
-                          onChanged: (key, qty) => setState(() => _bottleQty[key] = qty),
-                          unitPriceFor: (productId, variantId) =>
-                              repo.customerUnitPrice(
-                                customer,
-                                productId: productId,
-                                variantId: variantId,
+                        AddDeliverySurfaceCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const AddDeliveryInCardTitle(
+                                title: 'Products',
+                                subtitle: 'Only products enabled for this customer',
                               ),
-                        ),
-                        if (showNormalCans || showCoolCans) ...[
-                          const AddDeliverySectionTitle(
-                            title: 'Empty cans returned',
-                            subtitle: 'Track cans collected back from customer',
+                              if (showNormalCans)
+                                AddDeliveryCanStepper(
+                                  label: 'Normal Can',
+                                  value: _normal,
+                                  onChanged: (v) => setState(() => _normal = v),
+                                ),
+                              if (showCoolCans)
+                                AddDeliveryCanStepper(
+                                  label: 'Cool Can',
+                                  value: _cool,
+                                  onChanged: (v) => setState(() => _cool = v),
+                                ),
+                              ...channelTypes.map((type) {
+                                if (type.quantityIsVolumeLiters) {
+                                  return AddDeliveryVolumeQuantityField(
+                                    type: type,
+                                    controller:
+                                        _volumeController(type.variantId),
+                                    onChanged: () => setState(() {}),
+                                  );
+                                }
+                                return AddDeliveryCanStepper(
+                                  label: type.title,
+                                  value: _channelQty[type.variantId] ?? 0,
+                                  onChanged: (v) => setState(
+                                    () => _channelQty[type.variantId] = v,
+                                  ),
+                                );
+                              }),
+                              AddDeliveryBottleCatalog(
+                                products: bottleCatalog,
+                                quantities: _bottleQty,
+                                onChanged: (key, qty) =>
+                                    setState(() => _bottleQty[key] = qty),
+                                unitPriceFor: (productId, variantId) =>
+                                    repo.customerUnitPrice(
+                                      customer,
+                                      productId: productId,
+                                      variantId: variantId,
+                                    ),
+                              ),
+                            ],
                           ),
-                          if (showNormalCans)
-                            AddDeliveryCanStepper(
-                              label: 'Empty Normal Can',
-                              value: _emptyNormalReturned,
-                              onChanged: (v) =>
-                                  setState(() => _emptyNormalReturned = v),
+                        ),
+                        if (showNormalCans || showCoolCans)
+                          AddDeliverySurfaceCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const AddDeliveryInCardTitle(
+                                  title: 'Empty cans returned',
+                                  subtitle:
+                                      'Track cans collected back from customer',
+                                ),
+                                if (showNormalCans)
+                                  AddDeliveryCanStepper(
+                                    label: 'Empty Normal Can',
+                                    value: _emptyNormalReturned,
+                                    onChanged: (v) => setState(
+                                      () => _emptyNormalReturned = v,
+                                    ),
+                                  ),
+                                if (showCoolCans)
+                                  AddDeliveryCanStepper(
+                                    label: 'Empty Cool Can',
+                                    value: _emptyCoolReturned,
+                                    onChanged: (v) =>
+                                        setState(() => _emptyCoolReturned = v),
+                                  ),
+                              ],
                             ),
-                          if (showCoolCans)
-                            AddDeliveryCanStepper(
-                              label: 'Empty Cool Can',
-                              value: _emptyCoolReturned,
-                              onChanged: (v) =>
-                                  setState(() => _emptyCoolReturned = v),
-                            ),
-                        ],
+                          ),
                       ],
-                      AddDeliveryPriceSection(lines: priceLines, total: total),
+                      AddDeliverySurfaceCard(
+                        child: AddDeliveryPriceSection(
+                          lines: priceLines,
+                          total: total,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -287,11 +346,11 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
                         ? auth.currentUser?.driverId
                         : auth.currentUser?.id;
                     final channelInputs = channelTypes
-                        .where((type) => (_channelQty[type.variantId] ?? 0) > 0)
+                        .where((type) => _channelQuantity(type) > 0)
                         .map(
                           (type) => BottleDeliveryInput(
                             label: type.title,
-                            quantity: _channelQty[type.variantId] ?? 0,
+                            quantity: _channelQuantity(type),
                             unitPrice: repo.customerUnitPrice(
                               customer,
                               productId: type.productId,

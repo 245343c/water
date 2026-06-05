@@ -34,16 +34,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
     late DateTime end;
 
     switch (preset) {
-      case ReportsPeriodPreset.thisWeek:
-        final weekday = now.weekday;
-        start = DateTime(now.year, now.month, now.day).subtract(Duration(days: weekday - 1));
-        end = start.add(const Duration(days: 6));
       case ReportsPeriodPreset.thisMonth:
         start = DateTime(now.year, now.month, 1);
         end = DateTime(now.year, now.month + 1, 0);
       case ReportsPeriodPreset.lastMonth:
         start = DateTime(now.year, now.month - 1, 1);
         end = DateTime(now.year, now.month, 0);
+      case ReportsPeriodPreset.thisWeek:
       case ReportsPeriodPreset.custom:
         return;
     }
@@ -83,14 +80,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
       builder: (context, repo, _) {
         final deliveries = repo.deliveriesInRange(_start, _end);
         final cans = deliveries.fold<int>(0, (s, d) => s + d.normalQty + d.coolQty);
-        final normalCans = deliveries.fold<int>(0, (s, d) => s + d.normalQty);
-        final coolCans = deliveries.fold<int>(0, (s, d) => s + d.coolQty);
-        final catalogUnits = deliveries.fold<int>(0, (s, d) => s + d.bottleQty);
         final sales = deliveries.fold<double>(0, (s, d) => s + d.totalAmount);
         final collected = repo.paymentsTotalInRange(_start, _end);
-        final activeCustomers = repo.activeCustomersInRange(_start, _end);
-        final daysInRange = _end.difference(_start).inDays + 1;
-        final avgCansPerDay = daysInRange > 0 ? cans / daysInRange : 0.0;
 
         return Scaffold(
           backgroundColor: ReportsColors.screenBg,
@@ -104,38 +95,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     child: ListView(
                       padding: const EdgeInsets.only(bottom: 24),
                       children: [
-                      ReportsPeriodChips(
-                        selected: _preset,
-                        onSelect: (p) {
-                          if (p == ReportsPeriodPreset.custom) {
-                            _pickRange();
-                          } else {
-                            _applyPreset(p);
-                          }
-                        },
-                      ),
-                      ReportsDateRangeBar(
-                        start: _start,
-                        end: _end,
-                        onTap: _pickRange,
-                      ),
-                      ReportsHeroSummaryCard(
-                        sales: sales,
-                        collected: collected,
-                        cans: cans,
-                      ),
-                      ReportsKpiGrid(
-                        normalCans: normalCans,
-                        coolCans: coolCans,
-                        catalogUnits: catalogUnits,
-                        activeCustomers: activeCustomers,
-                      ),
-                      ReportsInsightStrip(
-                        deliveryCount: deliveries.length,
-                        avgCansPerDay: avgCansPerDay,
-                        collectionRate: sales > 0 ? (collected / sales).clamp(0.0, 1.0) : 0,
-                      ),
-                      const ReportsScopeNote(),
+                        ReportsSimpleMonthPicker(
+                          selected: _preset,
+                          start: _start,
+                          end: _end,
+                          onThisMonth: () =>
+                              _applyPreset(ReportsPeriodPreset.thisMonth),
+                          onLastMonth: () =>
+                              _applyPreset(ReportsPeriodPreset.lastMonth),
+                          onPickDates: _pickRange,
+                        ),
+                        ReportsSimpleSummaryCard(
+                          sales: sales,
+                          collected: collected,
+                          cans: cans,
+                        ),
+                        const ReportsSimpleFootnote(),
                       ],
                     ),
                   ),

@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
-import 'package:sri_sai_ro_water/data/models/delivery_route.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customer_list_card.dart';
@@ -29,7 +28,8 @@ class _DriverCustomersScreenState extends State<DriverCustomersScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final repo = context.read<WaterPlantRepository>();
-      await repo.loadCustomersForCurrentAdminFromFirestore();
+      await repo.loadDeliveryRoutesForCurrentAdmin();
+      await repo.loadCustomersForCurrentAdminFromFirestore(force: true);
       await repo.loadLedgerForCurrentShopFromFirestore();
     });
   }
@@ -47,8 +47,8 @@ class _DriverCustomersScreenState extends State<DriverCustomersScreen> {
         final driverId = auth.currentUser?.driverId;
         final assignedShop = repo.shopForDriver(driverId);
         final assignedCustomers = repo.customersForDriver(driverId);
-        final routes = _routesFor(assignedCustomers, repo);
-        final hasUnassigned = assignedCustomers.any(_isUnassignedRoute);
+        final routes = repo.deliveryRoutesForDriver(driverId);
+        final hasUnassigned = repo.driverUnassignedCustomerCount(driverId) > 0;
 
         var customers = List<Customer>.of(
           repo.searchCustomersForDriver(driverId, _query),
@@ -81,6 +81,11 @@ class _DriverCustomersScreenState extends State<DriverCustomersScreen> {
                   routes: routes,
                   selected: _routeFilter,
                   showUnassigned: hasUnassigned,
+                  allCustomerCount: assignedCustomers.length,
+                  unassignedCustomerCount:
+                      repo.driverUnassignedCustomerCount(driverId),
+                  customerCountForRoute: (routeId) =>
+                      repo.driverCustomerCountOnRoute(driverId, routeId),
                   onSelected: (id) => setState(() => _routeFilter = id),
                 ),
               DriverCustomersFilterChips(
@@ -111,6 +116,8 @@ class _DriverCustomersScreenState extends State<DriverCustomersScreen> {
                             customer: c,
                             lastDeliveryLabel: lastDeliveryRelativeLabel(last),
                             deliveredToday: repo.hasDeliveryToday(c.id),
+                            emptyJarsWithCustomer:
+                                repo.customerCanBalance(c.id).totalWithCustomer,
                             onTap: () =>
                                 context.push('/driver/customers/${c.id}'),
                           );
@@ -122,20 +129,6 @@ class _DriverCustomersScreenState extends State<DriverCustomersScreen> {
         );
       },
     );
-  }
-
-  List<DeliveryRoute> _routesFor(
-    List<Customer> customers,
-    WaterPlantRepository repo,
-  ) {
-    final routeIds = customers
-        .map((c) => c.routeId)
-        .whereType<String>()
-        .where((id) => id.trim().isNotEmpty)
-        .toSet();
-    return repo.deliveryRoutes
-        .where((route) => routeIds.contains(route.id))
-        .toList();
   }
 
   bool _matchesRoute(Customer customer) {

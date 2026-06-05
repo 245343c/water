@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/services/order_workflow_service.dart';
@@ -10,7 +9,6 @@ import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_wid
 import 'package:sri_sai_ro_water/features/orders/widgets/admin_dispatch_manage_sheet.dart';
 import 'package:sri_sai_ro_water/features/orders/widgets/create_dispatch_sheet.dart';
 import 'package:sri_sai_ro_water/features/orders/widgets/orders_screen_widgets.dart';
-import 'package:sri_sai_ro_water/routing/app_router.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -30,8 +28,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
     super.dispose();
   }
 
+  List<CustomerOrder> _baseList(WaterPlantRepository repo) {
+    return repo.ordersNewestFirst();
+  }
+
   List<CustomerOrder> _filtered(WaterPlantRepository repo) {
-    var list = repo.ordersNewestFirst();
+    var list = _baseList(repo);
     if (_query.trim().isNotEmpty) {
       final q = _query.trim().toLowerCase();
       final qDigits = q.replaceAll(RegExp(r'\D'), '');
@@ -55,9 +57,32 @@ class _OrdersScreenState extends State<OrdersScreen> {
           OrderListFilter.pending => o.status == OrderStatus.pending,
           OrderListFilter.walkIn => o.isPhoneDispatch,
           OrderListFilter.outForDelivery => o.isActiveDispatch,
+          OrderListFilter.payPending => o.isPaymentPending,
           OrderListFilter.delivered => o.isDelivered,
           OrderListFilter.all => true,
         }).toList();
+  }
+
+  List<CustomerOrder> _applyFilterOnly(
+    WaterPlantRepository repo,
+    OrderListFilter filter,
+  ) {
+    final list = _baseList(repo);
+    if (filter == OrderListFilter.all) return list;
+    return list.where((o) => switch (filter) {
+          OrderListFilter.pending => o.status == OrderStatus.pending,
+          OrderListFilter.walkIn => o.isPhoneDispatch,
+          OrderListFilter.outForDelivery => o.isActiveDispatch,
+          OrderListFilter.payPending => o.isPaymentPending,
+          OrderListFilter.delivered => o.isDelivered,
+          OrderListFilter.all => true,
+        }).toList();
+  }
+
+  Map<OrderListFilter, int> _filterCounts(WaterPlantRepository repo) {
+    return {
+      for (final f in OrderListFilter.values) f: _applyFilterOnly(repo, f).length,
+    };
   }
 
   void _openOrder(
@@ -145,97 +170,93 @@ class _OrdersScreenState extends State<OrdersScreen> {
         final orders = _filtered(repo);
         final pendingCount = repo.pendingOrderCount;
 
+        Future<void> openNewOrder() async {
+          await showCreateDispatchSheet(context);
+        }
+
         return Scaffold(
           backgroundColor: CustomersColors.screenBg,
           body: CustomersScaffold(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                CustomersHeader(
-                  title: 'Dispatch',
-                  showAddButton: true,
-                  onAdd: () async {
-                    final saved = await showCreateDispatchSheet(context);
-                    if (!context.mounted || saved != true) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Walk-in dispatch sent to driver',
-                          style: GoogleFonts.poppins(),
-                        ),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                  onMenu: () => context.go(AppRoutes.more),
-                ),
-                CustomersSearchRow(
-                  controller: _search,
-                  hintText: 'Search dispatch, customer, phone...',
-                  onChanged: (v) => setState(() => _query = v),
-                ),
-                CustomersListPanel(
-                  child: Column(
-                    children: [
-                      OrdersFilterChips(
-                        selected: _filter,
-                        pendingCount: pendingCount,
-                        onSelected: (f) => setState(() => _filter = f),
-                      ),
-                      Expanded(
-                        child: orders.isEmpty
-                            ? _EmptyOrders(
-                                filter: _filter,
-                                isSearch: _query.isNotEmpty,
-                              )
-                            : ListView.builder(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  4,
-                                  16,
-                                  16,
-                                ),
-                                itemCount: orders.length,
-                                itemBuilder: (_, i) {
-                                  final order = orders[i];
-                                  final customer = repo.customerById(
-                                    order.customerId,
-                                  );
-                                  final walkIn = order.walkInContact;
-                                  final customerName =
-                                      customer?.name ?? walkIn?.name ?? 'Unknown';
-                                  final customerPhone =
-                                      customer?.phone ?? walkIn?.phone ?? '';
-                                  final shopName = order.shopId == null
-                                      ? 'Your water plant'
-                                      : repo.shopById(order.shopId!)?.name ??
-                                            'Your water plant';
-                                  final idx = customer == null
-                                      ? 0
-                                      : repo.customers.indexWhere(
-                                          (c) => c.id == customer.id,
-                                        );
-                                  return OrderListCard(
-                                    order: order,
-                                    customerName: customerName,
-                                    customerPhone: customerPhone,
-                                    shopName: shopName,
-                                    isMonthlyCustomer:
-                                        customer?.isMonthlyContract ?? false,
-                                    initials: customer?.initials ?? '?',
-                                    colorIndex: idx >= 0 ? idx : 0,
-                                    onTap: () =>
-                                        _openOrder(context, repo, order),
-                                  );
-                                },
-                              ),
-                      ),
-                    ],
+            usePageGradient: true,
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  CustomersHeader(
+                    title: 'Quick order',
+                    icon: Icons.receipt_long_rounded,
+                    showAddButton: false,
+                    onAdd: openNewOrder,
+                    searchController: _search,
+                    onSearchChanged: (v) => setState(() => _query = v),
+                    searchHint: 'Search name, phone, address...',
                   ),
-                ),
-              ],
+                  OrdersStatusFilterBar(
+                    selected: _filter,
+                    pendingCount: pendingCount,
+                    counts: _filterCounts(repo),
+                    onSelected: (f) => setState(() => _filter = f),
+                  ),
+                  Expanded(
+                    child: orders.isEmpty
+                        ? _EmptyOrders(
+                            filter: _filter,
+                            isSearch: _query.isNotEmpty,
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(8, 4, 8, 88),
+                            itemCount: orders.length,
+                            itemBuilder: (_, i) {
+                              final order = orders[i];
+                              final customer = repo.customerById(
+                                order.customerId,
+                              );
+                              final walkIn = order.walkInContact;
+                              final customerName =
+                                  customer?.name ?? walkIn?.name ?? 'Unknown';
+                              final customerPhone =
+                                  customer?.phone ?? walkIn?.phone ?? '';
+                              final shopName = order.shopId == null
+                                  ? 'Your water plant'
+                                  : repo.shopById(order.shopId!)?.name ??
+                                        'Your water plant';
+                              final idx = customer == null
+                                  ? 0
+                                  : repo.customers.indexWhere(
+                                      (c) => c.id == customer.id,
+                                    );
+                              final estimatedTotal = customer == null
+                                  ? 0.0
+                                  : repo.estimateDispatchTotal(
+                                      customer,
+                                      order.lineItems,
+                                    );
+                              return OrderListCard(
+                                order: order,
+                                customerName: customerName,
+                                customerPhone: customerPhone,
+                                shopName: shopName,
+                                isMonthlyCustomer:
+                                    customer?.isMonthlyContract ?? false,
+                                initials: customer?.initials ?? '?',
+                                colorIndex: idx >= 0 ? idx : 0,
+                                estimatedTotal: estimatedTotal,
+                                onTap: () =>
+                                    _openOrder(context, repo, order),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
             ),
           ),
+          floatingActionButton: Padding(
+            padding: const EdgeInsets.only(right: 4, bottom: 8),
+            child: OrdersQuickAddButton(onPressed: openNewOrder),
+          ),
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         );
       },
     );
@@ -251,41 +272,47 @@ class _EmptyOrders extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final message = isSearch
-        ? 'No requests match your search'
+        ? 'No orders match your search'
         : switch (filter) {
             OrderListFilter.pending => 'No new app requests',
-            OrderListFilter.walkIn => 'No walk-in dispatches yet',
+            OrderListFilter.walkIn => 'No instant deliveries yet',
             OrderListFilter.outForDelivery => 'Nothing out for delivery',
-            OrderListFilter.delivered => 'No completed dispatches',
-            OrderListFilter.all => 'No dispatches yet',
+            OrderListFilter.payPending => 'No pending payments',
+            OrderListFilter.delivered => 'No completed deliveries',
+            OrderListFilter.all => 'No orders yet',
           };
 
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.receipt_long_outlined,
-            size: 56,
-            color: CustomersColors.labelGrey.withValues(alpha: 0.5),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            message,
-            style: GoogleFonts.poppins(
-              fontSize: 15,
-              color: CustomersColors.labelGrey,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.receipt_long_outlined,
+              size: 56,
+              color: CustomersColors.labelGrey.withValues(alpha: 0.5),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Tap + when someone calls for water today',
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              color: CustomersColors.labelGrey,
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                color: CustomersColors.labelGrey,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              'Tap New order below when someone calls for water',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: CustomersColors.labelGrey,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

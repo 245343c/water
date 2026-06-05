@@ -15,6 +15,7 @@ abstract final class AppPermissions {
             'settings',
             'products',
             'drivers.manage',
+            'routes.manage',
             'customers.read',
             'customers.write',
             'orders.read',

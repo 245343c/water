@@ -75,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final bottom = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0C4A6E),
+      backgroundColor: const Color(0xFF001F3F),
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -83,236 +83,264 @@ class _LoginScreenState extends State<LoginScreen> {
           SafeArea(
             bottom: false,
             child: PremiumResponsiveBody(
-              maxWidth: 720,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final compact = constraints.maxHeight < 760;
-                  final heroHeight = compact
-                      ? 0.0
-                      : (constraints.maxHeight * 0.24).clamp(120.0, 210.0);
-
-                  return SingleChildScrollView(
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
-                      ),
-                      child: Column(
-                        children: [
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: IconButton(
-                              onPressed: () => context.canPop()
-                                  ? context.pop()
-                                  : context.go(AppRoutes.welcome),
-                              icon: const Icon(
-                                Icons.arrow_back_rounded,
-                                color: Colors.white,
-                              ),
+              maxWidth: 480,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 6, top: 4),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Material(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          onTap: () => context.canPop()
+                              ? context.pop()
+                              : context.go(AppRoutes.welcome),
+                          borderRadius: BorderRadius.circular(12),
+                          child: const SizedBox(
+                            width: 42,
+                            height: 42,
+                            child: Icon(
+                              Icons.arrow_back_rounded,
+                              color: Colors.white,
+                              size: 22,
                             ),
                           ),
-                          if (!compact)
-                            SizedBox(
-                              height: heroHeight,
-                              child: const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 28),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: _LoginHeroCopy(),
-                                ),
-                              ),
-                            ),
-                          _LoginFormPanel(
-                            bottomInset: bottom,
-                            formKey: _formKey,
-                            emailController: _emailController,
-                            passwordController: _passwordController,
-                            obscurePassword: _obscurePassword,
-                            loading: _loading,
-                            onTogglePassword: () => setState(
-                              () => _obscurePassword = !_obscurePassword,
-                            ),
-                            onSubmit: _submit,
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LoginHeroCopy extends StatelessWidget {
-  const _LoginHeroCopy();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: const Icon(
-            Icons.storefront_rounded,
-            color: Colors.white,
-            size: 32,
-          ),
-        ),
-        const SizedBox(height: 18),
-        Text(
-          'Staff portal',
-          style: GoogleFonts.poppins(
-            color: Colors.white,
-            fontSize: 32,
-            fontWeight: FontWeight.w800,
-            height: 1.1,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          'Deliveries - Customers - Billing\nRO plant and van operations',
-          style: GoogleFonts.poppins(
-            color: Colors.white.withValues(alpha: 0.88),
-            fontSize: 13,
-            height: 1.5,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _LoginFormPanel extends StatelessWidget {
-  const _LoginFormPanel({
-    required this.bottomInset,
-    required this.formKey,
-    required this.emailController,
-    required this.passwordController,
-    required this.obscurePassword,
-    required this.loading,
-    required this.onTogglePassword,
-    required this.onSubmit,
-  });
-
-  final double bottomInset;
-  final GlobalKey<FormState> formKey;
-  final TextEditingController emailController;
-  final TextEditingController passwordController;
-  final bool obscurePassword;
-  final bool loading;
-  final VoidCallback onTogglePassword;
-  final VoidCallback onSubmit;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(20, 24, 20, bottomInset + 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
-            blurRadius: 24,
-            offset: const Offset(0, -8),
-          ),
-        ],
-      ),
-      child: Form(
-        key: formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Sign in',
-              style: GoogleFonts.poppins(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: LoginColors.brandNavy,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Shop owner or driver account',
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: LoginColors.labelGrey,
-              ),
-            ),
-            const SizedBox(height: 18),
-            LoginTextField(
-              label: 'Email or mobile number',
-              controller: emailController,
-              hint: 'Admin email or driver mobile',
-              icon: Icons.badge_outlined,
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) {
-                  return 'Email or mobile number is required';
-                }
-                final text = v.trim();
-                final digits = text.replaceAll(RegExp(r'\D'), '');
-                if (!text.contains('@') && digits.length != 10) {
-                  return 'Enter exactly 10 mobile digits';
-                }
-                return null;
-              },
-            ),
-            LoginTextField(
-              label: 'Password',
-              controller: passwordController,
-              hint: 'Enter password',
-              icon: Icons.lock_outline_rounded,
-              obscureText: obscurePassword,
-              textInputAction: TextInputAction.done,
-              onFieldSubmitted: (_) => onSubmit(),
-              suffix: IconButton(
-                icon: Icon(
-                  obscurePassword
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined,
-                  color: LoginColors.labelGrey,
-                  size: 22,
-                ),
-                onPressed: onTogglePassword,
-              ),
-              validator: (v) =>
-                  v == null || v.isEmpty ? 'Password is required' : null,
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () => context.push(AppRoutes.forgotPassword),
-                child: Text(
-                  'Forgot password?',
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: LoginColors.primaryBtn,
                   ),
-                ),
+                  const _LoginCompactHero(),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return SingleChildScrollView(
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.onDrag,
+                          padding:
+                              EdgeInsets.fromLTRB(20, 0, 20, bottom + 28),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: constraints.maxHeight,
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                LoginAuthCard(
+                                  child: Form(
+                                    key: _formKey,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Welcome back',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 26,
+                                            fontWeight: FontWeight.w800,
+                                            color: LoginColors.brandNavy,
+                                            letterSpacing: -0.5,
+                                            height: 1.1,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          'Sign in to continue',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 13,
+                                            color: LoginColors.labelGrey,
+                                            height: 1.35,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 14),
+                                        const LoginRoleHintRow(),
+                                        const SizedBox(height: 22),
+                                        LoginTextField(
+                                          label: 'Email or mobile number',
+                                          controller: _emailController,
+                                          hint: 'you@shop.com or 98XXXXXXXX',
+                                          icon: Icons.badge_outlined,
+                                          keyboardType:
+                                              TextInputType.emailAddress,
+                                          textInputAction: TextInputAction.next,
+                                          validator: (v) {
+                                            if (v == null ||
+                                                v.trim().isEmpty) {
+                                              return 'Email or mobile number is required';
+                                            }
+                                            final text = v.trim();
+                                            final digits = text.replaceAll(
+                                              RegExp(r'\D'),
+                                              '',
+                                            );
+                                            if (!text.contains('@') &&
+                                                digits.length != 10) {
+                                              return 'Enter exactly 10 mobile digits';
+                                            }
+                                            return null;
+                                          },
+                                        ),
+                                        LoginTextField(
+                                          label: 'Password',
+                                          controller: _passwordController,
+                                          hint: 'Your password',
+                                          icon: Icons.lock_outline_rounded,
+                                          obscureText: _obscurePassword,
+                                          textInputAction: TextInputAction.done,
+                                          onFieldSubmitted: (_) => _submit(),
+                                          suffix: IconButton(
+                                            icon: Icon(
+                                              _obscurePassword
+                                                  ? Icons
+                                                      .visibility_off_outlined
+                                                  : Icons.visibility_outlined,
+                                              color: LoginColors.labelGrey,
+                                              size: 20,
+                                            ),
+                                            onPressed: () => setState(
+                                              () => _obscurePassword =
+                                                  !_obscurePassword,
+                                            ),
+                                          ),
+                                          validator: (v) =>
+                                              v == null || v.isEmpty
+                                                  ? 'Password is required'
+                                                  : null,
+                                        ),
+                                        Transform.translate(
+                                          offset: const Offset(0, -6),
+                                          child: Align(
+                                            alignment: Alignment.centerRight,
+                                            child: TextButton(
+                                              onPressed: () => context.push(
+                                                AppRoutes.forgotPassword,
+                                              ),
+                                              style: TextButton.styleFrom(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 4,
+                                                  vertical: 2,
+                                                ),
+                                                minimumSize: Size.zero,
+                                                tapTargetSize:
+                                                    MaterialTapTargetSize
+                                                        .shrinkWrap,
+                                              ),
+                                              child: Text(
+                                                'Forgot password?',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: LoginColors.primaryBtn,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        LoginSignInButton(
+                                          loading: _loading,
+                                          onPressed: _submit,
+                                          embedded: true,
+                                        ),
+                                        const SizedBox(height: 16),
+                                        const LoginSecureNote(embedded: true),
+                                        LoginFooterLink(
+                                          embedded: true,
+                                          onCreateAccount: () => context
+                                              .push(AppRoutes.register),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
-            LoginSignInButton(loading: loading, onPressed: onSubmit),
-            const SizedBox(height: 8),
-            const LoginSecureNote(),
-            LoginFooterLink(
-              onCreateAccount: () => context.push(AppRoutes.register),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoginCompactHero extends StatelessWidget {
+  const _LoginCompactHero();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white.withValues(alpha: 0.14),
+              Colors.white.withValues(alpha: 0.06),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.2),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(13),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.25),
+                ),
+              ),
+              child: const Icon(
+                Icons.water_drop_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Staff portal',
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      height: 1.1,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Deliveries · Customers · Billing',
+                    style: GoogleFonts.poppins(
+                      color: Colors.white.withValues(alpha: 0.78),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

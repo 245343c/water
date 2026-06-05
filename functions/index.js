@@ -196,7 +196,31 @@ function orderPayload(orderId, data) {
     fulfilledAt: fulfilledAt instanceof Date ? fulfilledAt.toISOString() : "",
     fulfilledBy: data.fulfilledBy || "",
     adminDispatchNote: data.adminDispatchNote || "",
+    collectionStatus: data.collectionStatus || "",
+    collectedAmount: data.collectedAmount || 0,
+    collectionMethod: data.collectionMethod || "",
+    collectionRecordedBy: data.collectionRecordedBy || "",
+    instantOutcome: data.instantOutcome || "",
   };
+}
+
+function cleanCollectionStatus(value) {
+  const status = String(value || "").trim();
+  if (["collected", "pending", "waived"].includes(status)) return status;
+  throw new HttpsError("invalid-argument", "Invalid collection status.");
+}
+
+function collectionStatusLabel(status, amount, method) {
+  if (status === "collected") {
+    const methodLabel = method === "upi" ? "UPI" : "Cash";
+    return amount > 0
+      ? `Payment received · ${methodLabel} ₹${amount}`
+      : "Payment received";
+  }
+  if (status === "pending") {
+    return "Delivered · payment pending (customer will pay admin)";
+  }
+  return "Delivered · pay later";
 }
 
 function customerPayload(customerId, data) {
@@ -301,7 +325,7 @@ async function walkInProductPrices(shopId) {
     .get();
   for (const doc of productsSnap.docs) {
     const product = doc.data();
-    for (const variant of product.variants || []) {
+    for (const variant of asVariantList(product.variants)) {
       prices.push({
         productId: doc.id,
         variantId: String(variant.id || ""),
@@ -311,6 +335,14 @@ async function walkInProductPrices(shopId) {
     }
   }
   return prices;
+}
+
+function asVariantList(variants) {
+  if (Array.isArray(variants)) return variants;
+  if (variants && typeof variants === "object") {
+    return Object.values(variants);
+  }
+  return [];
 }
 
 function dispatchItemsSummary(lineItems) {
@@ -1446,6 +1478,19 @@ exports.respondToCustomerOrder = onCall(callableOptions, async (request) => {
 });
 
 exports.createWalkInDispatch = onCall(callableOptions, async (request) => {
+  try {
+    return await createWalkInDispatchHandler(request);
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error("createWalkInDispatch failed", error);
+    throw new HttpsError(
+      "internal",
+      error.message || "Instant delivery could not be saved.",
+    );
+  }
+});
+
+async function createWalkInDispatchHandler(request) {
   const adminCtx = await requireAdmin(request.auth);
   const callerName = cleanText(request.data.callerName, "Caller name");
   const callerPhone = normalizePhone(request.data.callerPhone);
@@ -1455,6 +1500,7 @@ exports.createWalkInDispatch = onCall(callableOptions, async (request) => {
   const lineItems = cleanOrderLineItems(request.data.lineItems);
   const totals = orderLineTotals(lineItems);
   const productPrices = await walkInProductPrices(adminCtx.shopId);
+  const sendToDriver = request.data.sendToDriver !== false;
 
   const shopRef = db.collection("shops").doc(adminCtx.shopId);
   const customerRef = shopRef.collection("customers").doc();
@@ -1490,13 +1536,16 @@ exports.createWalkInDispatch = onCall(callableOptions, async (request) => {
     customerId: customerRef.id,
     normalQty: totals.normalQty,
     coolQty: totals.coolQty,
-    status: "accepted",
+    status: sendToDriver ? "accepted" : "rejected",
     source: "phoneCall",
     paymentMode: "collectAtDoor",
     customerNote,
-    adminResponse: "Walk-in — driver collects payment at door.",
+    adminResponse: sendToDriver
+      ? "Instant delivery — driver collects payment at door."
+      : "No stock — informed customer.",
     lineItems,
     walkInContact,
+    instantOutcome: sendToDriver ? "sent" : "noStock",
     respondedAt: now,
     createdAt: now,
     updatedAt: now,
@@ -1505,17 +1554,31 @@ exports.createWalkInDispatch = onCall(callableOptions, async (request) => {
   const batch = db.batch();
   batch.set(customerRef, customer);
   batch.set(orderRef, order);
-  appendOrderNotification({
-    batch,
-    shopId: adminCtx.shopId,
-    type: "orderAccepted",
-    audience: "driver",
-    title: "Walk-in delivery",
-    body: `${callerName} · ${dispatchItemsSummary(lineItems)}`,
-    customerId: customerRef.id,
-    orderId: orderRef.id,
-    now,
-  });
+  if (sendToDriver) {
+    appendOrderNotification({
+      batch,
+      shopId: adminCtx.shopId,
+      type: "orderAccepted",
+      audience: "driver",
+      title: "Instant delivery",
+      body: `${callerName} · ${dispatchItemsSummary(lineItems)}`,
+      customerId: customerRef.id,
+      orderId: orderRef.id,
+      now,
+    });
+  } else {
+    appendOrderNotification({
+      batch,
+      shopId: adminCtx.shopId,
+      type: "orderRejected",
+      audience: "admin",
+      title: "Instant — no stock",
+      body: `${callerName} · ${dispatchItemsSummary(lineItems)} — not sent to driver`,
+      customerId: customerRef.id,
+      orderId: orderRef.id,
+      now,
+    });
+  }
   await batch.commit();
 
   return {
@@ -1526,7 +1589,7 @@ exports.createWalkInDispatch = onCall(callableOptions, async (request) => {
     }),
     customer: customerPayload(customerRef.id, customer),
   };
-});
+}
 
 exports.fulfillDispatchOrder = onCall(callableOptions, async (request) => {
   const staffCtx = await requireShopStaff(request.auth, { allowDriver: true });
@@ -1539,22 +1602,185 @@ exports.fulfillDispatchOrder = onCall(callableOptions, async (request) => {
   const orderSnap = await orderRef.get();
   const order = orderSnap.data();
   if (!order || order.status !== "accepted" || order.fulfilledAt) {
-    throw new HttpsError("failed-precondition", "Active dispatch not found.");
+    throw new HttpsError("failed-precondition", "Active instant delivery not found.");
+  }
+  if (order.source !== "phoneCall") {
+    throw new HttpsError("failed-precondition", "Only instant dispatch orders use this flow.");
   }
 
+  const collectionStatus = cleanCollectionStatus(request.data.collectionStatus);
+  const collectedAmount = collectionStatus === "collected"
+    ? cleanAmount(request.data.collectedAmount)
+    : 0;
+  const collectionMethod = collectionStatus === "collected"
+    ? cleanPaymentMethod(request.data.collectionMethod)
+    : "";
+  const customerId = order.customerId;
+  const date = cleanDate(request.data.date, "Delivery date");
+  const emptyNormalReturned = cleanEmptyCanCount(request.data.emptyNormalReturned);
+  const emptyCoolReturned = cleanEmptyCanCount(request.data.emptyCoolReturned);
+  let lines = Array.isArray(request.data.lines) ? request.data.lines : [];
+  if (lines.length === 0) {
+    throw new HttpsError("invalid-argument", "Add what was delivered.");
+  }
+  lines = cleanDeliveryLines(lines);
+
+  const customerRef = db
+    .collection("shops")
+    .doc(staffCtx.shopId)
+    .collection("customers")
+    .doc(customerId);
+  const customerSnap = await customerRef.get();
+  const customer = customerSnap.data();
+  if (!customer || customer.active === false) {
+    throw new HttpsError("not-found", "Customer not found.");
+  }
+
+  lines = await applyCanonicalDeliveryPrices(staffCtx.shopId, customer, lines);
+  const totals = deliveryTotals(lines);
   const now = admin.firestore.FieldValue.serverTimestamp();
   const fulfilledBy = staffCtx.role === "driver" ? "driver" : "admin";
-  await orderRef.set({
+  const collectionRecordedBy = fulfilledBy;
+  const driverId = staffCtx.role === "driver"
+    ? staffCtx.driverId
+    : (request.data.driverId || null);
+  const driverName = await resolveDriverName(
+    staffCtx.shopId,
+    driverId,
+    request.data.driverName,
+  );
+  const callerName = order.walkInContact?.name || customer.name || "Customer";
+  const summary = deliveryCansSummary(totals);
+
+  const deliveryRef = db
+    .collection("shops")
+    .doc(staffCtx.shopId)
+    .collection("deliveries")
+    .doc();
+  const monthlySummary = baseMonthlySummary(staffCtx.shopId, customerId, date);
+  const delivery = {
+    shopId: staffCtx.shopId,
+    customerId,
+    orderId,
+    date: admin.firestore.Timestamp.fromDate(date),
+    lines,
+    emptyNormalReturned,
+    emptyCoolReturned,
+    normalQty: totals.normalQty,
+    coolQty: totals.coolQty,
+    bottleQty: totals.bottleQty,
+    totalAmount: totals.totalAmount,
+    driverId,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: staffCtx.uid,
+  };
+
+  const batch = db.batch();
+  batch.set(deliveryRef, delivery);
+  batch.set(
+    monthlySummary.ref,
+    {
+      ...monthlySummary.data,
+      deliveryCount: admin.firestore.FieldValue.increment(1),
+      normalQty: admin.firestore.FieldValue.increment(totals.normalQty),
+      coolQty: admin.firestore.FieldValue.increment(totals.coolQty),
+      bottleQty: admin.firestore.FieldValue.increment(totals.bottleQty),
+      deliveryAmount: admin.firestore.FieldValue.increment(totals.totalAmount),
+    },
+    { merge: true },
+  );
+
+  if (collectionStatus === "collected" && collectedAmount > 0) {
+    const paymentRef = db
+      .collection("shops")
+      .doc(staffCtx.shopId)
+      .collection("payments")
+      .doc();
+    const paymentSummary = baseMonthlySummary(staffCtx.shopId, customerId, date);
+    const payment = {
+      shopId: staffCtx.shopId,
+      customerId,
+      amount: collectedAmount,
+      method: collectionMethod,
+      notes: `Instant delivery ${orderId}`,
+      date: admin.firestore.Timestamp.fromDate(date),
+      createdAt: now,
+      updatedAt: now,
+      createdBy: staffCtx.uid,
+    };
+    batch.set(paymentRef, payment);
+    batch.set(
+      paymentSummary.ref,
+      {
+        ...paymentSummary.data,
+        paymentCount: admin.firestore.FieldValue.increment(1),
+        paymentAmount: admin.firestore.FieldValue.increment(collectedAmount),
+      },
+      { merge: true },
+    );
+  }
+
+  batch.set(orderRef, {
     fulfilledAt: now,
     fulfilledBy,
+    collectionStatus,
+    collectedAmount: collectionStatus === "collected" ? collectedAmount : 0,
+    collectionMethod: collectionStatus === "collected" ? collectionMethod : "",
+    collectionRecordedBy,
+    deliveryId: deliveryRef.id,
     updatedAt: now,
   }, { merge: true });
 
-  return orderPayload(orderId, {
-    ...order,
-    fulfilledAt: new Date(),
-    fulfilledBy,
+  appendDeliveryNotifications({
+    batch,
+    shopId: staffCtx.shopId,
+    customerId,
+    customerName: callerName,
+    deliveryId: deliveryRef.id,
+    driverId,
+    driverName,
+    summary,
+    amount: totals.totalAmount,
+    now,
   });
+  appendOrderNotification({
+    batch,
+    shopId: staffCtx.shopId,
+    type: collectionStatus === "pending"
+      ? "dispatchPaymentPending"
+      : "dispatchFulfilled",
+    audience: "admin",
+    title: collectionStatus === "pending"
+      ? "Instant · payment pending"
+      : "Instant · delivered",
+    body: `${callerName} · ${summary} — ${collectionStatusLabel(
+      collectionStatus,
+      collectedAmount,
+      collectionMethod,
+    )}`,
+    customerId,
+    orderId,
+    now,
+  });
+  await batch.commit();
+
+  return {
+    order: orderPayload(orderId, {
+      ...order,
+      fulfilledAt: new Date(),
+      fulfilledBy,
+      collectionStatus,
+      collectedAmount: collectionStatus === "collected" ? collectedAmount : 0,
+      collectionMethod: collectionStatus === "collected" ? collectionMethod : "",
+      collectionRecordedBy,
+    }),
+    delivery: deliveryPayload(deliveryRef.id, {
+      ...delivery,
+      driverId,
+      createdAt: new Date(),
+    }),
+  };
 });
 
 exports.updateWalkInDispatch = onCall(callableOptions, async (request) => {
@@ -1592,10 +1818,80 @@ exports.updateWalkInDispatch = onCall(callableOptions, async (request) => {
     if (order.fulfilledAt) {
       throw new HttpsError("failed-precondition", "Already marked delivered.");
     }
+    const collectionStatus = cleanCollectionStatus(
+      request.data.collectionStatus || "waived",
+    );
+    const collectedAmount = collectionStatus === "collected"
+      ? cleanAmount(request.data.collectedAmount)
+      : 0;
+    const collectionMethod = collectionStatus === "collected"
+      ? cleanPaymentMethod(request.data.collectionMethod)
+      : "";
     updates.fulfilledAt = now;
     updates.fulfilledBy = "admin";
+    updates.collectionStatus = collectionStatus;
+    updates.collectedAmount = collectionStatus === "collected"
+      ? collectedAmount
+      : 0;
+    updates.collectionMethod = collectionStatus === "collected"
+      ? collectionMethod
+      : "";
+    updates.collectionRecordedBy = "admin";
     responseOrder.fulfilledAt = new Date();
     responseOrder.fulfilledBy = "admin";
+    responseOrder.collectionStatus = collectionStatus;
+    responseOrder.collectedAmount = updates.collectedAmount;
+    responseOrder.collectionMethod = updates.collectionMethod;
+    responseOrder.collectionRecordedBy = "admin";
+
+    const callerName = order.walkInContact?.name || "Customer";
+    const notifyBatch = db.batch();
+    notifyBatch.set(orderRef, updates, { merge: true });
+    appendOrderNotification({
+      notifyBatch,
+      shopId: adminCtx.shopId,
+      type: collectionStatus === "pending"
+        ? "dispatchPaymentPending"
+        : "dispatchFulfilled",
+      audience: "admin",
+      title: "Instant · admin confirmed",
+      body: `${callerName} — ${collectionStatusLabel(
+        collectionStatus,
+        collectedAmount,
+        collectionMethod,
+      )}`,
+      customerId: order.customerId,
+      orderId,
+      now,
+    });
+    await notifyBatch.commit();
+    return orderPayload(orderId, responseOrder);
+  } else if (action === "updateCollection") {
+    if (!order.fulfilledAt) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Mark delivered before updating payment.",
+      );
+    }
+    const collectionStatus = cleanCollectionStatus(request.data.collectionStatus);
+    const collectedAmount = collectionStatus === "collected"
+      ? cleanAmount(request.data.collectedAmount)
+      : 0;
+    const collectionMethod = collectionStatus === "collected"
+      ? cleanPaymentMethod(request.data.collectionMethod)
+      : "";
+    updates.collectionStatus = collectionStatus;
+    updates.collectedAmount = collectionStatus === "collected"
+      ? collectedAmount
+      : 0;
+    updates.collectionMethod = collectionStatus === "collected"
+      ? collectionMethod
+      : "";
+    updates.collectionRecordedBy = "admin";
+    responseOrder.collectionStatus = collectionStatus;
+    responseOrder.collectedAmount = updates.collectedAmount;
+    responseOrder.collectionMethod = updates.collectionMethod;
+    responseOrder.collectionRecordedBy = "admin";
   } else {
     throw new HttpsError("invalid-argument", "Unsupported action.");
   }

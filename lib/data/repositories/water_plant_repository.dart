@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/foundation.dart';
 import 'package:sri_sai_ro_water/core/auth/app_role.dart';
@@ -15,6 +16,7 @@ import 'package:sri_sai_ro_water/data/models/customer_can_balance.dart';
 import 'package:sri_sai_ro_water/data/models/shop.dart';
 import 'package:sri_sai_ro_water/data/models/customer_product_price.dart';
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
+import 'package:sri_sai_ro_water/data/models/dispatch_collection_status.dart';
 import 'package:sri_sai_ro_water/data/models/dispatch_payment_mode.dart';
 import 'package:sri_sai_ro_water/data/models/order_line_item.dart';
 import 'package:sri_sai_ro_water/data/models/order_source.dart';
@@ -37,6 +39,7 @@ import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/data/models/product_variant.dart';
 import 'package:sri_sai_ro_water/data/models/promotion.dart';
 import 'package:sri_sai_ro_water/data/models/customer_shop_billing.dart';
+import 'package:sri_sai_ro_water/core/config/app_config.dart';
 import 'package:sri_sai_ro_water/core/services/firebase_backend.dart';
 import 'package:sri_sai_ro_water/core/services/product_image_service.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
@@ -84,11 +87,14 @@ class WaterPlantRepository extends ChangeNotifier {
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _ledgerDeliveriesSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _ledgerPaymentsSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _ledgerOrdersSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _shopCustomersSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _shopRoutesSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _customerLedgerSub;
   final List<StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>
       _customerLedgerItemSubs = [];
   Timer? _customerLedgerReloadTimer;
   String? _watchedLedgerShopId;
+  String? _watchedMasterDataShopId;
   String? _watchedCustomerLedgerUserId;
 
   bool get isFirebaseLoading => _loadingFirebaseData;
@@ -122,34 +128,164 @@ class WaterPlantRepository extends ChangeNotifier {
   String deliveryRouteName(String? id) =>
       deliveryRouteById(id)?.name ?? 'Unassigned';
 
+  List<Customer> monthlyContractCustomers() => _customers
+      .where((c) => !c.isInstantDispatch)
+      .toList();
+
+  int customerCountForRoute(String? routeId) {
+    final base = monthlyContractCustomers();
+    if (routeId == null || routeId.isEmpty) {
+      return base
+          .where((c) => c.routeId == null || c.routeId!.trim().isEmpty)
+          .length;
+    }
+    return base.where((c) => c.routeId == routeId).length;
+  }
+
+  List<Customer> customersOnRoute(String? routeId) {
+    final base = monthlyContractCustomers()
+      ..sort((a, b) => a.name.compareTo(b.name));
+    if (routeId == null || routeId.isEmpty) {
+      return base
+          .where((c) => c.routeId == null || c.routeId!.trim().isEmpty)
+          .toList();
+    }
+    return base.where((c) => c.routeId == routeId).toList();
+  }
+
+  Future<void> loadDeliveryRoutesForCurrentAdmin() async {
+    final shopId = await _currentAdminShopId();
+    if (shopId == null) return;
+    await loadShopConfigurationFromFirestore(shopId);
+  }
+
   Future<DeliveryRoute> addDeliveryRoute(String name) async {
     final cleaned = name.trim();
     if (cleaned.isEmpty) {
       throw ArgumentError('Route name is required');
     }
     final existing = _deliveryRoutes.any(
-      (route) => route.name.toLowerCase() == cleaned.toLowerCase(),
+      (route) =>
+          route.active && route.name.toLowerCase() == cleaned.toLowerCase(),
     );
     if (existing) {
       throw ArgumentError('Route already exists');
     }
+    var id = _uuid.v4();
     final shopId = await _currentAdminShopId();
-    if (shopId == null) throw StateError('Shop account not found');
-    final ref = FirebaseFirestore.instance
-        .collection('shops')
-        .doc(shopId)
-        .collection('routes')
-        .doc();
-    final route = DeliveryRoute(id: ref.id, name: cleaned);
-    await ref.set({
-      'name': route.name,
-      'active': true,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    if (shopId != null) {
+      try {
+        final ref = FirebaseFirestore.instance
+            .collection('shops')
+            .doc(shopId)
+            .collection('routes')
+            .doc();
+        id = ref.id;
+        await ref.set({
+          'name': cleaned,
+          'active': true,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } catch (_) {
+        // Offline / mock — keep local id.
+      }
+    }
+    final route = DeliveryRoute(id: id, name: cleaned);
     _deliveryRoutes.add(route);
     notifyListeners();
     return route;
+  }
+
+  Future<void> renameDeliveryRoute(String routeId, String name) async {
+    final cleaned = name.trim();
+    if (cleaned.isEmpty) throw ArgumentError('Route name is required');
+    final index = _deliveryRoutes.indexWhere((r) => r.id == routeId);
+    if (index < 0) throw ArgumentError('Route not found');
+    final clash = _deliveryRoutes.any(
+      (r) =>
+          r.id != routeId &&
+          r.active &&
+          r.name.toLowerCase() == cleaned.toLowerCase(),
+    );
+    if (clash) throw ArgumentError('Route already exists');
+    final updated = _deliveryRoutes[index].copyWith(name: cleaned);
+    _deliveryRoutes[index] = updated;
+    final shopId = await _currentAdminShopId();
+    if (shopId != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('shops')
+            .doc(shopId)
+            .collection('routes')
+            .doc(routeId)
+            .update({
+          'name': cleaned,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } catch (_) {}
+    }
+    notifyListeners();
+  }
+
+  Future<void> archiveDeliveryRoute(String routeId) async {
+    final index = _deliveryRoutes.indexWhere((r) => r.id == routeId);
+    if (index < 0) throw ArgumentError('Route not found');
+    final onRoute = customerCountForRoute(routeId);
+    if (onRoute > 0) {
+      throw ArgumentError(
+        'Move $onRoute customer${onRoute == 1 ? '' : 's'} off this route first',
+      );
+    }
+    _deliveryRoutes[index] = _deliveryRoutes[index].copyWith(active: false);
+    final shopId = await _currentAdminShopId();
+    if (shopId != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('shops')
+            .doc(shopId)
+            .collection('routes')
+            .doc(routeId)
+            .update({
+          'active': false,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } catch (_) {}
+    }
+    notifyListeners();
+  }
+
+  Future<void> setCustomerRoute(String customerId, String? routeId) async {
+    final customer = customerById(customerId);
+    if (customer == null || customer.isInstantDispatch) return;
+    final updated = customer.copyWith(
+      routeId: routeId,
+      clearRoute: routeId == null || routeId.isEmpty,
+    );
+    updateCustomer(updated);
+    final shopId = _customerShopIds[customerId] ?? await _currentAdminShopId();
+    if (shopId != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('shops')
+            .doc(shopId)
+            .collection('customers')
+            .doc(customerId)
+            .update({
+          'routeId': routeId,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } catch (_) {}
+    }
+  }
+
+  Future<void> assignCustomersToRoute(
+    List<String> customerIds,
+    String routeId,
+  ) async {
+    for (final id in customerIds) {
+      await setCustomerRoute(id, routeId);
+    }
   }
 
   List<Shop> listedShops() =>
@@ -273,7 +409,8 @@ class WaterPlantRepository extends ChangeNotifier {
 
   Shop? shopForDriver(String? driverId) {
     if (driverId == null || driverId.isEmpty) return null;
-    return shopById(shopIdForDriver(driverId));
+    _ensureDefaultShop();
+    return shopById(shopIdForDriver(driverId)) ?? shopById(_activeShopId);
   }
 
   List<Customer> customersForShop(String shopId) => _customers
@@ -287,6 +424,32 @@ class WaterPlantRepository extends ChangeNotifier {
     final shop = shopForDriver(driverId);
     if (shop == null) return const [];
     return customersForShop(shop.id);
+  }
+
+  /// Active routes that have at least one monthly customer assigned (driver view).
+  List<DeliveryRoute> deliveryRoutesForDriver(String? driverId) {
+    final customers = customersForDriver(driverId);
+    final routeIds = customers
+        .map((c) => c.routeId)
+        .whereType<String>()
+        .where((id) => id.trim().isNotEmpty)
+        .toSet();
+    return activeDeliveryRoutes
+        .where((route) => routeIds.contains(route.id))
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+  }
+
+  int driverUnassignedCustomerCount(String? driverId) {
+    return customersForDriver(driverId)
+        .where((c) => c.routeId == null || c.routeId!.trim().isEmpty)
+        .length;
+  }
+
+  int driverCustomerCountOnRoute(String? driverId, String routeId) {
+    return customersForDriver(driverId)
+        .where((c) => c.routeId == routeId)
+        .length;
   }
 
   /// Shop rates — all delivery types on for walk-in callers.
@@ -384,7 +547,13 @@ class WaterPlantRepository extends ChangeNotifier {
   bool canDriverAccessCustomer(String? driverId, String customerId) {
     final shop = shopForDriver(driverId);
     if (shop == null) return false;
-    return shopIdForCustomer(customerId) == shop.id;
+    if (shopIdForCustomer(customerId) == shop.id) return true;
+    return _orders.any(
+      (o) =>
+          o.customerId == customerId &&
+          o.isPhoneDispatch &&
+          (o.isOpenForDriver || o.isDelivered),
+    );
   }
 
   List<Customer> searchCustomersForDriver(String? driverId, String query) {
@@ -597,7 +766,25 @@ class WaterPlantRepository extends ChangeNotifier {
     );
 
     _seedProducts();
+    _ensureDefaultShop();
+    _seedMockDeliveryRoutes();
+    _seedMockDriverData();
+    _seedMockInstantDispatchDemo();
   }
+
+  void _seedMockDeliveryRoutes() {
+    if (_deliveryRoutes.isNotEmpty) return;
+    _deliveryRoutes.addAll([
+      const DeliveryRoute(id: 'route-demo-a', name: 'Route A – Main Road'),
+      const DeliveryRoute(id: 'route-demo-b', name: 'Route B – Industrial'),
+    ]);
+  }
+
+  void _ensureDefaultShop() {
+    _syncShopFromSettings();
+  }
+
+  String get _activeShopId => _currentFirebaseShopId ?? defaultShopId;
 
   bool hasDeliveryToday(String customerId) {
     final today = DateTime.now();
@@ -1231,14 +1418,33 @@ class WaterPlantRepository extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (AppConfig.useInstantDispatchMock && user.role == AppRole.driver) {
+        await loadCurrentShopFromFirestore(force: true);
+        _ensureDefaultShop();
+        if (_deliveryRoutes.isEmpty) _seedMockDeliveryRoutes();
+        await loadCustomersForCurrentAdminFromFirestore(force: true);
+        _seedMockDriverData();
+        if (user.driverId != null) {
+          await loadDriverForCurrentUserFromFirestore(user.driverId!);
+        }
+        _restoreMockInstantDispatchForDriver();
+        await startShopMasterDataWatchForCurrentShop();
+        await startLedgerWatchForCurrentShop();
+        return;
+      }
+
       await loadCurrentShopFromFirestore(force: true);
       await loadCustomersForCurrentAdminFromFirestore(force: true);
       await loadLedgerForCurrentShopFromFirestore(force: true);
+      if (AppConfig.useInstantDispatchMock) {
+        _restoreMockInstantDispatchForDriver();
+      }
       if (user.role == AppRole.admin) {
         await loadDriversForCurrentAdminFromFirestore(force: true);
       } else if (user.role == AppRole.driver && user.driverId != null) {
         await loadDriverForCurrentUserFromFirestore(user.driverId!);
       }
+      await startShopMasterDataWatchForCurrentShop();
       await startLedgerWatchForCurrentShop();
     } finally {
       _loadingFirebaseData = false;
@@ -1343,6 +1549,35 @@ class WaterPlantRepository extends ChangeNotifier {
       );
     }
     notifyListeners();
+  }
+
+  Future<void> startShopMasterDataWatchForCurrentShop() async {
+    final shopId = await _currentAdminShopId();
+    if (shopId == null) return;
+    if (_watchedMasterDataShopId == shopId &&
+        _shopCustomersSub != null &&
+        _shopRoutesSub != null) {
+      return;
+    }
+
+    await _shopCustomersSub?.cancel();
+    await _shopRoutesSub?.cancel();
+    _watchedMasterDataShopId = shopId;
+
+    _shopCustomersSub = FirebaseFirestore.instance
+        .collection('shops')
+        .doc(shopId)
+        .collection('customers')
+        .where('active', isEqualTo: true)
+        .snapshots()
+        .listen(_applyShopCustomersSnapshot);
+    _shopRoutesSub = FirebaseFirestore.instance
+        .collection('shops')
+        .doc(shopId)
+        .collection('routes')
+        .where('active', isEqualTo: true)
+        .snapshots()
+        .listen(_applyShopRoutesSnapshot);
   }
 
   Future<void> startLedgerWatchForCurrentShop() async {
@@ -1457,6 +1692,53 @@ class WaterPlantRepository extends ChangeNotifier {
     _customerLedgerItemSubs.clear();
   }
 
+  void _applyShopCustomersSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final shopId = _watchedMasterDataShopId;
+    if (shopId == null) return;
+
+    final instantCustomers = AppConfig.useInstantDispatchMock
+        ? _customers.where((c) => c.isInstantDispatch).toList()
+        : const <Customer>[];
+
+    _customers.removeWhere(
+      (c) => !c.isInstantDispatch && shopIdForCustomer(c.id) == shopId,
+    );
+    for (final id in _customerShopIds.keys.toList()) {
+      if (_customerShopIds[id] == shopId &&
+          !_customers.any((c) => c.id == id)) {
+        _customerShopIds.remove(id);
+      }
+    }
+
+    for (final doc in snapshot.docs) {
+      _upsertCustomer(_customerFromFirestore(doc), shopId);
+    }
+
+    for (final customer in instantCustomers) {
+      if (!_customers.any((c) => c.id == customer.id)) {
+        _customers.add(customer);
+        _linkCustomerToShop(customer.id, shopIdForCustomer(customer.id));
+      }
+    }
+
+    _loadedFirebaseCustomerShopId = shopId;
+    notifyListeners();
+  }
+
+  void _applyShopRoutesSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    _deliveryRoutes
+      ..clear()
+      ..addAll(snapshot.docs.map(_deliveryRouteFromFirestore));
+    if (_deliveryRoutes.isEmpty && AppConfig.useInstantDispatchMock) {
+      _seedMockDeliveryRoutes();
+    }
+    notifyListeners();
+  }
+
   void _applyShopDeliverySnapshot(
     QuerySnapshot<Map<String, dynamic>> snapshot,
   ) {
@@ -1501,6 +1783,11 @@ class WaterPlantRepository extends ChangeNotifier {
     await _ledgerOrdersSub?.cancel();
     _ledgerOrdersSub = null;
     _watchedLedgerShopId = null;
+    await _shopCustomersSub?.cancel();
+    _shopCustomersSub = null;
+    await _shopRoutesSub?.cancel();
+    _shopRoutesSub = null;
+    _watchedMasterDataShopId = null;
     await _customerLedgerSub?.cancel();
     _customerLedgerSub = null;
     await _cancelCustomerLedgerItemSubs();
@@ -1514,6 +1801,22 @@ class WaterPlantRepository extends ChangeNotifier {
   }
 
   void clearOperationalData({bool notify = true}) {
+    final instantOrders = AppConfig.useInstantDispatchMock
+        ? _orders.where((o) => o.isPhoneDispatch).toList()
+        : const <CustomerOrder>[];
+    final instantCustomers = AppConfig.useInstantDispatchMock
+        ? _customers.where((c) => c.isInstantDispatch).toList()
+        : const <Customer>[];
+    final instantCustomerShops = AppConfig.useInstantDispatchMock
+        ? Map<String, String>.from(
+            Map.fromEntries(
+              instantCustomers.map(
+                (c) => MapEntry(c.id, shopIdForCustomer(c.id)),
+              ),
+            ),
+          )
+        : const <String, String>{};
+
     _customers.clear();
     _deliveries.clear();
     _payments.clear();
@@ -1529,6 +1832,19 @@ class WaterPlantRepository extends ChangeNotifier {
     _loadedFirebaseDriverShopId = null;
     _loadedFirebaseLedgerShopId = null;
     _currentFirebaseShopId = null;
+
+    if (AppConfig.useInstantDispatchMock) {
+      for (final customer in instantCustomers) {
+        _upsertCustomer(customer, instantCustomerShops[customer.id] ?? defaultShopId);
+      }
+      for (final order in instantOrders) {
+        if (!_orders.any((o) => o.id == order.id)) {
+          _orders.add(order);
+        }
+      }
+      _restoreMockInstantDispatchForDriver();
+    }
+
     if (notify) notifyListeners();
   }
 
@@ -2033,6 +2349,7 @@ class WaterPlantRepository extends ChangeNotifier {
     final paymentMode =
         _dispatchPaymentModeFromString(data['paymentMode'] as String?);
     final walkIn = _walkInContactFromFirestore(data['walkInContact']);
+    final collection = _dispatchCollectionFromMap(data);
     if (lineItems.isNotEmpty) {
       return CustomerOrder.withLineItems(
         id: id,
@@ -2053,6 +2370,11 @@ class WaterPlantRepository extends ChangeNotifier {
         paymentMode: paymentMode,
         walkInContact: walkIn,
         lineItems: lineItems,
+        collectionStatus: collection.$1,
+        collectedAmount: collection.$2,
+        collectionMethod: collection.$3,
+        collectionRecordedBy: data['collectionRecordedBy'] as String?,
+        instantOutcome: data['instantOutcome'] as String?,
       );
     }
     return CustomerOrder(
@@ -2075,7 +2397,26 @@ class WaterPlantRepository extends ChangeNotifier {
       source: source,
       paymentMode: paymentMode,
       walkInContact: walkIn,
+      collectionStatus: collection.$1,
+      collectedAmount: collection.$2,
+      collectionMethod: collection.$3,
+      collectionRecordedBy: data['collectionRecordedBy'] as String?,
+      instantOutcome: data['instantOutcome'] as String?,
     );
+  }
+
+  (DispatchCollectionStatus?, double?, String?) _dispatchCollectionFromMap(
+    Map<String, dynamic> data,
+  ) {
+    final raw = data['collectionStatus'] as String?;
+    if (raw == null || raw.isEmpty) return (null, null, null);
+    final status = DispatchCollectionStatus.values.firstWhere(
+      (s) => s.name == raw,
+      orElse: () => DispatchCollectionStatus.pending,
+    );
+    final amount = (data['collectedAmount'] as num?)?.toDouble();
+    final method = data['collectionMethod'] as String?;
+    return (status, amount, method);
   }
 
   WalkInContact? _walkInContactFromFirestore(Object? value) {
@@ -2320,6 +2661,10 @@ class WaterPlantRepository extends ChangeNotifier {
   }
 
   List<DeliveryProductType> enabledChannelTypesForCustomer(Customer customer) {
+    // Phone / walk-in callers are not on a monthly pricing sheet — all channel types apply.
+    if (customer.isInstantDispatch) {
+      return enabledChannelTypesForWalkIn();
+    }
     return DeliveryProductType.catalog
         .where((t) => t.productId == CustomerPricingKeys.channelProductId)
         .where(
@@ -2346,7 +2691,7 @@ class WaterPlantRepository extends ChangeNotifier {
     return total;
   }
 
-  /// Admin walk-in / random caller — saved via cloud function (orders are server-only writes).
+  /// Admin walk-in / random caller — mock locally or via cloud function.
   Future<CustomerOrder> placeWalkInDispatch({
     required String callerName,
     required String callerPhone,
@@ -2354,6 +2699,7 @@ class WaterPlantRepository extends ChangeNotifier {
     String callerPlace = '',
     required List<OrderLineItem> lineItems,
     String? note,
+    bool sendToDriver = true,
   }) async {
     final items = lineItems.where((l) => l.quantity > 0).toList();
     if (items.isEmpty) {
@@ -2369,27 +2715,344 @@ class WaterPlantRepository extends ChangeNotifier {
       throw ArgumentError('Enter delivery address');
     }
 
-    final result = await FirebaseBackend.functions
-        .httpsCallable('createWalkInDispatch')
-        .call({
-      'callerName': callerName.trim(),
-      'callerPhone': callerPhone.trim(),
-      'callerAddress': callerAddress.trim(),
-      'callerPlace': callerPlace.trim(),
-      'lineItems': items.map((l) => l.toMap()).toList(),
-      'note': note ?? '',
+    if (AppConfig.useInstantDispatchMock) {
+      return _placeWalkInDispatchMock(
+        callerName: callerName.trim(),
+        callerPhone: callerPhone.trim(),
+        callerAddress: callerAddress.trim(),
+        callerPlace: callerPlace.trim(),
+        lineItems: items,
+        note: note,
+        sendToDriver: sendToDriver,
+      );
+    }
+
+    try {
+      final result = await FirebaseBackend.functions
+          .httpsCallable('createWalkInDispatch')
+          .call({
+        'callerName': callerName.trim(),
+        'callerPhone': callerPhone.trim(),
+        'callerAddress': callerAddress.trim(),
+        'callerPlace': callerPlace.trim(),
+        'lineItems': items.map((l) => l.toMap()).toList(),
+        'note': note ?? '',
+        'sendToDriver': sendToDriver,
+      });
+
+      final data = Map<String, dynamic>.from(result.data as Map);
+      final order = _orderFromCallable(data['order']);
+      final customer = _customerFromCallable(data['customer']);
+      final shopId = order.shopId ?? await _currentAdminShopId();
+      if (shopId == null) throw StateError('Shop account not found');
+
+      _upsertCustomer(customer, shopId);
+      _orders.insert(0, order);
+      notifyListeners();
+      return order;
+    } on FirebaseFunctionsException catch (e) {
+      if (!_shouldFallbackInstantDispatch(e)) rethrow;
+      return _placeWalkInDispatchDirectFirestore(
+        callerName: callerName.trim(),
+        callerPhone: callerPhone.trim(),
+        callerAddress: callerAddress.trim(),
+        callerPlace: callerPlace.trim(),
+        lineItems: items,
+        note: note,
+        sendToDriver: sendToDriver,
+      );
+    }
+  }
+
+  bool _shouldFallbackInstantDispatch(FirebaseFunctionsException error) {
+    return error.code == 'internal' ||
+        error.code == 'not-found' ||
+        error.code == 'unavailable' ||
+        error.code == 'unknown';
+  }
+
+  Future<CustomerOrder> _placeWalkInDispatchDirectFirestore({
+    required String callerName,
+    required String callerPhone,
+    required String callerAddress,
+    String callerPlace = '',
+    required List<OrderLineItem> lineItems,
+    String? note,
+    required bool sendToDriver,
+  }) async {
+    final shopId = await _currentAdminShopId();
+    if (shopId == null) throw StateError('Shop account not found');
+
+    final phone = callerPhone.replaceAll(RegExp(r'\D'), '');
+    if (phone.length != 10) {
+      throw ArgumentError('Enter exactly 10 mobile digits');
+    }
+
+    final shopRef =
+        FirebaseFirestore.instance.collection('shops').doc(shopId);
+    final customerRef = shopRef.collection('customers').doc();
+    final orderRef = shopRef.collection('orders').doc();
+    final now = FieldValue.serverTimestamp();
+    final respondedAt = DateTime.now();
+
+    final walkIn = WalkInContact(
+      name: callerName,
+      phone: phone,
+      address: callerAddress,
+      place: callerPlace,
+    );
+
+    final customer = Customer(
+      id: customerRef.id,
+      name: callerName,
+      phone: phone,
+      address: callerAddress,
+      place: callerPlace,
+      billingMode: CustomerBillingMode.instantDispatch,
+      productPrices: walkInDispatchPricing(),
+    );
+
+    final order = CustomerOrder.withLineItems(
+      id: orderRef.id,
+      customerId: customerRef.id,
+      shopId: shopId,
+      status: sendToDriver ? OrderStatus.accepted : OrderStatus.rejected,
+      customerNote: note,
+      adminResponse: sendToDriver
+          ? 'Instant delivery — driver collects payment at door.'
+          : 'No stock — informed customer.',
+      createdAt: respondedAt,
+      respondedAt: respondedAt,
+      source: OrderSource.phoneCall,
+      paymentMode: DispatchPaymentMode.collectAtDoor,
+      walkInContact: walkIn,
+      instantOutcome: sendToDriver ? 'sent' : 'noStock',
+      lineItems: lineItems,
+    );
+
+    final summary = lineItems
+        .map((l) => '${l.quantity} ${l.label}')
+        .join(' · ');
+
+    final batch = FirebaseFirestore.instance.batch();
+    batch.set(
+      customerRef,
+      _customerToFirestore(customer, creating: true),
+    );
+    batch.set(orderRef, {
+      'shopId': shopId,
+      'customerId': customerRef.id,
+      'normalQty': order.normalQty,
+      'coolQty': order.coolQty,
+      'status': order.status.name,
+      'source': order.source.name,
+      'paymentMode': order.paymentMode.name,
+      'customerNote': note ?? '',
+      'adminResponse': order.adminResponse ?? '',
+      'lineItems': lineItems.map((l) => l.toMap()).toList(),
+      'walkInContact': walkIn.toMap(),
+      'instantOutcome': order.instantOutcome,
+      'respondedAt': now,
+      'createdAt': now,
+      'updatedAt': now,
     });
 
-    final data = Map<String, dynamic>.from(result.data as Map);
-    final order = _orderFromCallable(data['order']);
-    final customer = _customerFromCallable(data['customer']);
-    final shopId = order.shopId ?? await _currentAdminShopId();
-    if (shopId == null) throw StateError('Shop account not found');
+    final notifRef = shopRef.collection('notifications').doc();
+    if (sendToDriver) {
+      batch.set(notifRef, {
+        'shopId': shopId,
+        'type': 'orderAccepted',
+        'audience': 'driver',
+        'title': 'Instant delivery',
+        'body': '$callerName · $summary',
+        'customerId': customerRef.id,
+        'orderId': orderRef.id,
+        'read': false,
+        'createdAt': now,
+        'updatedAt': now,
+      });
+    } else {
+      batch.set(notifRef, {
+        'shopId': shopId,
+        'type': 'orderRejected',
+        'audience': 'admin',
+        'title': 'Instant — no stock',
+        'body': '$callerName · $summary — not sent to driver',
+        'customerId': customerRef.id,
+        'orderId': orderRef.id,
+        'read': false,
+        'createdAt': now,
+        'updatedAt': now,
+      });
+    }
+
+    try {
+      await batch.commit();
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        throw StateError(
+          'Could not save instant delivery. Deploy Firestore rules and '
+          'cloud functions (createWalkInDispatch), then try again.',
+        );
+      }
+      rethrow;
+    }
 
     _upsertCustomer(customer, shopId);
     _orders.insert(0, order);
     notifyListeners();
     return order;
+  }
+
+  CustomerOrder _placeWalkInDispatchMock({
+    required String callerName,
+    required String callerPhone,
+    required String callerAddress,
+    String callerPlace = '',
+    required List<OrderLineItem> lineItems,
+    String? note,
+    required bool sendToDriver,
+  }) {
+    final phone = callerPhone.replaceAll(RegExp(r'\D'), '');
+    if (phone.length != 10) {
+      throw ArgumentError('Enter exactly 10 mobile digits');
+    }
+
+    final now = DateTime.now();
+    final customerId = _uuid.v4();
+    final orderId = _uuid.v4();
+    final shopId = _activeShopId;
+
+    final walkIn = WalkInContact(
+      name: callerName,
+      phone: phone,
+      address: callerAddress,
+      place: callerPlace,
+    );
+
+    final customer = Customer(
+      id: customerId,
+      name: callerName,
+      phone: phone,
+      address: callerAddress,
+      place: callerPlace,
+      billingMode: CustomerBillingMode.instantDispatch,
+      productPrices: walkInDispatchPricing(),
+    );
+
+    final order = CustomerOrder.withLineItems(
+      id: orderId,
+      customerId: customerId,
+      shopId: shopId,
+      status: sendToDriver ? OrderStatus.accepted : OrderStatus.rejected,
+      customerNote: note,
+      adminResponse: sendToDriver
+          ? 'Instant delivery — driver collects payment at door.'
+          : 'No stock — informed customer.',
+      createdAt: now,
+      respondedAt: now,
+      source: OrderSource.phoneCall,
+      paymentMode: DispatchPaymentMode.collectAtDoor,
+      walkInContact: walkIn,
+      instantOutcome: sendToDriver ? 'sent' : 'noStock',
+      lineItems: lineItems,
+    );
+
+    _upsertCustomer(customer, shopId);
+    _orders.insert(0, order);
+    notifyListeners();
+    return order;
+  }
+
+  void _seedMockDriverData() {
+    if (!AppConfig.useInstantDispatchMock) return;
+    _ensureDefaultShop();
+    if (!_drivers.any((d) => d.id == AppConfig.mockDriverId)) {
+      _drivers.add(
+        Driver(
+          id: AppConfig.mockDriverId,
+          name: 'Raju (demo driver)',
+          phone: '9876501234',
+          email: 'driver_demo@test.local',
+          createdAt: DateTime.now(),
+        ),
+      );
+    }
+    _linkDriverToShop(AppConfig.mockDriverId, _activeShopId);
+  }
+
+  /// Re-applies demo instant jobs after Firebase sync (mock mode).
+  void restoreMockInstantDispatchForDriver() {
+    _restoreMockInstantDispatchForDriver();
+  }
+
+  void _restoreMockInstantDispatchForDriver() {
+    if (!AppConfig.useInstantDispatchMock) return;
+    _ensureDefaultShop();
+    _seedMockDriverData();
+    _orders.removeWhere((o) => o.id == 'instant-demo-order');
+    _customers.removeWhere((c) => c.id == 'instant-demo-customer');
+    _seedMockInstantDispatchDemo();
+  }
+
+  void _seedMockInstantDispatchDemo() {
+    if (!AppConfig.useInstantDispatchMock) return;
+    if (_orders.any((o) => o.id == 'instant-demo-order')) return;
+
+    const customerId = 'instant-demo-customer';
+    const orderId = 'instant-demo-order';
+    final shopId = _activeShopId;
+    const walkIn = WalkInContact(
+      name: 'Priya (demo)',
+      phone: '9988776655',
+      address: '12 Temple Street, Near bus stand',
+      place: 'Main road',
+    );
+
+    if (!_customers.any((c) => c.id == customerId)) {
+      _customers.add(
+        Customer(
+          id: customerId,
+          name: walkIn.name,
+          phone: walkIn.phone,
+          address: walkIn.address,
+          place: walkIn.place,
+          billingMode: CustomerBillingMode.instantDispatch,
+          productPrices: walkInDispatchPricing(),
+        ),
+      );
+      _linkCustomerToShop(customerId, shopId);
+    } else {
+      final i = _customers.indexWhere((c) => c.id == customerId);
+      if (i >= 0) {
+        _customers[i] = _customers[i].copyWith(
+          productPrices: walkInDispatchPricing(),
+        );
+      }
+    }
+
+    _orders.insert(
+      0,
+      CustomerOrder.withLineItems(
+        id: orderId,
+        customerId: customerId,
+        shopId: shopId,
+        status: OrderStatus.accepted,
+        adminResponse: 'Demo instant job — driver collects at door.',
+        createdAt: DateTime.now().subtract(const Duration(hours: 1)),
+        respondedAt: DateTime.now().subtract(const Duration(hours: 1)),
+        source: OrderSource.phoneCall,
+        paymentMode: DispatchPaymentMode.collectAtDoor,
+        walkInContact: walkIn,
+        instantOutcome: 'sent',
+        lineItems: [
+          OrderLineItem.fromDeliveryType(
+            type: DeliveryProductType.fullLorry,
+            quantity: 1,
+          ),
+        ],
+      ),
+    );
   }
 
   /// Accepted dispatch linked to a customer (walk-in or existing).
@@ -2442,20 +3105,311 @@ class WaterPlantRepository extends ChangeNotifier {
     final result = await FirebaseBackend.functions
         .httpsCallable('fulfillDispatchOrder')
         .call({'orderId': orderId});
-    _mergeOrderFromCallable(_orderFromCallable(result.data));
+    _mergeFulfillDispatchResult(result.data);
+  }
+
+  Future<Delivery> fulfillInstantDispatchInFirestore({
+    required String orderId,
+    required DateTime date,
+    required List<Map<String, dynamic>> lines,
+    required int emptyNormalReturned,
+    required int emptyCoolReturned,
+    required String collectionStatus,
+    double collectedAmount = 0,
+    String collectionMethod = 'cash',
+    String? driverId,
+    String? driverName,
+  }) async {
+    if (AppConfig.useInstantDispatchMock) {
+      return _fulfillInstantDispatchMock(
+        orderId: orderId,
+        date: date,
+        lines: lines,
+        emptyNormalReturned: emptyNormalReturned,
+        emptyCoolReturned: emptyCoolReturned,
+        collectionStatus: collectionStatus,
+        collectedAmount: collectedAmount,
+        collectionMethod: collectionMethod,
+        driverId: driverId,
+      );
+    }
+
+    final result = await FirebaseBackend.functions
+        .httpsCallable('fulfillDispatchOrder')
+        .call({
+      'orderId': orderId,
+      'date': date.toUtc().toIso8601String(),
+      'lines': lines,
+      'emptyNormalReturned': emptyNormalReturned,
+      'emptyCoolReturned': emptyCoolReturned,
+      'collectionStatus': collectionStatus,
+      'collectedAmount': collectedAmount,
+      'collectionMethod': collectionMethod,
+      if (driverId != null) 'driverId': driverId,
+      if (driverName != null && driverName.isNotEmpty) 'driverName': driverName,
+    });
+    return _mergeFulfillDispatchResult(result.data);
+  }
+
+  Delivery _fulfillInstantDispatchMock({
+    required String orderId,
+    required DateTime date,
+    required List<Map<String, dynamic>> lines,
+    required int emptyNormalReturned,
+    required int emptyCoolReturned,
+    required String collectionStatus,
+    required double collectedAmount,
+    required String collectionMethod,
+    String? driverId,
+  }) {
+    final order = orderById(orderId);
+    if (order == null || !order.isOpenForDriver) {
+      throw StateError('Active instant delivery not found');
+    }
+
+    var parsed = _parseInstantDeliveryLineMaps(lines);
+    if (parsed.$1 <= 0 &&
+        parsed.$2 <= 0 &&
+        parsed.$3.isEmpty &&
+        order.lineItems.isNotEmpty) {
+      parsed = _instantDeliveryInputsFromOrderLineItems(order);
+    }
+    final delivery = addDelivery(
+      customerId: order.customerId,
+      date: date,
+      normalQty: parsed.$1,
+      coolQty: parsed.$2,
+      emptyNormalReturned: emptyNormalReturned,
+      emptyCoolReturned: emptyCoolReturned,
+      bottles: parsed.$3,
+      driverId: driverId,
+    );
+
+    order.fulfilledAt = DateTime.now();
+    order.fulfilledBy =
+        driverId != null && driverId.isNotEmpty ? 'driver' : 'admin';
+    order.collectionStatus = _collectionStatusFromString(collectionStatus);
+    order.collectedAmount =
+        collectionStatus == 'collected' ? collectedAmount : 0;
+    order.collectionMethod =
+        collectionStatus == 'collected' ? collectionMethod : null;
+    order.collectionRecordedBy = order.fulfilledBy;
+
+    if (collectionStatus == 'collected' && collectedAmount > 0) {
+      addPayment(
+        customerId: order.customerId,
+        amount: collectedAmount,
+        method: collectionMethod == 'upi'
+            ? PaymentMethod.upi
+            : PaymentMethod.cash,
+        date: date,
+        notes: 'Instant · $orderId',
+      );
+    }
+
+    notifyListeners();
+    return delivery;
+  }
+
+  (int normalQty, int coolQty, List<BottleDeliveryInput> bottles)
+      _parseInstantDeliveryLineMaps(List<Map<String, dynamic>> lines) {
+    var normal = 0;
+    var cool = 0;
+    final bottles = <BottleDeliveryInput>[];
+    for (final raw in lines) {
+      final map = Map<String, dynamic>.from(raw);
+      final qty = (map['quantity'] as num?)?.toInt() ?? 0;
+      if (qty <= 0) continue;
+      final kind = map['kind'] as String? ?? '';
+      if (kind == DeliveryItemKind.normalCan.name) {
+        normal = qty;
+      } else if (kind == DeliveryItemKind.coolCan.name) {
+        cool = qty;
+      } else {
+        bottles.add(
+          BottleDeliveryInput(
+            label: map['label'] as String? ?? 'Item',
+            quantity: qty,
+            unitPrice: (map['unitPrice'] as num?)?.toDouble() ?? 0,
+            productId: map['productId'] as String?,
+          ),
+        );
+      }
+    }
+    return (normal, cool, bottles);
+  }
+
+  (int normalQty, int coolQty, List<BottleDeliveryInput> bottles)
+      _instantDeliveryInputsFromOrderLineItems(CustomerOrder order) {
+    var normal = 0;
+    var cool = 0;
+    final bottles = <BottleDeliveryInput>[];
+    final customer = customerById(order.customerId);
+    for (final item in order.lineItems) {
+      if (item.quantity <= 0) continue;
+      if (item.isNormalCan) {
+        normal += item.quantity;
+        continue;
+      }
+      if (item.isCoolCan) {
+        cool += item.quantity;
+        continue;
+      }
+      final type = item.deliveryType;
+      final unitPrice = customer != null
+          ? customerUnitPrice(
+              customer,
+              productId: item.productId,
+              variantId: item.variantId,
+            )
+          : (type != null ? shopDefaultRateForDeliveryType(type) : 0.0);
+      bottles.add(
+        BottleDeliveryInput(
+          label: item.label,
+          quantity: item.quantity,
+          unitPrice: unitPrice,
+          productId: item.productId,
+        ),
+      );
+    }
+    return (normal, cool, bottles);
+  }
+
+  DispatchCollectionStatus? _collectionStatusFromString(String? value) {
+    if (value == null || value.isEmpty) return null;
+    return DispatchCollectionStatus.values.firstWhere(
+      (s) => s.name == value,
+      orElse: () => DispatchCollectionStatus.pending,
+    );
+  }
+
+  void _updateWalkInDispatchMock({
+    required String orderId,
+    required String action,
+    String? adminNote,
+    String? collectionStatus,
+    double? collectedAmount,
+    String? collectionMethod,
+  }) {
+    final order = orderById(orderId);
+    if (order == null || !order.isPhoneDispatch) return;
+
+    switch (action) {
+      case 'cancel':
+        if (order.fulfilledAt != null) {
+          throw StateError('Already delivered — cannot cancel');
+        }
+        order.status = OrderStatus.cancelled;
+        break;
+      case 'updateNote':
+        order.adminDispatchNote = adminNote?.trim();
+        break;
+      case 'markDelivered':
+        if (order.fulfilledAt != null) {
+          throw StateError('Already marked delivered');
+        }
+        order.fulfilledAt = DateTime.now();
+        order.fulfilledBy = 'admin';
+        _applyCollectionToOrder(
+          order,
+          collectionStatus: collectionStatus,
+          collectedAmount: collectedAmount,
+          collectionMethod: collectionMethod,
+          recordedBy: 'admin',
+        );
+        break;
+      case 'updateCollection':
+        if (order.fulfilledAt == null) {
+          throw StateError('Mark delivered before updating payment');
+        }
+        _applyCollectionToOrder(
+          order,
+          collectionStatus: collectionStatus,
+          collectedAmount: collectedAmount,
+          collectionMethod: collectionMethod,
+          recordedBy: 'admin',
+        );
+        break;
+      default:
+        throw ArgumentError('Unsupported action: $action');
+    }
+    notifyListeners();
+  }
+
+  void _applyCollectionToOrder(
+    CustomerOrder order, {
+    String? collectionStatus,
+    double? collectedAmount,
+    String? collectionMethod,
+    required String recordedBy,
+  }) {
+    final status = _collectionStatusFromString(collectionStatus);
+    order.collectionStatus = status;
+    order.collectionRecordedBy = recordedBy;
+    if (status == DispatchCollectionStatus.collected) {
+      final amount = collectedAmount ?? 0;
+      order.collectedAmount = amount;
+      order.collectionMethod = collectionMethod ?? 'cash';
+      if (amount > 0) {
+        addPayment(
+          customerId: order.customerId,
+          amount: amount,
+          method: collectionMethod == 'upi'
+              ? PaymentMethod.upi
+              : PaymentMethod.cash,
+          date: DateTime.now(),
+          notes: 'Instant · ${order.id}',
+        );
+      }
+    } else {
+      order.collectedAmount = 0;
+      order.collectionMethod = null;
+    }
+  }
+
+  Delivery _mergeFulfillDispatchResult(Object? data) {
+    final map = data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
+    final order = _orderFromCallable(map['order'] ?? map);
+    _mergeOrderFromCallable(order);
+    final deliveryRaw = map['delivery'];
+    if (deliveryRaw == null) {
+      throw StateError('Delivery was not recorded');
+    }
+    final delivery = _deliveryFromCallable(deliveryRaw);
+    _upsertDelivery(delivery);
+    notifyListeners();
+    return delivery;
   }
 
   Future<void> updateWalkInDispatchInFirestore({
     required String orderId,
     required String action,
     String? adminNote,
+    String? collectionStatus,
+    double? collectedAmount,
+    String? collectionMethod,
   }) async {
+    if (AppConfig.useInstantDispatchMock) {
+      _updateWalkInDispatchMock(
+        orderId: orderId,
+        action: action,
+        adminNote: adminNote,
+        collectionStatus: collectionStatus,
+        collectedAmount: collectedAmount,
+        collectionMethod: collectionMethod,
+      );
+      return;
+    }
+
     final result = await FirebaseBackend.functions
         .httpsCallable('updateWalkInDispatch')
         .call({
       'orderId': orderId,
       'action': action,
       if (adminNote != null) 'adminNote': adminNote,
+      if (collectionStatus != null) 'collectionStatus': collectionStatus,
+      if (collectedAmount != null) 'collectedAmount': collectedAmount,
+      if (collectionMethod != null) 'collectionMethod': collectionMethod,
     });
     _mergeOrderFromCallable(_orderFromCallable(result.data));
   }
@@ -2493,6 +3447,11 @@ class WaterPlantRepository extends ChangeNotifier {
       existing.adminDispatchNote = updated.adminDispatchNote;
       existing.adminResponse = updated.adminResponse;
       existing.respondedAt = updated.respondedAt;
+      existing.collectionStatus = updated.collectionStatus;
+      existing.collectedAmount = updated.collectedAmount;
+      existing.collectionMethod = updated.collectionMethod;
+      existing.collectionRecordedBy = updated.collectionRecordedBy;
+      existing.instantOutcome = updated.instantOutcome;
     }
     notifyListeners();
   }
@@ -2682,6 +3641,12 @@ class WaterPlantRepository extends ChangeNotifier {
   }
 
   Future<Driver?> loadDriverForCurrentUserFromFirestore(String driverId) async {
+    if (AppConfig.useInstantDispatchMock) {
+      _seedMockDriverData();
+      final local = driverById(driverId);
+      if (local != null) return local;
+    }
+
     final uid = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return driverById(driverId);
 
@@ -2690,7 +3655,9 @@ class WaterPlantRepository extends ChangeNotifier {
         .doc(uid)
         .get();
     final shopId = userDoc.data()?['shopId'] as String?;
-    if (shopId == null || shopId.isEmpty) return null;
+    if (shopId == null || shopId.isEmpty) {
+      return AppConfig.useInstantDispatchMock ? driverById(driverId) : null;
+    }
 
     final driverDoc = await FirebaseFirestore.instance
         .collection('shops')
@@ -2984,20 +3951,41 @@ class WaterPlantRepository extends ChangeNotifier {
 
   /// Accepted by admin, not yet fulfilled — shown to driver.
   List<CustomerOrder> driverAcceptedOrders({String? driverId}) {
-    var list = _orders.where((o) => o.isOpenForDriver).toList();
-    if (driverId != null) {
-      final shop = shopForDriver(driverId);
-      list = shop == null
-          ? <CustomerOrder>[]
-          : list
-                .where(
-                  (o) =>
-                      o.shopId == shop.id ||
-                      shopIdForCustomer(o.customerId) == shop.id,
-                )
-                .toList();
-    }
+    return driverInstantOrders(driverId: driverId) +
+        driverAppAcceptedOrders(driverId: driverId);
+  }
+
+  /// Phone / walk-in instant jobs for the driver.
+  List<CustomerOrder> driverInstantOrders({String? driverId}) {
+    var list = _orders.where((o) => o.isOpenForDriver && o.isPhoneDispatch).toList();
+    list = _filterOrdersForDriverShop(list, driverId);
     return list..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  /// Customer-app requests accepted by admin.
+  List<CustomerOrder> driverAppAcceptedOrders({String? driverId}) {
+    var list =
+        _orders.where((o) => o.isOpenForDriver && !o.isPhoneDispatch).toList();
+    list = _filterOrdersForDriverShop(list, driverId);
+    return list..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  List<CustomerOrder> _filterOrdersForDriverShop(
+    List<CustomerOrder> list,
+    String? driverId,
+  ) {
+    if (driverId == null) return list;
+    _ensureDefaultShop();
+    final shop = shopForDriver(driverId);
+    if (shop == null) return list;
+    return list
+        .where(
+          (o) =>
+              o.shopId == shop.id ||
+              o.shopId == null ||
+              shopIdForCustomer(o.customerId) == shop.id,
+        )
+        .toList();
   }
 
   CustomerOrder? acceptedOrderForCustomer(
@@ -3094,6 +4082,26 @@ class WaterPlantRepository extends ChangeNotifier {
     _upsertDelivery(delivery);
     notifyListeners();
     return delivery;
+  }
+
+  List<Map<String, dynamic>> buildDeliveryLineMaps({
+    required String customerId,
+    required DateTime date,
+    int normalQty = 0,
+    int coolQty = 0,
+    List<BottleDeliveryInput> bottles = const [],
+    Customer? customer,
+  }) {
+    final draft = _buildDelivery(
+      id: _uuid.v4(),
+      customerId: customerId,
+      date: date,
+      normalQty: normalQty,
+      coolQty: coolQty,
+      bottles: bottles,
+      customer: customer ?? customerById(customerId),
+    );
+    return draft.lines.map(_deliveryLineToMap).toList();
   }
 
   Future<Delivery> addDeliveryToCurrentShop({

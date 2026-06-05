@@ -292,12 +292,18 @@ class DriverRouteFilter extends StatelessWidget {
     required this.selected,
     required this.onSelected,
     this.showUnassigned = false,
+    this.allCustomerCount,
+    this.unassignedCustomerCount,
+    this.customerCountForRoute,
   });
 
   final List<DeliveryRoute> routes;
   final String? selected;
   final ValueChanged<String?> onSelected;
   final bool showUnassigned;
+  final int? allCustomerCount;
+  final int? unassignedCustomerCount;
+  final int Function(String routeId)? customerCountForRoute;
 
   @override
   Widget build(BuildContext context) {
@@ -341,17 +347,32 @@ class DriverRouteFilter extends StatelessWidget {
         items: [
           DropdownMenuItem<String?>(
             value: null,
-            child: Text('All Routes', style: GoogleFonts.poppins()),
+            child: Text(
+              allCustomerCount == null
+                  ? 'All routes'
+                  : 'All routes ($allCustomerCount)',
+              style: GoogleFonts.poppins(),
+            ),
           ),
           if (showUnassigned)
             DropdownMenuItem<String?>(
               value: driverUnassignedRouteFilter,
-              child: Text('Unassigned', style: GoogleFonts.poppins()),
+              child: Text(
+                unassignedCustomerCount == null
+                    ? 'No route yet'
+                    : 'No route yet ($unassignedCustomerCount)',
+                style: GoogleFonts.poppins(),
+              ),
             ),
           for (final route in routes)
             DropdownMenuItem<String?>(
               value: route.id,
-              child: Text(route.name, style: GoogleFonts.poppins()),
+              child: Text(
+                customerCountForRoute == null
+                    ? route.name
+                    : '${route.name} (${customerCountForRoute!(route.id)})',
+                style: GoogleFonts.poppins(),
+              ),
             ),
         ],
         onChanged: onSelected,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/services/admin_dispatch_service.dart';
+import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/data/models/order_status.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
@@ -147,34 +148,40 @@ class _AdminDispatchManageSheetState extends State<_AdminDispatchManageSheet> {
     if (mounted) Navigator.pop(context);
   }
 
-  Future<void> _confirmMarkDelivered() async {
-    final ok = await showDialog<bool>(
+  Future<_AdminCollectionChoice?> _pickCollection() {
+    return showDialog<_AdminCollectionChoice>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Mark as delivered?', style: GoogleFonts.poppins()),
-        content: Text(
-          'Use this when the driver told you delivery is done but could not update the app.',
-          style: GoogleFonts.poppins(fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Not yet', style: GoogleFonts.poppins()),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: CustomersColors.addButton),
-            child: Text('Mark delivered', style: GoogleFonts.poppins()),
-          ),
-        ],
-      ),
+      builder: (ctx) => const _AdminCollectionDialog(),
     );
-    if (ok != true || !mounted) return;
+  }
+
+  Future<void> _confirmMarkDelivered() async {
+    final choice = await _pickCollection();
+    if (choice == null || !mounted) return;
     await _run(
-      () => context.read<AdminDispatchService>().markDeliveredByAdmin(widget.orderId),
+      () => context.read<AdminDispatchService>().markDeliveredByAdmin(
+            orderId: widget.orderId,
+            collectionStatus: choice.status,
+            collectedAmount: choice.amount,
+            collectionMethod: choice.method,
+          ),
       'Marked as delivered',
     );
     if (mounted) Navigator.pop(context);
+  }
+
+  Future<void> _updatePayment(CustomerOrder order) async {
+    final choice = await _pickCollection();
+    if (choice == null || !mounted) return;
+    await _run(
+      () => context.read<AdminDispatchService>().updateCollectionByAdmin(
+            orderId: widget.orderId,
+            collectionStatus: choice.status,
+            collectedAmount: choice.amount,
+            collectionMethod: choice.method,
+          ),
+      'Payment status updated',
+    );
   }
 
   @override
@@ -184,6 +191,8 @@ class _AdminDispatchManageSheetState extends State<_AdminDispatchManageSheet> {
         final order = _order(repo)!;
         final bottom = MediaQuery.paddingOf(context).bottom;
         final canManage = order.isActiveDispatch && order.isPhoneDispatch;
+        final canUpdatePayment =
+            order.isDelivered && order.isPhoneDispatch && order.isPaymentPending;
 
         return DraggableScrollableSheet(
           initialChildSize: 0.88,
@@ -225,9 +234,11 @@ class _AdminDispatchManageSheetState extends State<_AdminDispatchManageSheet> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    order.isPhoneDispatch
-                                        ? 'Walk-in dispatch'
-                                        : 'Dispatch',
+                                    order.isInstantNoStock
+                                        ? 'Instant — no stock'
+                                        : order.isPhoneDispatch
+                                            ? 'Instant delivery'
+                                            : 'Dispatch',
                                     style: GoogleFonts.poppins(
                                       fontSize: 20,
                                       fontWeight: FontWeight.w700,
@@ -273,8 +284,25 @@ class _AdminDispatchManageSheetState extends State<_AdminDispatchManageSheet> {
                         _InfoCard(
                           icon: Icons.payments_outlined,
                           title: 'Payment',
-                          body: order.paymentMode.label,
+                          body: order.isDelivered && order.collectionStatus != null
+                              ? order.collectionSummary.isNotEmpty
+                                  ? order.collectionSummary +
+                                      (order.collectedAmount != null &&
+                                              order.collectedAmount! > 0
+                                          ? ' · ${CurrencyUtils.format(order.collectedAmount!)}'
+                                          : '')
+                                  : order.paymentMode.label
+                              : order.paymentMode.label,
                         ),
+                        if (order.isInstantNoStock) ...[
+                          const SizedBox(height: 14),
+                          _InfoCard(
+                            icon: Icons.inventory_2_outlined,
+                            title: 'Stock',
+                            body: order.adminResponse ??
+                                'No stock — customer was informed.',
+                          ),
+                        ],
                         if (order.isDelivered && order.fulfilledByLabel.isNotEmpty) ...[
                           const SizedBox(height: 14),
                           _InfoCard(
@@ -347,6 +375,24 @@ class _AdminDispatchManageSheetState extends State<_AdminDispatchManageSheet> {
                           ),
                         ],
                         const SizedBox(height: 8),
+                        if (canUpdatePayment) ...[
+                          FilledButton.icon(
+                            onPressed: _busy ? null : () => _updatePayment(order),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFFEA580C),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            icon: const Icon(Icons.payments_outlined),
+                            label: Text(
+                              'Update payment status',
+                              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
                         if (canManage) ...[
                           FilledButton.icon(
                             onPressed: _busy ? null : _confirmMarkDelivered,
@@ -422,17 +468,25 @@ class _DispatchTimeline extends StatelessWidget {
       time: order.createdAt,
     );
     final sent = _Step(
-      label: 'Sent to driver',
-      done: order.status == OrderStatus.accepted || order.isDelivered || order.isCancelled,
+      label: order.isInstantNoStock ? 'Not sent' : 'Sent to driver',
+      done: order.isInstantNoStock ||
+          order.status == OrderStatus.accepted ||
+          order.isDelivered ||
+          order.isCancelled,
       active: order.isActiveDispatch,
       time: order.respondedAt,
+      cancelled: order.isInstantNoStock,
     );
     final done = _Step(
-      label: order.isCancelled ? 'Cancelled' : 'Delivered',
-      done: order.isDelivered || order.isCancelled,
-      active: order.isDelivered || order.isCancelled,
+      label: order.isInstantNoStock
+          ? 'No stock'
+          : order.isCancelled
+              ? 'Cancelled'
+              : 'Delivered',
+      done: order.isInstantNoStock || order.isDelivered || order.isCancelled,
+      active: order.isDelivered || order.isInstantNoStock || order.isCancelled,
       time: order.isDelivered ? order.fulfilledAt : null,
-      cancelled: order.isCancelled,
+      cancelled: order.isCancelled || order.isInstantNoStock,
     );
 
     return Container(
@@ -788,6 +842,163 @@ class _InfoCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AdminCollectionChoice {
+  const _AdminCollectionChoice({
+    required this.status,
+    required this.amount,
+    required this.method,
+  });
+
+  final String status;
+  final double amount;
+  final String method;
+}
+
+class _AdminCollectionDialog extends StatefulWidget {
+  const _AdminCollectionDialog();
+
+  @override
+  State<_AdminCollectionDialog> createState() => _AdminCollectionDialogState();
+}
+
+class _AdminCollectionDialogState extends State<_AdminCollectionDialog> {
+  String _status = 'collected';
+  final _amount = TextEditingController();
+  String _method = 'cash';
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final amount = double.tryParse(_amount.text.trim()) ?? 0;
+    if (_status == 'collected' && amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Enter amount collected', style: GoogleFonts.poppins()),
+        ),
+      );
+      return;
+    }
+    Navigator.pop(
+      context,
+      _AdminCollectionChoice(
+        status: _status,
+        amount: _status == 'collected' ? amount : 0,
+        method: _method,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Payment status', style: GoogleFonts.poppins()),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Driver called or customer paid later?',
+              style: GoogleFonts.poppins(fontSize: 13, color: CustomersColors.labelGrey),
+            ),
+            const SizedBox(height: 12),
+            _RadioTile(
+              title: 'Cash / UPI received',
+              value: 'collected',
+              group: _status,
+              onChanged: (v) => setState(() => _status = v),
+            ),
+            _RadioTile(
+              title: 'Not paid — customer will pay admin',
+              value: 'pending',
+              group: _status,
+              onChanged: (v) => setState(() => _status = v),
+            ),
+            _RadioTile(
+              title: 'Pay later / waived',
+              value: 'waived',
+              group: _status,
+              onChanged: (v) => setState(() => _status = v),
+            ),
+            if (_status == 'collected') ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _amount,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: 'Amount (₹)',
+                  labelStyle: GoogleFonts.poppins(),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                style: GoogleFonts.poppins(),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _method,
+                decoration: InputDecoration(
+                  labelText: 'Method',
+                  labelStyle: GoogleFonts.poppins(),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'cash', child: Text('Cash')),
+                  DropdownMenuItem(value: 'upi', child: Text('UPI')),
+                ],
+                onChanged: (v) {
+                  if (v != null) setState(() => _method = v);
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel', style: GoogleFonts.poppins()),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          style: FilledButton.styleFrom(backgroundColor: CustomersColors.addButton),
+          child: Text('Save', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        ),
+      ],
+    );
+  }
+}
+
+class _RadioTile extends StatelessWidget {
+  const _RadioTile({
+    required this.title,
+    required this.value,
+    required this.group,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String value;
+  final String group;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return RadioListTile<String>(
+      title: Text(title, style: GoogleFonts.poppins(fontSize: 13)),
+      value: value,
+      groupValue: group,
+      onChanged: (v) {
+        if (v != null) onChanged(v);
+      },
+      contentPadding: EdgeInsets.zero,
+      dense: true,
     );
   }
 }

@@ -22,7 +22,7 @@ Future<bool?> showCreateDispatchSheet(BuildContext context) {
   );
 }
 
-/// Random caller — not from your customer list. Water today + collect money.
+/// Phone / walk-in caller — instant delivery (not in customer list).
 class _WalkInDispatchSheet extends StatefulWidget {
   const _WalkInDispatchSheet();
 
@@ -39,8 +39,19 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
   final _normal = ValueNotifier<int>(0);
   final _cool = ValueNotifier<int>(0);
   final Map<String, int> _channelQty = {};
+  final Map<String, TextEditingController> _volumeQty = {};
   final Map<String, int> _bottleQty = {};
   bool _saving = false;
+
+  TextEditingController _volumeController(String variantId) {
+    return _volumeQty.putIfAbsent(variantId, TextEditingController.new);
+  }
+
+  int _volumeQuantity(String variantId) {
+    final raw = _volumeQty[variantId]?.text.trim() ?? '';
+    if (raw.isEmpty) return 0;
+    return int.tryParse(raw) ?? 0;
+  }
 
   @override
   void dispose() {
@@ -51,6 +62,9 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
     _note.dispose();
     _normal.dispose();
     _cool.dispose();
+    for (final c in _volumeQty.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -73,7 +87,9 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
       );
     }
     for (final type in repo.enabledChannelTypesForWalkIn()) {
-      final qty = _channelQty[type.variantId] ?? 0;
+      final qty = type.quantityIsVolumeLiters
+          ? _volumeQuantity(type.variantId)
+          : (_channelQty[type.variantId] ?? 0);
       if (qty > 0) {
         items.add(
           OrderLineItem.fromDeliveryType(type: type, quantity: qty),
@@ -99,7 +115,7 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
     return items;
   }
 
-  Future<void> _save() async {
+  Future<void> _save({required bool sendToDriver}) async {
     if (_name.text.trim().isEmpty) {
       _snack('Who called? Enter a name');
       return;
@@ -120,15 +136,27 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
     }
     setState(() => _saving = true);
     try {
-      await context.read<AdminDispatchService>().createWalkInDispatch(
+      await context.read<AdminDispatchService>().createInstantDelivery(
             callerName: _name.text.trim(),
             callerPhone: _phone.text.trim(),
             callerAddress: _address.text.trim(),
             callerPlace: _place.text.trim(),
             lineItems: items,
             note: _note.text.trim().isEmpty ? null : _note.text.trim(),
+            sendToDriver: sendToDriver,
           );
       if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            sendToDriver
+                ? 'Sent to driver — they will deliver & collect payment'
+                : 'Saved — no stock, customer informed',
+            style: GoogleFonts.poppins(),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       Navigator.pop(context, true);
     } catch (e) {
       _snack(_messageForError(e));
@@ -145,6 +173,17 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
 
   String _messageForError(Object error) {
     if (error is FirebaseFunctionsException) {
+      if (error.code == 'internal') {
+        final detail = (error.message ?? '').trim();
+        if (detail.isNotEmpty && detail.toLowerCase() != 'internal') {
+          return detail;
+        }
+        return 'Server error. Saving directly — if this repeats, deploy '
+            'cloud functions (createWalkInDispatch) from the project folder.';
+      }
+      if (error.code == 'invalid-argument') {
+        return error.message ?? 'Check name, 10-digit phone, and products.';
+      }
       return error.message ?? error.code;
     }
     return error.toString().replaceFirst('ArgumentError: ', '');
@@ -166,7 +205,7 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
           ),
           child: SafeArea(
             child: SizedBox(
-              height: MediaQuery.sizeOf(context).height * 0.92,
+              height: MediaQuery.sizeOf(context).height * 0.88,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -190,7 +229,7 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Walk-in dispatch',
+                                'New quick order',
                                 style: GoogleFonts.poppins(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w700,
@@ -198,7 +237,7 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
                                 ),
                               ),
                               Text(
-                                'Random caller · water today · driver collects cash',
+                                'Walk-in / phone · not a monthly customer',
                                 style: GoogleFonts.poppins(
                                   fontSize: 12,
                                   color: CustomersColors.labelGrey,
@@ -273,14 +312,23 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
                             onChanged: (n) => _cool.value = n,
                           ),
                         ),
-                        ...channelTypes.map(
-                          (type) => AddDeliveryCanStepper(
+                        ...channelTypes.map((type) {
+                          if (type.quantityIsVolumeLiters) {
+                            return AddDeliveryVolumeQuantityField(
+                              compact: true,
+                              type: type,
+                              controller: _volumeController(type.variantId),
+                              onChanged: () => setState(() {}),
+                            );
+                          }
+                          return AddDeliveryCanStepper(
+                            compact: true,
                             label: type.title,
                             value: _channelQty[type.variantId] ?? 0,
                             onChanged: (n) =>
                                 setState(() => _channelQty[type.variantId] = n),
-                          ),
-                        ),
+                          );
+                        }),
                         if (catalog.isNotEmpty)
                           AddDeliveryBottleCatalog(
                             products: catalog,
@@ -352,31 +400,57 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
                   ),
                   Padding(
                     padding: EdgeInsets.fromLTRB(16, 8, 16, 12 + bottom),
-                    child: FilledButton(
-                      onPressed: _saving ? null : _save,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: CustomersColors.addButton,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: _saving
-                          ? const SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : Text(
-                              'Send to driver',
-                              style: GoogleFonts.poppins(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
-                              ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        FilledButton(
+                          onPressed: _saving ? null : () => _save(sendToDriver: true),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: CustomersColors.addButton,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
+                          ),
+                          child: _saving
+                              ? const SizedBox(
+                                  height: 22,
+                                  width: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(
+                                  'Have stock — send to driver',
+                                  style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton(
+                          onPressed: _saving
+                              ? null
+                              : () => _save(sendToDriver: false),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFDC2626),
+                            side: const BorderSide(color: Color(0xFFFECACA)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'No stock — inform customer',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],

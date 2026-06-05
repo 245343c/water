@@ -7,10 +7,11 @@ import 'package:sri_sai_ro_water/data/models/app_notification.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
-import 'package:sri_sai_ro_water/data/models/delivery_route.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
+import 'package:sri_sai_ro_water/core/config/app_config.dart';
+import 'package:sri_sai_ro_water/features/driver/widgets/driver_instant_delivery_card.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_route_widgets.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_theme.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
@@ -25,6 +26,20 @@ class DriverRouteScreen extends StatefulWidget {
 
 class _DriverRouteScreenState extends State<DriverRouteScreen> {
   String? _routeFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final repo = context.read<WaterPlantRepository>();
+      await repo.loadDeliveryRoutesForCurrentAdmin();
+      await repo.loadCustomersForCurrentAdminFromFirestore(force: true);
+      if (AppConfig.useInstantDispatchMock) {
+        repo.restoreMockInstantDispatchForDriver();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,12 +57,14 @@ class _DriverRouteScreenState extends State<DriverRouteScreen> {
             .where((delivery) => _deliveryMatchesRoute(delivery, repo))
             .toList();
         final assignedCustomers = repo.customersForDriver(driverId);
-        final routes = _routesFor(assignedCustomers, repo);
-        final hasUnassigned = assignedCustomers.any(_isUnassignedRoute);
-        final acceptedOrders = repo
-            .driverAcceptedOrders(driverId: driverId)
+        final routes = repo.deliveryRoutesForDriver(driverId);
+        final hasUnassigned = repo.driverUnassignedCustomerCount(driverId) > 0;
+        final instantOrders = repo.driverInstantOrders(driverId: driverId);
+        final appOrders = repo
+            .driverAppAcceptedOrders(driverId: driverId)
             .where((order) => _orderMatchesRoute(order, repo))
             .toList();
+        final acceptedOrders = [...instantOrders, ...appOrders];
         final acceptedCustomerIds = acceptedOrders
             .map((order) => order.customerId)
             .toSet();
@@ -70,7 +87,7 @@ class _DriverRouteScreenState extends State<DriverRouteScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _DeliveriesToolbar(
-                dispatchCount: acceptedOrders.length,
+                dispatchCount: instantOrders.length,
                 shopName: assignedShop?.name,
                 unreadAlerts: driverAlerts,
                 onNotifications: () => _showNotifications(context),
@@ -82,12 +99,46 @@ class _DriverRouteScreenState extends State<DriverRouteScreen> {
                         routes: routes,
                         selected: _routeFilter,
                         showUnassigned: hasUnassigned,
+                        allCustomerCount: assignedCustomers.length,
+                        unassignedCustomerCount:
+                            repo.driverUnassignedCustomerCount(driverId),
+                        customerCountForRoute: (routeId) =>
+                            repo.driverCustomerCountOnRoute(driverId, routeId),
                         onSelected: (routeId) =>
                             setState(() => _routeFilter = routeId),
                       ),
-                      if (acceptedOrders.isNotEmpty) ...[
+                      if (instantOrders.isNotEmpty) ...[
                         DriverSectionTitle(
-                          title: 'Customer requests (${acceptedOrders.length})',
+                          title: 'Instant delivery (${instantOrders.length})',
+                          trailing: Text(
+                            'Collect payment',
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF7C3AED),
+                            ),
+                          ),
+                        ),
+                        ...instantOrders.map((o) {
+                          final customer =
+                              repo.customerById(o.customerId);
+                          final estimate = customer == null
+                              ? 0.0
+                              : repo.estimateDispatchTotal(
+                                  customer,
+                                  o.lineItems,
+                                );
+                          return DriverInstantDeliveryCard(
+                            order: o,
+                            repo: repo,
+                            driverId: driverId,
+                            estimatedTotal: estimate,
+                          );
+                        }),
+                      ],
+                      if (appOrders.isNotEmpty) ...[
+                        DriverSectionTitle(
+                          title: 'App requests (${appOrders.length})',
                           trailing: Text(
                             'Admin confirmed',
                             style: GoogleFonts.poppins(
@@ -97,7 +148,7 @@ class _DriverRouteScreenState extends State<DriverRouteScreen> {
                             ),
                           ),
                         ),
-                        ...acceptedOrders.map(
+                        ...appOrders.map(
                           (o) => DriverAcceptedOrderCard(
                             order: o,
                             repo: repo,
@@ -105,6 +156,14 @@ class _DriverRouteScreenState extends State<DriverRouteScreen> {
                           ),
                         ),
                       ],
+                      if (instantOrders.isEmpty &&
+                          appOrders.isEmpty &&
+                          AppConfig.useInstantDispatchMock)
+                        const _EmptyCard(
+                          icon: Icons.bolt_rounded,
+                          message:
+                              'No instant jobs right now. Admin will add phone orders here.',
+                        ),
                       DriverSectionTitle(
                         title: 'Regular customers (${pendingRoute.length} left)',
                         trailing: TextButton(
@@ -216,21 +275,8 @@ class _DriverRouteScreenState extends State<DriverRouteScreen> {
     );
   }
 
-  List<DeliveryRoute> _routesFor(
-    List<Customer> customers,
-    WaterPlantRepository repo,
-  ) {
-    final routeIds = customers
-        .map((c) => c.routeId)
-        .whereType<String>()
-        .where((id) => id.trim().isNotEmpty)
-        .toSet();
-    return repo.deliveryRoutes
-        .where((route) => routeIds.contains(route.id))
-        .toList();
-  }
-
   bool _orderMatchesRoute(CustomerOrder order, WaterPlantRepository repo) {
+    if (order.isPhoneDispatch) return true;
     final customer = repo.customerById(order.customerId);
     if (customer == null) return _routeFilter == null;
     return _matchesRoute(customer);

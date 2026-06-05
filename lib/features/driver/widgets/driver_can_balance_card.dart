@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/constants/empty_can_balance.dart';
 import 'package:sri_sai_ro_water/data/models/customer_can_balance.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_theme.dart';
 
@@ -24,6 +25,7 @@ class DriverCanBalanceCard extends StatelessWidget {
 
     final total = (showNormal ? balance.normalWithCustomer : 0) +
         (showCool ? balance.coolWithCustomer : 0);
+    final showJarWarning = emptyCanCountIsWarning(total);
 
     return Container(
         padding: const EdgeInsets.all(14),
@@ -60,11 +62,18 @@ class DriverCanBalanceCard extends StatelessWidget {
                       ),
                       Text(
                         total > 0
-                            ? '$total still out · collect when you can'
+                            ? (showJarWarning
+                                ? '$total jars out — collect before delivering more'
+                                : '$total still out · collect when you can')
                             : 'All empty cans returned',
                         style: GoogleFonts.poppins(
                           fontSize: 11,
-                          color: DriverColors.labelGrey,
+                          fontWeight: showJarWarning
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                          color: showJarWarning
+                              ? const Color(0xFFDC2626)
+                              : DriverColors.labelGrey,
                         ),
                       ),
                     ],
@@ -138,12 +147,18 @@ class _BalanceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final countColor = emptyCanCountColor(withCustomer, normalColor: color);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
+        color: countColor.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: emptyCanCountIsWarning(withCustomer)
+              ? const Color(0xFFFECACA)
+              : color.withValues(alpha: 0.2),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -161,7 +176,7 @@ class _BalanceTile extends StatelessWidget {
             style: GoogleFonts.poppins(
               fontSize: 20,
               fontWeight: FontWeight.w800,
-              color: color,
+              color: countColor,
             ),
           ),
           Text(

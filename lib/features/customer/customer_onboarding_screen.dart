@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/data/models/customer_app_profile.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
-import 'package:sri_sai_ro_water/features/customer/widgets/customer_theme.dart';
+import 'package:sri_sai_ro_water/features/auth/widgets/auth_screen_widgets.dart';
 import 'package:sri_sai_ro_water/features/more/widgets/shop_location_picker.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
@@ -62,8 +62,11 @@ class _CustomerOnboardingScreenState extends State<CustomerOnboardingScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (_lat == null || _lng == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Set your delivery location on the map'),
+        SnackBar(
+          content: Text(
+            'Set your delivery location on the map',
+            style: GoogleFonts.poppins(),
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -115,147 +118,111 @@ class _CustomerOnboardingScreenState extends State<CustomerOnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = customerBottomInset(context, extra: 12);
-
-    return Scaffold(
-      backgroundColor: CustomerColors.screenBg,
-      body: CustomerScaffold(
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(4, 4, 16, 0),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => context.canPop()
-                          ? context.pop()
-                          : context.go(AppRoutes.customerHome),
-                      icon: const Icon(Icons.arrow_back_rounded),
-                      color: CustomerColors.titleNavy,
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Delivery address',
-                            style: GoogleFonts.poppins(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                              color: CustomerColors.titleNavy,
-                            ),
-                          ),
-                          Text(
-                            'We deliver RO water to this location',
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: CustomerColors.labelGrey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+    return AuthPremiumScreenLayout(
+      heroTitle: 'Delivery address',
+      heroSubtitle: 'We deliver RO water to this location',
+      heroIcon: Icons.local_shipping_rounded,
+      onBack: () => context.canPop()
+          ? context.pop()
+          : context.go(AppRoutes.customerHome),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Almost there',
+              style: GoogleFonts.poppins(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: -0.3,
               ),
-              Expanded(
-                child: Form(
-                  key: _formKey,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: CustomerColors.cardDecoration,
-                        child: Column(
-                          children: [
-                            CustomerTextField(
-                              label: 'Your name',
-                              controller: _nameController,
-                              hint: 'e.g. Ramesh Kumar',
-                              icon: Icons.person_outline_rounded,
-                              textCapitalization: TextCapitalization.words,
-                              required: true,
-                              validator: (v) => v == null || v.trim().isEmpty
-                                  ? 'Name is required'
-                                  : null,
-                            ),
-                            CustomerTextField(
-                              label: 'Full address',
-                              controller: _addressController,
-                              hint: 'House no., street, area, city',
-                              icon: Icons.home_outlined,
-                              maxLines: 2,
-                              textCapitalization: TextCapitalization.sentences,
-                              required: true,
-                              validator: (v) => v == null || v.trim().length < 8
-                                  ? 'Enter your full address'
-                                  : null,
-                            ),
-                            CustomerTextField(
-                              label: 'Email (optional)',
-                              controller: _emailController,
-                              hint: 'you@email.com',
-                              icon: Icons.mail_outline_rounded,
-                              keyboardType: TextInputType.emailAddress,
-                              textCapitalization: TextCapitalization.none,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'DELIVERY LOCATION ON MAP',
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.6,
-                          color: CustomerColors.labelGrey,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      ShopLocationPicker(
-                        minimal: true,
-                        latitude: _lat,
-                        longitude: _lng,
-                        addressText: _addressController.text,
-                        onChanged: (lat, lng, place) {
-                          setState(() {
-                            _lat = lat;
-                            _lng = lng;
-                            if (place != null && place.isNotEmpty) {
-                              _place = place;
-                            }
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Confirm your details for delivery',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.white.withValues(alpha: 0.72),
               ),
-              Container(
-                padding: EdgeInsets.fromLTRB(16, 12, 16, bottom),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 12,
-                      offset: const Offset(0, -4),
-                    ),
-                  ],
+            ),
+            const SizedBox(height: 16),
+            AuthFormCard(
+              premium: true,
+              title: 'Your details',
+              children: [
+                AuthTextField(
+                  premium: true,
+                  label: 'Your name',
+                  controller: _nameController,
+                  hint: 'e.g. Ramesh Kumar',
+                  icon: Icons.person_outline_rounded,
+                  textCapitalization: TextCapitalization.words,
+                  required: true,
+                  textInputAction: TextInputAction.next,
+                  validator: (v) => v == null || v.trim().isEmpty
+                      ? 'Name is required'
+                      : null,
                 ),
-                child: CustomerPrimaryButton(
-                  label: 'Save & continue',
-                  loading: _saving,
-                  icon: Icons.check_rounded,
-                  onPressed: _save,
+                AuthTextField(
+                  premium: true,
+                  label: 'Full address',
+                  controller: _addressController,
+                  hint: 'House no., street, area, city',
+                  icon: Icons.home_outlined,
+                  maxLines: 2,
+                  textCapitalization: TextCapitalization.sentences,
+                  required: true,
+                  textInputAction: TextInputAction.next,
+                  validator: (v) => v == null || v.trim().length < 8
+                      ? 'Enter your full address'
+                      : null,
                 ),
-              ),
-            ],
-          ),
+                AuthTextField(
+                  premium: true,
+                  label: 'Email',
+                  controller: _emailController,
+                  hint: 'you@email.com (optional)',
+                  icon: Icons.mail_outline_rounded,
+                  keyboardType: TextInputType.emailAddress,
+                  textCapitalization: TextCapitalization.none,
+                  textInputAction: TextInputAction.done,
+                ),
+              ],
+            ),
+            AuthFormCard(
+              premium: true,
+              title: 'Delivery location',
+              subtitle: 'Pin your home on the map',
+              children: [
+                ShopLocationPicker(
+                  minimal: true,
+                  embedded: true,
+                  latitude: _lat,
+                  longitude: _lng,
+                  addressText: _addressController.text,
+                  onChanged: (lat, lng, place) {
+                    setState(() {
+                      _lat = lat;
+                      _lng = lng;
+                      if (place != null && place.isNotEmpty) {
+                        _place = place;
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+            AuthPrimaryButton(
+              premium: true,
+              label: 'Save & continue',
+              icon: Icons.check_rounded,
+              loading: _saving,
+              onPressed: _save,
+            ),
+          ],
         ),
       ),
     );

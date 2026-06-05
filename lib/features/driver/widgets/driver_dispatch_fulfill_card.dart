@@ -4,19 +4,19 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/constants/customer_pricing_keys.dart';
 import 'package:sri_sai_ro_water/core/services/delivery_recording_service.dart';
+import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/data/models/delivery_line_item.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/data/models/dispatch_payment_mode.dart';
-import 'package:sri_sai_ro_water/data/models/payment_method.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_can_stepper.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_theme.dart';
 
-enum _DriverPaymentChoice { payLater, cash, upi }
+enum _DriverPaymentChoice { pending, waived, cash, upi }
 
 /// Fulfill an admin dispatch: deliver products + optional payment.
 class DriverDispatchFulfillCard extends StatefulWidget {
@@ -42,7 +42,7 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
   final Map<String, int> _channelQty = {};
   int _emptyNormal = 0;
   int _emptyCool = 0;
-  _DriverPaymentChoice _payment = _DriverPaymentChoice.payLater;
+  _DriverPaymentChoice _payment = _DriverPaymentChoice.waived;
   bool _saving = false;
 
   bool get _showPaymentSection =>
@@ -58,7 +58,7 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
     _initQty();
     _payment = _mustCollect
         ? _DriverPaymentChoice.cash
-        : _DriverPaymentChoice.payLater;
+        : _DriverPaymentChoice.waived;
   }
 
   void _initQty() {
@@ -126,9 +126,12 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
       _error('Enter what you delivered');
       return;
     }
-    if (_mustCollect &&
-        _payment != _DriverPaymentChoice.payLater &&
-        _estimateTotal(context.read<WaterPlantRepository>()) <= 0) {
+    final amount = _estimateTotal(context.read<WaterPlantRepository>());
+    if (_payment == _DriverPaymentChoice.cash && amount <= 0) {
+      _error('Amount must be greater than zero');
+      return;
+    }
+    if (_payment == _DriverPaymentChoice.upi && amount <= 0) {
       _error('Amount must be greater than zero');
       return;
     }
@@ -137,46 +140,61 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
     try {
       final repo = context.read<WaterPlantRepository>();
       final auth = context.read<AuthRepository>();
-      final recording = context.read<DeliveryRecordingService>();
+      final notifications = context.read<NotificationRepository>();
       final driverId = auth.currentUser?.driverId;
+      final driverName = auth.currentUser?.isDriver == true
+          ? (repo.driverById(driverId)?.name ?? auth.currentUser?.ownerName)
+          : auth.currentUser?.ownerName;
 
       final bottles = _channelInputs(repo);
-      final delivery = recording.recordCansDelivery(
+      final now = DateTime.now();
+      final lines = repo.buildDeliveryLineMaps(
         customerId: widget.customer.id,
+        date: now,
         normalQty: _normal,
         coolQty: _cool,
-        emptyNormalReturned: _emptyNormal,
-        emptyCoolReturned: _emptyCool,
-        driverMode: true,
-        extraBottles: bottles,
+        bottles: bottles,
+        customer: widget.customer,
       );
 
-      final amount = _estimateTotal(repo);
-      if (_payment == _DriverPaymentChoice.cash && amount > 0) {
-        repo.addPayment(
-          customerId: widget.customer.id,
-          amount: amount,
-          method: PaymentMethod.cash,
-          date: DateTime.now(),
-          notes: 'Dispatch ${widget.dispatch.id}',
-        );
-      } else if (_payment == _DriverPaymentChoice.upi && amount > 0) {
-        repo.addPayment(
-          customerId: widget.customer.id,
-          amount: amount,
-          method: PaymentMethod.upi,
-          date: DateTime.now(),
-          notes: 'UPI · dispatch ${widget.dispatch.id}',
+      final collectionStatus = switch (_payment) {
+        _DriverPaymentChoice.cash => 'collected',
+        _DriverPaymentChoice.upi => 'collected',
+        _DriverPaymentChoice.pending => 'pending',
+        _DriverPaymentChoice.waived => 'waived',
+      };
+      final collectionMethod = switch (_payment) {
+        _DriverPaymentChoice.upi => 'upi',
+        _ => 'cash',
+      };
+      final collectedAmount =
+          _payment == _DriverPaymentChoice.cash ||
+                  _payment == _DriverPaymentChoice.upi
+              ? amount
+              : 0.0;
+
+      final delivery = await repo.fulfillInstantDispatchInFirestore(
+        orderId: widget.dispatch.id,
+        date: now,
+        lines: lines,
+        emptyNormalReturned: _emptyNormal,
+        emptyCoolReturned: _emptyCool,
+        collectionStatus: collectionStatus,
+        collectedAmount: collectedAmount,
+        collectionMethod: collectionMethod,
+        driverId: driverId,
+        driverName: driverName,
+      );
+
+      final order = repo.orderById(widget.dispatch.id);
+      if (order != null) {
+        notifications.notifyAdminInstantFulfilled(
+          order: order,
+          customerName: widget.customer.name,
+          summary: order.itemsSummary,
         );
       }
 
-      repo.markDispatchFulfilledInFirestore(widget.dispatch.id);
-      if (driverId != null) {
-        await repo.driverStartDelivery(
-          orderId: widget.dispatch.id,
-          driverId: driverId,
-        );
-      }
       widget.onSaved(delivery);
     } on DeliveryValidationException catch (e) {
       _error(e.message);
@@ -235,7 +253,7 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
                 ),
                 child: Text(
                   widget.customer.isInstantDispatch
-                      ? 'Walk-in · collect cash'
+                      ? 'Instant · collect cash'
                       : 'Dispatch',
                   style: GoogleFonts.poppins(
                     fontSize: 10,
@@ -345,22 +363,30 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
             ),
             const SizedBox(height: 8),
             _PaymentChip(
-              label: 'Pay later',
-              selected: _payment == _DriverPaymentChoice.payLater,
-              onTap: () => setState(() => _payment = _DriverPaymentChoice.payLater),
-            ),
-            const SizedBox(height: 6),
-            _PaymentChip(
               label: 'Cash collected',
               selected: _payment == _DriverPaymentChoice.cash,
               onTap: () => setState(() => _payment = _DriverPaymentChoice.cash),
             ),
             const SizedBox(height: 6),
             _PaymentChip(
-              label: 'UPI / GPay',
+              label: 'UPI / GPay received',
               selected: _payment == _DriverPaymentChoice.upi,
               onTap: () => setState(() => _payment = _DriverPaymentChoice.upi),
             ),
+            const SizedBox(height: 6),
+            _PaymentChip(
+              label: 'Not paid — customer will pay admin',
+              selected: _payment == _DriverPaymentChoice.pending,
+              onTap: () => setState(() => _payment = _DriverPaymentChoice.pending),
+            ),
+            if (!_mustCollect) ...[
+              const SizedBox(height: 6),
+              _PaymentChip(
+                label: 'Pay later',
+                selected: _payment == _DriverPaymentChoice.waived,
+                onTap: () => setState(() => _payment = _DriverPaymentChoice.waived),
+              ),
+            ],
             if (_payment == _DriverPaymentChoice.upi) ...[
               const SizedBox(height: 8),
               OutlinedButton.icon(
@@ -377,7 +403,8 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
               ),
             ],
             if (estimate > 0 &&
-                _payment != _DriverPaymentChoice.payLater) ...[
+                (_payment == _DriverPaymentChoice.cash ||
+                    _payment == _DriverPaymentChoice.upi)) ...[
               const SizedBox(height: 10),
               Text(
                 'Amount: ${CurrencyUtils.format(estimate)}',
@@ -409,7 +436,7 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
                     ),
                   )
                 : Text(
-                    'Save delivery',
+                    'Save & notify admin',
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
                       color: Colors.white,

@@ -401,7 +401,7 @@ class NotificationRepository extends ChangeNotifier {
         id: _uuid.v4(),
         type: AppNotificationType.orderAccepted,
         title: order.isPhoneDispatch
-            ? 'Walk-in — $customerName'
+            ? 'Instant — $customerName'
             : 'Go deliver — $customerName',
         body: order.isPhoneDispatch
             ? '${order.itemsSummary} · collect payment at door'
@@ -426,6 +426,52 @@ class NotificationRepository extends ChangeNotifier {
         type: AppNotificationType.orderAccepted,
         title: 'Order sent to driver',
         body: '$customerName · ${order.itemsSummary} — driver notified',
+        audience: AppRole.admin,
+        customerId: order.customerId,
+        orderId: order.id,
+        createdAt: DateTime.now(),
+      ),
+    );
+    notifyListeners();
+  }
+
+  void notifyAdminInstantNoStock({
+    required CustomerOrder order,
+    required String customerName,
+  }) {
+    _items.insert(
+      0,
+      AppNotification(
+        id: _uuid.v4(),
+        type: AppNotificationType.orderRejected,
+        title: 'Instant — no stock',
+        body: '$customerName · ${order.itemsSummary} — customer informed',
+        audience: AppRole.admin,
+        customerId: order.customerId,
+        orderId: order.id,
+        createdAt: DateTime.now(),
+      ),
+    );
+    notifyListeners();
+  }
+
+  void notifyAdminInstantFulfilled({
+    required CustomerOrder order,
+    required String customerName,
+    required String summary,
+  }) {
+    final body = order.collectionSummary.isNotEmpty
+        ? '$customerName · $summary — ${order.collectionSummary}'
+        : '$customerName · $summary';
+    _items.insert(
+      0,
+      AppNotification(
+        id: _uuid.v4(),
+        type: AppNotificationType.orderAccepted,
+        title: order.isPaymentPending
+            ? 'Instant · payment pending'
+            : 'Instant · delivered',
+        body: body,
         audience: AppRole.admin,
         customerId: order.customerId,
         orderId: order.id,

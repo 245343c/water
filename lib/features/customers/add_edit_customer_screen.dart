@@ -8,6 +8,7 @@ import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/customer_delete_dialog.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/add_edit_customer_widgets.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customer_pricing_widgets.dart';
+import 'package:sri_sai_ro_water/features/customers/widgets/customer_route_widgets.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
@@ -32,10 +33,15 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
   bool _loaded = false;
   bool _pricingReady = false;
   List<CustomerProductPrice> _productPrices = [];
+  String? _selectedRouteId;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await context.read<WaterPlantRepository>().loadDeliveryRoutesForCurrentAdmin();
+    });
     _nameController = TextEditingController();
     _phoneController = TextEditingController();
     _emailController = TextEditingController();
@@ -54,6 +60,7 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
       _productPrices = customer.productPrices.isEmpty
           ? repo.defaultCustomerPricing()
           : List<CustomerProductPrice>.from(customer.productPrices);
+      _selectedRouteId = customer.routeId;
     }
     _loaded = true;
   }
@@ -76,7 +83,7 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
     super.dispose();
   }
 
-  void _save(WaterPlantRepository repo) {
+  Future<void> _save(WaterPlantRepository repo) async {
     if (!_formKey.currentState!.validate()) return;
 
     final data = (
@@ -87,29 +94,62 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
       address: _addressController.text.trim(),
     );
 
-    if (widget.isEditing) {
-      final existing = repo.customerById(widget.customerId!);
-      if (existing != null) {
-        repo.updateCustomer(
-          existing.copyWith(
+    try {
+      if (widget.isEditing) {
+        final existing = repo.customerById(widget.customerId!);
+        if (existing != null) {
+          final updated = existing.copyWith(
             name: data.name,
             phone: data.phone,
             email: data.email,
             place: data.place,
             address: data.address,
             productPrices: _productPrices,
-          ),
-        );
+            routeId: _selectedRouteId,
+            clearRoute: _selectedRouteId == null,
+          );
+          try {
+            await repo.updateCustomerInCurrentAdminShop(updated);
+          } catch (_) {
+            repo.updateCustomer(updated);
+            await repo.setCustomerRoute(existing.id, _selectedRouteId);
+          }
+        }
+      } else {
+        try {
+          await repo.addCustomerToCurrentAdminShop(
+            name: data.name,
+            phone: data.phone,
+            email: data.email,
+            place: data.place,
+            address: data.address,
+            productPrices: _productPrices,
+            routeId: _selectedRouteId,
+          );
+        } catch (_) {
+          repo.addCustomer(
+            name: data.name,
+            phone: data.phone,
+            email: data.email,
+            place: data.place,
+            address: data.address,
+            productPrices: _productPrices,
+            routeId: _selectedRouteId,
+          );
+        }
       }
-    } else {
-      repo.addCustomer(
-        name: data.name,
-        phone: data.phone,
-        email: data.email,
-        place: data.place,
-        address: data.address,
-        productPrices: _productPrices,
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().replaceFirst('StateError: ', ''),
+            style: GoogleFonts.poppins(),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
+      return;
     }
 
     if (mounted) {
@@ -258,6 +298,16 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
                                       : null,
                                 ),
                               ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          AddEditCustomerSectionCard(
+                            title: 'Delivery route',
+                            child: CustomerRoutePickerField(
+                              routes: repo.activeDeliveryRoutes,
+                              selectedRouteId: _selectedRouteId,
+                              onChanged: (id) =>
+                                  setState(() => _selectedRouteId = id),
                             ),
                           ),
                           const SizedBox(height: 14),

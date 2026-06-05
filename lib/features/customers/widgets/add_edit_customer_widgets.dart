@@ -135,6 +135,8 @@ class AddEditCustomerField extends StatelessWidget {
     this.maxLines = 1,
     this.validator,
     this.required = false,
+    this.obscureText = false,
+    this.suffix,
   });
 
   final String label;
@@ -146,6 +148,8 @@ class AddEditCustomerField extends StatelessWidget {
   final int maxLines;
   final String? Function(String?)? validator;
   final bool required;
+  final bool obscureText;
+  final Widget? suffix;
 
   @override
   Widget build(BuildContext context) {
@@ -181,6 +185,7 @@ class AddEditCustomerField extends StatelessWidget {
             keyboardType: keyboardType,
             textCapitalization: textCapitalization,
             maxLines: maxLines,
+            obscureText: obscureText,
             validator: validator,
             style: GoogleFonts.poppins(
               fontSize: 15,
@@ -198,6 +203,7 @@ class AddEditCustomerField extends StatelessWidget {
               prefixIcon: icon != null
                   ? Icon(icon, size: 20, color: AddEditCustomerColors.labelGrey)
                   : null,
+              suffixIcon: suffix,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: icon != null ? 12 : 14,
                 vertical: maxLines > 1 ? 14 : 14,
@@ -442,10 +448,12 @@ class AddEditCustomerSaveButton extends StatelessWidget {
     super.key,
     required this.label,
     required this.onPressed,
+    this.loading = false,
   });
 
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -456,10 +464,12 @@ class AddEditCustomerSaveButton extends StatelessWidget {
           width: double.infinity,
           height: 52,
           child: FilledButton(
-            onPressed: onPressed,
+            onPressed: loading ? null : onPressed,
             style: FilledButton.styleFrom(
               backgroundColor: AddEditCustomerColors.primaryBtn,
               foregroundColor: Colors.white,
+              disabledBackgroundColor:
+                  AddEditCustomerColors.primaryBtn.withValues(alpha: 0.6),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -468,7 +478,16 @@ class AddEditCustomerSaveButton extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            child: Text(label),
+            child: loading
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
+                  )
+                : Text(label),
           ),
         ),
       ),
