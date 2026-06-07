@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/constants/empty_can_balance.dart';
+import 'package:sri_sai_ro_water/core/localization/app_strings.dart';
 import 'package:sri_sai_ro_water/data/models/customer_can_balance.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_theme.dart';
 
@@ -23,6 +24,7 @@ class DriverCanBalanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!showNormal && !showCool) return const SizedBox.shrink();
 
+    final strings = context.l10n;
     final total = (showNormal ? balance.normalWithCustomer : 0) +
         (showCool ? balance.coolWithCustomer : 0);
     final showJarWarning = emptyCanCountIsWarning(total);
@@ -53,7 +55,7 @@ class DriverCanBalanceCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Empty cans with customer',
+                        strings.emptyCansWithCustomer,
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -63,9 +65,9 @@ class DriverCanBalanceCard extends StatelessWidget {
                       Text(
                         total > 0
                             ? (showJarWarning
-                                ? '$total jars out — collect before delivering more'
-                                : '$total still out · collect when you can')
-                            : 'All empty cans returned',
+                                ? strings.jarsOutCollect(total)
+                                : strings.stillOutCollect(total))
+                            : strings.allEmptyCansReturned,
                         style: GoogleFonts.poppins(
                           fontSize: 11,
                           fontWeight: showJarWarning
@@ -88,7 +90,7 @@ class DriverCanBalanceCard extends StatelessWidget {
                   if (showNormal)
                     Expanded(
                       child: _BalanceTile(
-                        label: 'Normal',
+                        label: strings.normal,
                         withCustomer: balance.normalWithCustomer,
                         color: const Color(0xFF2563EB),
                       ),
@@ -97,7 +99,7 @@ class DriverCanBalanceCard extends StatelessWidget {
                   if (showCool)
                     Expanded(
                       child: _BalanceTile(
-                        label: 'Cool',
+                        label: strings.cool,
                         withCustomer: balance.coolWithCustomer,
                         color: DriverColors.accent,
                       ),
@@ -112,7 +114,7 @@ class DriverCanBalanceCard extends StatelessWidget {
                 onPressed: onRecordReturn,
                 icon: const Icon(Icons.recycling_rounded, size: 18),
                 label: Text(
-                  'Return empties only',
+                  strings.returnEmptiesOnly,
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -148,6 +150,7 @@ class _BalanceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final countColor = emptyCanCountColor(withCustomer, normalColor: color);
+    final strings = context.l10n;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -180,7 +183,7 @@ class _BalanceTile extends StatelessWidget {
             ),
           ),
           Text(
-            'with customer',
+            strings.withCustomer,
             style: GoogleFonts.poppins(
               fontSize: 9,
               color: DriverColors.labelGrey,

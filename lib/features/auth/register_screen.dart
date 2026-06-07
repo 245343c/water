@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:sri_sai_ro_water/core/widgets/home_delivery_choice.dart';
+import 'package:sri_sai_ro_water/core/utils/input_validators.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/add_edit_customer_widgets.dart';
@@ -28,10 +28,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
+  final _otpController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   bool _loading = false;
-  bool _homeDelivery = true;
+  final bool _homeDelivery = true;
+  bool _otpSent = false;
 
   @override
   void dispose() {
@@ -42,6 +44,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
+    _otpController.dispose();
     super.dispose();
   }
 
@@ -50,17 +53,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _loading = true);
 
     final auth = context.read<AuthRepository>();
-    final error = await auth.register(
-      ownerName: _ownerController.text,
-      businessName: _businessController.text,
-      phone: _phoneController.text,
-      email: _emailController.text,
-      password: _passwordController.text,
-      address: _addressController.text,
-      normalPrice: _defaultNormalPrice,
-      coolPrice: _defaultCoolPrice,
-      homeDeliveryAvailable: _homeDelivery,
-    );
+    final error = _otpSent
+        ? await auth.completeAdminRegistrationWithOtp(
+            ownerName: _ownerController.text,
+            businessName: _businessController.text,
+            phone: _phoneController.text,
+            email: _emailController.text,
+            password: _passwordController.text,
+            address: _addressController.text,
+            normalPrice: _defaultNormalPrice,
+            coolPrice: _defaultCoolPrice,
+            homeDeliveryAvailable: _homeDelivery,
+            otp: _otpController.text,
+          )
+        : await auth.requestAdminRegistrationOtp(
+            phone: _phoneController.text,
+            email: _emailController.text,
+          );
 
     if (!mounted) return;
     setState(() => _loading = false);
@@ -69,6 +78,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(error, style: GoogleFonts.poppins()),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (!_otpSent) {
+      setState(() => _otpSent = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'OTP sent to ${_phoneController.text.trim()}',
+            style: GoogleFonts.poppins(),
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -89,19 +112,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
 
     if (!mounted) return;
-    if (!_homeDelivery) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Account created. Your shop is hidden from customers until you enable home delivery in Settings.',
-            style: GoogleFonts.poppins(fontSize: 13),
-          ),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 5),
-        ),
-      );
-    }
-    context.go(AppRoutes.dashboard);
+    const message =
+        'Account created. Sign in with your mobile number and password.';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: GoogleFonts.poppins(fontSize: 13)),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 6),
+      ),
+    );
+    context.go(AppRoutes.login);
   }
 
   @override
@@ -141,19 +161,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   : null,
                             ),
                             AddEditCustomerField(
-                              label: 'Email',
+                              label: 'Email (optional)',
                               controller: _emailController,
-                              hint: 'you@business.com',
+                              hint: 'For receipt / support, optional',
                               icon: Icons.email_outlined,
                               keyboardType: TextInputType.emailAddress,
-                              required: true,
-                              validator: (v) {
-                                if (v == null || v.trim().isEmpty) {
-                                  return 'Email is required';
-                                }
-                                if (!v.contains('@')) return 'Enter a valid email';
-                                return null;
-                              },
+                              validator: InputValidators.optionalEmail,
+                              autovalidateMode:
+                                  AutovalidateMode.onUserInteraction,
                             ),
                             AddEditCustomerField(
                               label: 'Password',
@@ -245,28 +260,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               icon: Icons.phone_outlined,
                               keyboardType: TextInputType.phone,
                               required: true,
-                              validator: (v) {
-                                final digits =
-                                    v?.replaceAll(RegExp(r'\D'), '') ?? '';
-                                if (digits.length < 10) {
-                                  return 'Valid phone required';
-                                }
-                                return null;
-                              },
+                              validator: InputValidators.requiredIndianMobile,
                             ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 14),
-                      AddEditCustomerSectionCard(
-                        title: 'Customer app',
-                        subtitle: 'Control whether customers can find your shop',
-                        child: HomeDeliveryChoice(
-                          value: _homeDelivery,
-                          onChanged: (v) => setState(() => _homeDelivery = v),
-                          titleOnly: true,
+                      if (_otpSent) ...[
+                        AddEditCustomerSectionCard(
+                          title: 'Verify mobile',
+                          subtitle:
+                              'Enter the OTP sent to ${_phoneController.text.trim()}',
+                          child: AddEditCustomerField(
+                            label: 'Mobile OTP',
+                            controller: _otpController,
+                            hint: 'Enter verification code',
+                            icon: Icons.verified_user_outlined,
+                            keyboardType: TextInputType.number,
+                            required: true,
+                            validator: (v) {
+                              if (!_otpSent) return null;
+                              if (v == null || v.trim().length < 4) {
+                                return 'Enter OTP';
+                              }
+                              return null;
+                            },
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 14),
+                      ],
                       const SizedBox(height: 20),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -296,7 +318,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
               AddEditCustomerSaveButton(
-                label: 'Create account',
+                label: _otpSent ? 'Verify OTP & create account' : 'Send OTP',
                 loading: _loading,
                 onPressed: _submit,
               ),

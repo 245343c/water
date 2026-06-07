@@ -1,5 +1,4 @@
 import 'package:sri_sai_ro_water/core/auth/app_role.dart';
-import 'package:sri_sai_ro_water/data/models/customer_app_profile.dart';
 import 'package:sri_sai_ro_water/data/models/app_user.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
@@ -8,26 +7,9 @@ bool isAuthRoute(String location) =>
     location == AppRoutes.register ||
     location == AppRoutes.forgotPassword;
 
-bool isPublicEntryRoute(String location) =>
-    location == AppRoutes.welcome ||
-    location == AppRoutes.customerLogin ||
-    isAuthRoute(location);
+bool isPublicEntryRoute(String location) => isAuthRoute(location);
 
-bool isCustomerOnboardingRoute(String location) =>
-    location == AppRoutes.customerOnboarding;
-
-bool isCustomerShellRoute(String location) =>
-    location.startsWith('/customer/home') ||
-    location.startsWith('/customer/account') ||
-    location.startsWith('/customer/orders') ||
-    location.startsWith('/customer/profile');
-
-bool isCustomerRoute(String location) =>
-    isCustomerShellRoute(location) ||
-    isCustomerOnboardingRoute(location) ||
-    location.startsWith('/customer/shop/') ||
-    location.startsWith('/customer/month') ||
-    location.startsWith('/customer/monthly-bill');
+bool isCustomerRoute(String location) => location.startsWith('/customer/');
 
 /// Driver shell lives under `/driver/...` (note trailing slash — not `/drivers`).
 bool isDriverShellRoute(String location) => location.startsWith('/driver/');
@@ -59,69 +41,38 @@ bool isAdminOnlyRoute(String location) {
   return false;
 }
 
-bool isAdminCustomerDetailRoute(String location) {
-  final match = RegExp(r'^/customers/[^/]+$').hasMatch(location);
-  return match;
-}
+bool isAdminCustomerDetailRoute(String location) =>
+    RegExp(r'^/customers/[^/]+$').hasMatch(location);
 
-/// Optional: pass profile from redirect caller when repo is not available in redirect.
-typedef CustomerProfileLookup = CustomerAppProfile? Function(String userId);
-
-String? redirectForRole({
-  required AppUser? user,
-  required String location,
-  CustomerProfileLookup? customerProfile,
-}) {
+String? redirectForRole({required AppUser? user, required String location}) {
   final loggedIn = user != null;
 
   if (!loggedIn) {
-    return isPublicEntryRoute(location) ? null : AppRoutes.welcome;
+    return isPublicEntryRoute(location) ? null : AppRoutes.login;
   }
 
   if (isPublicEntryRoute(location)) {
-    return homeRouteForRole(user, customerProfile: customerProfile);
+    final home = homeRouteForRole(user);
+    return home == location ? null : home;
   }
 
   if (location == AppRoutes.driverToday || location == AppRoutes.driverOrders) {
-    return AppRoutes.driverCustomers;
+    return AppRoutes.driverRoute;
   }
 
   return switch (user.role) {
     AppRole.admin => _adminRedirect(location),
     AppRole.driver => _driverRedirect(location),
-    AppRole.customer => _customerRedirect(
-      location,
-      user,
-      customerProfile: customerProfile,
-    ),
+    AppRole.customer => _customerRedirect(location),
   };
 }
 
-String homeRouteForRole(
-  AppUser user, {
-  CustomerProfileLookup? customerProfile,
-}) {
+String homeRouteForRole(AppUser user) {
   return switch (user.role) {
     AppRole.admin => AppRoutes.dashboard,
     AppRole.driver => AppRoutes.driverCustomers,
-    AppRole.customer => _customerHomeRoute(
-      user,
-      customerProfile: customerProfile,
-    ),
+    AppRole.customer => AppRoutes.login,
   };
-}
-
-String _customerHomeRoute(
-  AppUser user, {
-  CustomerProfileLookup? customerProfile,
-}) {
-  final profile = customerProfile?.call(user.id);
-  final needsOnboarding =
-      !user.customerProfileComplete ||
-      (profile != null && !profile.onboardingComplete);
-  return needsOnboarding
-      ? AppRoutes.customerOnboarding
-      : AppRoutes.customerHome;
 }
 
 String? _adminRedirect(String location) {
@@ -135,7 +86,7 @@ String? _adminRedirect(String location) {
 }
 
 String? _driverRedirect(String location) {
-  if (isAdminOnlyRoute(location)) return AppRoutes.driverRoute;
+  if (isAdminOnlyRoute(location)) return AppRoutes.driverCustomers;
   if (isAdminCustomerDetailRoute(location)) {
     final id = RegExp(r'^/customers/([^/]+)$').firstMatch(location)?.group(1);
     if (id != null) return '/driver/customers/$id';
@@ -150,27 +101,6 @@ String? _driverRedirect(String location) {
   return null;
 }
 
-String? _customerRedirect(
-  String location,
-  AppUser user, {
-  CustomerProfileLookup? customerProfile,
-}) {
-  final home = _customerHomeRoute(user, customerProfile: customerProfile);
-
-  if (isAdminOnlyRoute(location) ||
-      isDriverShellRoute(location) ||
-      location == AppRoutes.dashboard ||
-      location == AppRoutes.customers) {
-    return home;
-  }
-
-  if (home == AppRoutes.customerOnboarding && isCustomerShellRoute(location)) {
-    return AppRoutes.customerOnboarding;
-  }
-
-  if (home == AppRoutes.customerHome && isCustomerOnboardingRoute(location)) {
-    return AppRoutes.customerHome;
-  }
-
-  return null;
+String? _customerRedirect(String location) {
+  return location == AppRoutes.login ? null : AppRoutes.login;
 }

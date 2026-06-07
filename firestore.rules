@@ -11,13 +11,36 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return signedIn() && userData().role == 'admin';
+      return signedIn()
+        && userData().role == 'admin'
+        && (
+          request.auth.token.email_verified == true
+          || (
+            request.auth.token.phone_number != null
+            && userData().authPhoneNumber == request.auth.token.phone_number
+          )
+        );
+    }
+
+    function isAdminForShop(shopId) {
+      return isAdmin() && userData().shopId == shopId;
+    }
+
+    function isDriverForShop(shopId) {
+      return signedIn()
+        && userData().role == 'driver'
+        && userData().shopId == shopId
+        && userData().active == true;
     }
 
     function isStaffForShop(shopId) {
-      return signedIn()
-        && userData().shopId == shopId
-        && (userData().role == 'admin' || userData().role == 'driver');
+      return isAdminForShop(shopId) || isDriverForShop(shopId);
+    }
+
+    function isDriverVisibleOrder(shopId) {
+      return isDriverForShop(shopId)
+        && resource.data.status == 'accepted'
+        && resource.data.fulfilledAt == null;
     }
 
     function isLinkedCustomer(shopId, customerId) {
@@ -38,7 +61,13 @@ service cloud.firestore {
       allow update: if signedIn()
         && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'email', 'customerProfileComplete', 'updatedAt']);
+          .hasOnly([
+            'name',
+            'email',
+            'customerProfileComplete',
+            'languageCode',
+            'updatedAt',
+          ]);
     }
 
     match /appCustomers/{uid} {
@@ -55,23 +84,24 @@ service cloud.firestore {
       allow read: if isStaffForShop(shopId);
       allow create: if signedIn()
         && request.resource.data.ownerUid == request.auth.uid;
-      allow update: if isAdmin() && userData().shopId == shopId;
+      allow update: if isAdminForShop(shopId);
       allow delete: if false;
 
       match /customers/{customerId} {
         allow read: if isStaffForShop(shopId)
           || isLinkedCustomer(shopId, customerId);
-        allow write: if isAdmin() && userData().shopId == shopId;
+        allow write: if isAdminForShop(shopId);
 
         match /monthlySummaries/{monthKey} {
-          allow read: if isStaffForShop(shopId)
+          allow read: if isAdminForShop(shopId)
             || isLinkedCustomer(shopId, customerId);
           allow write: if false;
         }
       }
 
       match /drivers/{driverId} {
-        allow read: if isStaffForShop(shopId);
+        allow read: if isAdminForShop(shopId)
+          || (isDriverForShop(shopId) && userData().driverId == driverId);
         allow write: if false;
       }
 
@@ -82,29 +112,38 @@ service cloud.firestore {
       }
 
       match /payments/{paymentId} {
-        allow read: if isStaffForShop(shopId)
+        allow read: if isAdminForShop(shopId)
           || isLinkedCustomer(shopId, resource.data.customerId);
         allow write: if false;
       }
 
       match /orders/{orderId} {
-        allow read: if isStaffForShop(shopId)
+        allow read: if isAdminForShop(shopId)
+          || isDriverVisibleOrder(shopId)
           || isLinkedCustomer(shopId, resource.data.customerId);
-        allow create: if isAdmin() && userData().shopId == shopId
+        allow create: if isAdminForShop(shopId)
           && request.resource.data.source == 'phoneCall';
-        allow update: if isAdmin() && userData().shopId == shopId
+        allow update: if isAdminForShop(shopId)
           && resource.data.source == 'phoneCall';
         allow delete: if false;
       }
 
       match /notifications/{notificationId} {
-        allow read: if isStaffForShop(shopId)
+        allow read: if isAdminForShop(shopId)
+          || (
+            isDriverForShop(shopId)
+            && resource.data.audience == 'driver'
+          )
           || (
             resource.data.audience == 'customer'
             && isLinkedCustomer(shopId, resource.data.customerId)
           );
         allow update: if (
-            isStaffForShop(shopId)
+            isAdminForShop(shopId)
+            || (
+              isDriverForShop(shopId)
+              && resource.data.audience == 'driver'
+            )
             || (
               resource.data.audience == 'customer'
               && isLinkedCustomer(shopId, resource.data.customerId)
@@ -112,19 +151,19 @@ service cloud.firestore {
           )
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['read', 'updatedAt']);
-        allow create: if isAdmin() && userData().shopId == shopId
+        allow create: if isAdminForShop(shopId)
           && request.resource.data.audience in ['driver', 'admin'];
         allow delete: if false;
       }
 
       match /products/{productId} {
         allow read: if isStaffForShop(shopId);
-        allow write: if isAdmin() && userData().shopId == shopId;
+        allow write: if isAdminForShop(shopId);
       }
 
       match /routes/{routeId} {
         allow read: if isStaffForShop(shopId);
-        allow write: if isAdmin() && userData().shopId == shopId;
+        allow write: if isAdminForShop(shopId);
       }
     }
   }

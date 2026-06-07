@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/localization/app_strings.dart';
+import 'package:sri_sai_ro_water/core/localization/customer_display_localization.dart';
+import 'package:sri_sai_ro_water/core/localization/delivery_localization.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/data/models/app_notification.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
@@ -14,7 +17,6 @@ import 'package:sri_sai_ro_water/core/config/app_config.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_instant_delivery_card.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_route_widgets.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_theme.dart';
-import 'package:sri_sai_ro_water/routing/app_router.dart';
 
 /// Driver home: accepted customer requests + today's route + completed.
 class DriverRouteScreen extends StatefulWidget {
@@ -35,6 +37,7 @@ class _DriverRouteScreenState extends State<DriverRouteScreen> {
       final repo = context.read<WaterPlantRepository>();
       await repo.loadDeliveryRoutesForCurrentAdmin();
       await repo.loadCustomersForCurrentAdminFromFirestore(force: true);
+      await repo.loadLedgerForCurrentShopFromFirestore(force: true);
       if (AppConfig.useInstantDispatchMock) {
         repo.restoreMockInstantDispatchForDriver();
       }
@@ -64,22 +67,8 @@ class _DriverRouteScreenState extends State<DriverRouteScreen> {
             .driverAppAcceptedOrders(driverId: driverId)
             .where((order) => _orderMatchesRoute(order, repo))
             .toList();
-        final acceptedOrders = [...instantOrders, ...appOrders];
-        final acceptedCustomerIds = acceptedOrders
-            .map((order) => order.customerId)
-            .toSet();
-        final route = repo
-            .todaysRouteCustomersForDriver(driverId)
-            .where(_matchesRoute)
-            .toList();
-        final pendingRoute = route
-            .where(
-              (c) =>
-                  !repo.hasDeliveryToday(c.id) &&
-                  !acceptedCustomerIds.contains(c.id),
-            )
-            .toList();
         final driverAlerts = notifications.unreadCountForDriver();
+        final strings = context.l10n;
 
         return Scaffold(
           backgroundColor: DriverColors.contentBg,
@@ -92,170 +81,130 @@ class _DriverRouteScreenState extends State<DriverRouteScreen> {
                 unreadAlerts: driverAlerts,
                 onNotifications: () => _showNotifications(context),
               ),
-                Expanded(
-                  child: ListView(
-                    children: [
-                      DriverRouteFilter(
-                        routes: routes,
-                        selected: _routeFilter,
-                        showUnassigned: hasUnassigned,
-                        allCustomerCount: assignedCustomers.length,
-                        unassignedCustomerCount:
-                            repo.driverUnassignedCustomerCount(driverId),
-                        customerCountForRoute: (routeId) =>
-                            repo.driverCustomerCountOnRoute(driverId, routeId),
-                        onSelected: (routeId) =>
-                            setState(() => _routeFilter = routeId),
-                      ),
-                      if (instantOrders.isNotEmpty) ...[
-                        DriverSectionTitle(
-                          title: 'Instant delivery (${instantOrders.length})',
-                          trailing: Text(
-                            'Collect payment',
-                            style: GoogleFonts.poppins(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF7C3AED),
-                            ),
-                          ),
-                        ),
-                        ...instantOrders.map((o) {
-                          final customer =
-                              repo.customerById(o.customerId);
-                          final estimate = customer == null
-                              ? 0.0
-                              : repo.estimateDispatchTotal(
-                                  customer,
-                                  o.lineItems,
-                                );
-                          return DriverInstantDeliveryCard(
-                            order: o,
-                            repo: repo,
-                            driverId: driverId,
-                            estimatedTotal: estimate,
-                          );
-                        }),
-                      ],
-                      if (appOrders.isNotEmpty) ...[
-                        DriverSectionTitle(
-                          title: 'App requests (${appOrders.length})',
-                          trailing: Text(
-                            'Admin confirmed',
-                            style: GoogleFonts.poppins(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFFEA580C),
-                            ),
-                          ),
-                        ),
-                        ...appOrders.map(
-                          (o) => DriverAcceptedOrderCard(
-                            order: o,
-                            repo: repo,
-                            driverId: driverId,
-                          ),
-                        ),
-                      ],
-                      if (instantOrders.isEmpty &&
-                          appOrders.isEmpty &&
-                          AppConfig.useInstantDispatchMock)
-                        const _EmptyCard(
-                          icon: Icons.bolt_rounded,
-                          message:
-                              'No instant jobs right now. Admin will add phone orders here.',
-                        ),
+              Expanded(
+                child: ListView(
+                  children: [
+                    DriverRouteFilter(
+                      routes: routes,
+                      selected: _routeFilter,
+                      showUnassigned: hasUnassigned,
+                      allCustomerCount: assignedCustomers.length,
+                      unassignedCustomerCount: repo
+                          .driverUnassignedCustomerCount(driverId),
+                      customerCountForRoute: (routeId) =>
+                          repo.driverCustomerCountOnRoute(driverId, routeId),
+                      onSelected: (routeId) =>
+                          setState(() => _routeFilter = routeId),
+                    ),
+                    if (instantOrders.isNotEmpty) ...[
                       DriverSectionTitle(
-                        title: 'Regular customers (${pendingRoute.length} left)',
-                        trailing: TextButton(
-                          onPressed: () =>
-                              context.go(AppRoutes.driverCustomers),
-                          child: Text(
-                            'All customers',
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: DriverColors.accent,
-                            ),
+                        title:
+                            '${strings.instantDelivery} (${instantOrders.length})',
+                        trailing: Text(
+                          strings.collectCash,
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF7C3AED),
                           ),
                         ),
                       ),
-                      if (pendingRoute.isEmpty)
-                        _EmptyCard(
-                          icon: Icons.check_circle_outline_rounded,
-                          message: 'All route stops done for today',
-                        )
-                      else
-                        ...pendingRoute.map((c) {
-                          final order = repo.acceptedOrderForCustomer(
-                            c.id,
-                            driverId: driverId,
-                          );
-                          return DriverRouteStopCard(
-                            customerName: c.name,
-                            place: c.place,
-                            initials: c.initials,
-                            done: repo.hasDeliveryToday(c.id),
-                            note: repo.routeNoteForCustomer(c.id),
-                            hasAcceptedOrder: order != null,
-                            onTap: () =>
-                                context.push('/driver/customers/${c.id}'),
-                          );
-                        }),
-                      const DriverSectionTitle(title: 'Completed today'),
-                      if (deliveries.isEmpty)
-                        _EmptyCard(
-                          icon: Icons.local_shipping_outlined,
-                          message: 'Saved deliveries appear here',
-                        )
-                      else
-                        ...deliveries.map((d) {
-                          final c = repo.customerById(d.customerId);
-                          return Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                            child: ListTile(
-                              onTap: c != null
-                                  ? () => context.push(
-                                      '/driver/customers/${c.id}',
-                                    )
-                                  : null,
-                              tileColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                side: const BorderSide(
-                                  color: DriverColors.cardBorder,
-                                ),
-                              ),
-                              leading: CircleAvatar(
-                                backgroundColor: DriverColors.success
-                                    .withValues(alpha: 0.12),
-                                child: const Icon(
-                                  Icons.check,
-                                  color: DriverColors.success,
-                                  size: 20,
-                                ),
-                              ),
-                              title: Text(
-                                c?.name ?? 'Customer',
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              subtitle: Text(d.cansSummary),
-                              trailing: Text(
-                                d.date.timeLabel,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 11,
-                                  color: DriverColors.labelGrey,
-                                ),
+                      ...instantOrders.map((o) {
+                        final customer = repo.customerById(o.customerId);
+                        final estimate = customer == null
+                            ? 0.0
+                            : repo.estimateDispatchTotal(customer, o.lineItems);
+                        return DriverInstantDeliveryCard(
+                          order: o,
+                          repo: repo,
+                          driverId: driverId,
+                          estimatedTotal: estimate,
+                        );
+                      }),
+                    ],
+                    if (appOrders.isNotEmpty) ...[
+                      DriverSectionTitle(
+                        title: '${strings.deliveries} (${appOrders.length})',
+                        trailing: Text(
+                          strings.adminConfirmed,
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFFEA580C),
+                          ),
+                        ),
+                      ),
+                      ...appOrders.map(
+                        (o) => DriverAcceptedOrderCard(
+                          order: o,
+                          repo: repo,
+                          driverId: driverId,
+                        ),
+                      ),
+                    ],
+                    if (instantOrders.isEmpty &&
+                        appOrders.isEmpty &&
+                        AppConfig.useInstantDispatchMock)
+                      _EmptyCard(
+                        icon: Icons.bolt_rounded,
+                        message: strings.noInstantJobs,
+                      ),
+                    DriverSectionTitle(title: strings.completedToday),
+                    if (deliveries.isEmpty)
+                      _EmptyCard(
+                        icon: Icons.local_shipping_outlined,
+                        message: strings.savedDeliveriesHere,
+                      )
+                    else
+                      ...deliveries.map((d) {
+                        final c = repo.customerById(d.customerId);
+                        return Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                          child: ListTile(
+                            onTap: c != null
+                                ? () =>
+                                      context.push('/driver/customers/${c.id}')
+                                : null,
+                            tileColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              side: const BorderSide(
+                                color: DriverColors.cardBorder,
                               ),
                             ),
-                          );
-                        }),
-                      const SizedBox(height: 24),
-                    ],
-                  ),
+                            leading: CircleAvatar(
+                              backgroundColor: DriverColors.success.withValues(
+                                alpha: 0.12,
+                              ),
+                              child: const Icon(
+                                Icons.check,
+                                color: DriverColors.success,
+                                size: 20,
+                              ),
+                            ),
+                            title: Text(
+                              c?.driverDisplayName(strings) ??
+                                  strings.customers,
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                            subtitle: Text(strings.deliveryItemsSummary(d)),
+                            trailing: Text(
+                              d.date.timeLabel,
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                color: DriverColors.labelGrey,
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    const SizedBox(height: 24),
+                  ],
                 ),
+              ),
             ],
           ),
         );
@@ -333,7 +282,7 @@ class _DeliveriesToolbar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Deliveries',
+                  context.l10n.deliveries,
                   style: GoogleFonts.poppins(
                     color: Colors.white,
                     fontSize: 22,
@@ -342,8 +291,8 @@ class _DeliveriesToolbar extends StatelessWidget {
                 ),
                 Text(
                   dispatchCount > 0
-                      ? '$dispatchCount dispatch(es) waiting'
-                      : shopName ?? 'Your assigned customers',
+                      ? context.l10n.instantOrdersWaiting(dispatchCount)
+                      : shopName ?? context.l10n.customers,
                   style: GoogleFonts.poppins(
                     color: Colors.white.withValues(alpha: 0.88),
                     fontSize: 12,
@@ -357,7 +306,10 @@ class _DeliveriesToolbar extends StatelessWidget {
             icon: Badge(
               isLabelVisible: unreadAlerts > 0,
               label: Text('$unreadAlerts'),
-              child: const Icon(Icons.notifications_outlined, color: Colors.white),
+              child: const Icon(
+                Icons.notifications_outlined,
+                color: Colors.white,
+              ),
             ),
           ),
         ],
@@ -405,7 +357,7 @@ class _DriverNotificationsSheet extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          'Notifications',
+                          context.l10n.notifications,
                           style: GoogleFonts.poppins(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
@@ -417,7 +369,7 @@ class _DriverNotificationsSheet extends StatelessWidget {
                         TextButton(
                           onPressed: notificationRepo.markAllReadForDriver,
                           child: Text(
-                            'Mark all read',
+                            context.l10n.markAllRead,
                             style: GoogleFonts.poppins(
                               fontSize: 12,
                               color: DriverColors.accent,
@@ -432,7 +384,7 @@ class _DriverNotificationsSheet extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 40),
                       child: Text(
-                        'No driver notifications yet',
+                        context.l10n.noDriverNotifications,
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
                           color: DriverColors.labelGrey,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/localization/app_strings.dart';
+import 'package:sri_sai_ro_water/core/localization/delivery_localization.dart';
 import 'package:sri_sai_ro_water/core/constants/customer_pricing_keys.dart';
 import 'package:sri_sai_ro_water/core/services/delivery_recording_service.dart';
 import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
@@ -14,6 +16,7 @@ import 'package:sri_sai_ro_water/data/models/dispatch_payment_mode.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_can_stepper.dart';
+import 'package:sri_sai_ro_water/features/driver/widgets/driver_result_feedback.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_theme.dart';
 
 enum _DriverPaymentChoice { pending, waived, cash, upi }
@@ -70,12 +73,14 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
     }
   }
 
-  int get _deliverTotal => _normal + _cool + _channelQty.values.fold(0, (a, b) => a + b);
+  int get _deliverTotal =>
+      _normal + _cool + _channelQty.values.fold(0, (a, b) => a + b);
 
   double _estimateTotal(WaterPlantRepository repo) {
     var total = 0.0;
     if (_normal > 0) {
-      total += _normal *
+      total +=
+          _normal *
           repo.customerUnitPrice(
             widget.customer,
             productId: CustomerPricingKeys.canProductId,
@@ -83,7 +88,8 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
           );
     }
     if (_cool > 0) {
-      total += _cool *
+      total +=
+          _cool *
           repo.customerUnitPrice(
             widget.customer,
             productId: CustomerPricingKeys.canProductId,
@@ -92,7 +98,8 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
     }
     for (final entry in _channelQty.entries) {
       if (entry.value <= 0) continue;
-      total += entry.value *
+      total +=
+          entry.value *
           repo.customerUnitPrice(
             widget.customer,
             productId: CustomerPricingKeys.channelProductId,
@@ -116,6 +123,7 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
               variantId: type.variantId,
             ),
             productId: type.productId,
+            variantId: type.variantId,
           ),
         )
         .toList();
@@ -123,16 +131,16 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
 
   Future<void> _save() async {
     if (_deliverTotal <= 0) {
-      _error('Enter what you delivered');
+      _error(context.l10n.enterDelivered);
       return;
     }
     final amount = _estimateTotal(context.read<WaterPlantRepository>());
     if (_payment == _DriverPaymentChoice.cash && amount <= 0) {
-      _error('Amount must be greater than zero');
+      _error(context.l10n.amountMustBeGreaterThanZero);
       return;
     }
     if (_payment == _DriverPaymentChoice.upi && amount <= 0) {
-      _error('Amount must be greater than zero');
+      _error(context.l10n.amountMustBeGreaterThanZero);
       return;
     }
 
@@ -169,9 +177,9 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
       };
       final collectedAmount =
           _payment == _DriverPaymentChoice.cash ||
-                  _payment == _DriverPaymentChoice.upi
-              ? amount
-              : 0.0;
+              _payment == _DriverPaymentChoice.upi
+          ? amount
+          : 0.0;
 
       final delivery = await repo.fulfillInstantDispatchInFirestore(
         orderId: widget.dispatch.id,
@@ -206,8 +214,11 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
   }
 
   void _error(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg, style: GoogleFonts.poppins())),
+    showDriverResultFeedback(
+      context,
+      success: false,
+      title: context.l10n.couldNotSave,
+      message: msg,
     );
   }
 
@@ -220,7 +231,7 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Shop number copied — open GPay/PhonePe',
+          context.l10n.shopNumberCopiedUpi,
           style: GoogleFonts.poppins(fontSize: 13),
         ),
         behavior: SnackBarBehavior.floating,
@@ -231,6 +242,7 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
   @override
   Widget build(BuildContext context) {
     final repo = context.watch<WaterPlantRepository>();
+    final strings = context.l10n;
     final showNormal = repo.customerUsesNormalCans(widget.customer);
     final showCool = repo.customerUsesCoolCans(widget.customer);
     final channelTypes = repo.enabledChannelTypesForCustomer(widget.customer);
@@ -253,8 +265,8 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
                 ),
                 child: Text(
                   widget.customer.isInstantDispatch
-                      ? 'Instant · collect cash'
-                      : 'Dispatch',
+                      ? '${strings.instantDelivery} · ${strings.collectCash}'
+                      : strings.deliveries,
                   style: GoogleFonts.poppins(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
@@ -275,7 +287,7 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
           ),
           const SizedBox(height: 8),
           Text(
-            widget.dispatch.itemsSummary,
+            strings.orderItemsSummary(widget.dispatch),
             style: GoogleFonts.poppins(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -296,7 +308,7 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
           ],
           const SizedBox(height: 14),
           Text(
-            'Actual delivered',
+            strings.actualDelivered,
             style: GoogleFonts.poppins(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -306,21 +318,21 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
           const SizedBox(height: 8),
           if (showNormal)
             DriverCanStepperRow(
-              label: 'Normal',
+              label: strings.normal,
               value: _normal,
               color: const Color(0xFF2563EB),
               onChanged: (v) => setState(() => _normal = v),
             ),
           if (showCool)
             DriverCanStepperRow(
-              label: 'Cool',
+              label: strings.cool,
               value: _cool,
               color: DriverColors.accent,
               onChanged: (v) => setState(() => _cool = v),
             ),
           for (final type in channelTypes)
             DriverCanStepperRow(
-              label: type.title,
+              label: strings.deliveryProductTitle(type),
               value: _channelQty[type.variantId] ?? 0,
               color: DriverColors.accent,
               onChanged: (v) => setState(() => _channelQty[type.variantId] = v),
@@ -328,7 +340,7 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
           if (showNormal || showCool) ...[
             const SizedBox(height: 12),
             Text(
-              'Empty returned',
+              strings.emptyReturned,
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -338,14 +350,14 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
             const SizedBox(height: 8),
             if (showNormal)
               DriverCanStepperRow(
-                label: 'Empty normal',
+                label: strings.emptyNormal,
                 value: _emptyNormal,
                 color: const Color(0xFF2563EB),
                 onChanged: (v) => setState(() => _emptyNormal = v),
               ),
             if (showCool)
               DriverCanStepperRow(
-                label: 'Empty cool',
+                label: strings.emptyCool,
                 value: _emptyCool,
                 color: DriverColors.accent,
                 onChanged: (v) => setState(() => _emptyCool = v),
@@ -354,7 +366,7 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
           if (_showPaymentSection) ...[
             const SizedBox(height: 14),
             Text(
-              'Payment',
+              strings.payment,
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -363,28 +375,30 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
             ),
             const SizedBox(height: 8),
             _PaymentChip(
-              label: 'Cash collected',
+              label: strings.cashCollected,
               selected: _payment == _DriverPaymentChoice.cash,
               onTap: () => setState(() => _payment = _DriverPaymentChoice.cash),
             ),
             const SizedBox(height: 6),
             _PaymentChip(
-              label: 'UPI / GPay received',
+              label: strings.upiReceived,
               selected: _payment == _DriverPaymentChoice.upi,
               onTap: () => setState(() => _payment = _DriverPaymentChoice.upi),
             ),
             const SizedBox(height: 6),
             _PaymentChip(
-              label: 'Not paid — customer will pay admin',
+              label: strings.notPaidAdmin,
               selected: _payment == _DriverPaymentChoice.pending,
-              onTap: () => setState(() => _payment = _DriverPaymentChoice.pending),
+              onTap: () =>
+                  setState(() => _payment = _DriverPaymentChoice.pending),
             ),
             if (!_mustCollect) ...[
               const SizedBox(height: 6),
               _PaymentChip(
-                label: 'Pay later',
+                label: strings.payLater,
                 selected: _payment == _DriverPaymentChoice.waived,
-                onTap: () => setState(() => _payment = _DriverPaymentChoice.waived),
+                onTap: () =>
+                    setState(() => _payment = _DriverPaymentChoice.waived),
               ),
             ],
             if (_payment == _DriverPaymentChoice.upi) ...[
@@ -393,8 +407,11 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
                 onPressed: () => _copyUpiHint(repo),
                 icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
                 label: Text(
-                  'Copy shop number for UPI',
-                  style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600),
+                  strings.copyShopNumberForUpi,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: DriverColors.accent,
@@ -407,7 +424,7 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
                     _payment == _DriverPaymentChoice.upi)) ...[
               const SizedBox(height: 10),
               Text(
-                'Amount: ${CurrencyUtils.format(estimate)}',
+                '${strings.amount}: ${CurrencyUtils.format(estimate)}',
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -436,7 +453,7 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
                     ),
                   )
                 : Text(
-                    'Save & notify admin',
+                    strings.saveDelivery,
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
@@ -463,7 +480,9 @@ class _PaymentChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? DriverColors.accent.withValues(alpha: 0.1) : Colors.white,
+      color: selected
+          ? DriverColors.accent.withValues(alpha: 0.1)
+          : Colors.white,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,

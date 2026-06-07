@@ -24,11 +24,23 @@ class _ReportsScreenState extends State<ReportsScreen> {
       if (!mounted) return;
       final repo = context.read<WaterPlantRepository>();
       await repo.loadCustomersForCurrentAdminFromFirestore();
-      await repo.loadLedgerForCurrentShopFromFirestore();
+      await repo.loadLedgerForCurrentShopFromFirestore(
+        start: _start,
+        end: _end,
+      );
     });
   }
 
-  void _applyPreset(ReportsPeriodPreset preset, {bool notify = true}) {
+  Future<void> _loadSelectedRange() async {
+    await context
+        .read<WaterPlantRepository>()
+        .loadLedgerForCurrentShopFromFirestore(start: _start, end: _end);
+  }
+
+  Future<void> _applyPreset(
+    ReportsPeriodPreset preset, {
+    bool notify = true,
+  }) async {
     final now = DateTime.now();
     late DateTime start;
     late DateTime end;
@@ -51,6 +63,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _start = start;
         _end = end;
       });
+      await _loadSelectedRange();
     } else {
       _preset = preset;
       _start = start;
@@ -71,6 +84,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _start = picked.start;
         _end = picked.end;
       });
+      await _loadSelectedRange();
     }
   }
 
@@ -79,7 +93,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return Consumer<WaterPlantRepository>(
       builder: (context, repo, _) {
         final deliveries = repo.deliveriesInRange(_start, _end);
-        final cans = deliveries.fold<int>(0, (s, d) => s + d.normalQty + d.coolQty);
+        final cans = deliveries.fold<int>(
+          0,
+          (s, d) => s + d.normalQty + d.coolQty,
+        );
         final sales = deliveries.fold<double>(0, (s, d) => s + d.totalAmount);
         final collected = repo.paymentsTotalInRange(_start, _end);
 

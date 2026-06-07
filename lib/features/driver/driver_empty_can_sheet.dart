@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/localization/app_strings.dart';
+import 'package:sri_sai_ro_water/core/localization/customer_display_localization.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/customer_can_balance.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
@@ -205,7 +207,7 @@ class _DriverRecordEmptyCanSheetState extends State<_DriverRecordEmptyCanSheet> 
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              customer.name,
+                              customer.driverDisplayName(context.l10n),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.poppins(

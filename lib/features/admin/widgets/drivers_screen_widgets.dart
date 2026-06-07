@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
+import 'package:sri_sai_ro_water/core/utils/input_validators.dart';
 import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
@@ -334,24 +335,26 @@ class _AddDriverSheetState extends State<AddDriverSheet> {
     bool required = true,
     List<TextInputFormatter>? inputFormatters,
   }) {
+    final isEmail = label.toLowerCase().contains('email');
     return TextFormField(
       controller: c,
       keyboardType: keyboard,
       obscureText: obscure,
       inputFormatters: inputFormatters,
+      autovalidateMode: isEmail ? AutovalidateMode.onUserInteraction : null,
       validator: (v) {
         final value = v?.trim() ?? '';
         if (required && value.isEmpty) return 'Required';
-        if (label == 'Phone' && value.length != 10) {
-          return 'Enter exactly 10 mobile digits';
+        if (label == 'Phone' && !InputValidators.isValidIndianMobile(value)) {
+          return 'Enter a valid 10-digit mobile number';
         }
         if (label.contains('Password') && value.length < 6) {
           return 'Min 6 characters';
         }
         if (label.toLowerCase().contains('email') &&
             value.isNotEmpty &&
-            !value.contains('@')) {
-          return 'Invalid email';
+            InputValidators.optionalEmail(value) != null) {
+          return 'Enter a valid real email address';
         }
         return null;
       },
@@ -372,20 +375,22 @@ Widget _driverField(
   bool required = true,
   List<TextInputFormatter>? inputFormatters,
 }) {
+  final isEmail = label.toLowerCase().contains('email');
   return TextFormField(
     controller: controller,
     keyboardType: keyboard,
     inputFormatters: inputFormatters,
+    autovalidateMode: isEmail ? AutovalidateMode.onUserInteraction : null,
     validator: (v) {
       final value = v?.trim() ?? '';
       if (required && value.isEmpty) return 'Required';
       if (label.toLowerCase().contains('email') &&
           value.isNotEmpty &&
-          !value.contains('@')) {
-        return 'Invalid email';
+          InputValidators.optionalEmail(value) != null) {
+        return 'Enter a valid real email address';
       }
-      if (label == 'Phone' && value.length != 10) {
-        return 'Enter exactly 10 mobile digits';
+      if (label == 'Phone' && !InputValidators.isValidIndianMobile(value)) {
+        return 'Enter a valid 10-digit mobile number';
       }
       return null;
     },

@@ -1,8 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/localization/app_strings.dart';
+import 'package:sri_sai_ro_water/core/localization/language_controller.dart';
 import 'package:sri_sai_ro_water/core/services/delivery_recording_service.dart';
 import 'package:sri_sai_ro_water/core/services/admin_dispatch_service.dart';
 import 'package:sri_sai_ro_water/core/services/order_workflow_service.dart';
@@ -25,6 +28,7 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
   late final AuthRepository _auth;
   late final WaterPlantRepository _repository;
   late final NotificationRepository _notifications;
+  late final LanguageController _language;
   late final PushNotificationService _push;
   late final DeliveryRecordingService _deliveryRecording;
   late final OrderWorkflowService _orderWorkflow;
@@ -38,6 +42,7 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
     _auth = AuthRepository();
     _repository = WaterPlantRepository();
     _notifications = NotificationRepository();
+    _language = LanguageController();
     _push = PushNotificationService();
     _deliveryRecording = DeliveryRecordingService(
       plant: _repository,
@@ -53,7 +58,7 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
       plant: _repository,
       notifications: _notifications,
     );
-    _router = createAppRouter(_auth, _repository);
+    _router = createAppRouter(_auth);
     _push.initialize();
     _auth.addListener(_loadRepositoryForAuthUser);
     _loadRepositoryForAuthUser();
@@ -70,6 +75,8 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
   Future<void> _syncDataForUser(AppUser? user) async {
     await _repository.loadFirebaseDataForUser(user);
     await _notifications.syncForUser(user, _repository);
+    await _language.syncForUser(user);
+    await _push.syncForUser(user);
   }
 
   @override
@@ -79,6 +86,8 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
     _auth.dispose();
     _repository.dispose();
     _notifications.dispose();
+    _language.dispose();
+    _push.dispose();
     super.dispose();
   }
 
@@ -89,30 +98,42 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
         ChangeNotifierProvider.value(value: _auth),
         ChangeNotifierProvider.value(value: _repository),
         ChangeNotifierProvider.value(value: _notifications),
+        ChangeNotifierProvider.value(value: _language),
         Provider.value(value: _push),
         Provider.value(value: _deliveryRecording),
         Provider.value(value: _orderWorkflow),
         Provider.value(value: _adminDispatch),
       ],
-      child: MaterialApp.router(
-        title: 'Sri Sai RO Water',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
-        routerConfig: _router,
-        builder: (context, child) {
-          return Consumer<WaterPlantRepository>(
-            builder: (context, repo, _) {
-              return Stack(
-                children: [
-                  child ?? const SizedBox.shrink(),
-                  if (repo.isFirebaseLoading)
-                    const Positioned.fill(
-                      child: ColoredBox(
-                        color: Colors.white,
-                        child: Center(child: CircularProgressIndicator()),
-                      ),
-                    ),
-                ],
+      child: Consumer<LanguageController>(
+        builder: (context, language, _) {
+          return MaterialApp.router(
+            title: 'Sri Sai RO Water',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light,
+            locale: language.locale,
+            supportedLocales: AppStrings.supportedLocales,
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+            ],
+            routerConfig: _router,
+            builder: (context, child) {
+              return Consumer<WaterPlantRepository>(
+                builder: (context, repo, _) {
+                  return Stack(
+                    children: [
+                      child ?? const SizedBox.shrink(),
+                      if (repo.isFirebaseLoading)
+                        const Positioned.fill(
+                          child: ColoredBox(
+                            color: Colors.white,
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
+                        ),
+                    ],
+                  );
+                },
               );
             },
           );

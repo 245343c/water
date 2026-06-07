@@ -3,6 +3,8 @@
 **Version:** 1.0 · **Status:** Living document  
 **App model:** One app on Play Store · Three roles · Firebase later (mock first)
 
+**Current release scope:** ship admin + driver only. Customer portal UI and `/customer/*` routes are paused for this release.
+
 ---
 
 ## 1. Vision
@@ -19,11 +21,13 @@ A **water delivery platform** where:
 
 ## 2. One app — who sees what
 
+For the current release, the app opens directly to Staff sign-in. The Order water/customer path remains paused.
+
 | Entry on first screen | Role | Home after login |
 |----------------------|------|------------------|
 | **Order water** | Customer | Customer shell (Home · Orders · Profile) |
 | **Staff login** | Admin | Dashboard · Customers · Orders · Products · Menu |
-| **Staff login** | Driver | Route · Customers · Profile |
+| **Staff login** | Driver | Customers · Deliveries · Profile |
 
 **Play Store:** **1 app** — “Sri Sai RO Water” (or your brand name).
 
@@ -226,15 +230,16 @@ customerShopLinks/{uid_shopId}
 
 | Path | Screen |
 |------|--------|
-| `/welcome` | Role picker |
-| `/login` | Staff email login |
+| `/login` | Staff sign-in |
+| `/welcome` | Legacy redirect to `/login` |
 | `/customer/login` | Phone OTP |
 | `/customer/onboarding` | Profile + map |
 | `/customer/home` | Shell: Home |
 | `/customer/orders` | Shell: Orders |
 | `/customer/profile` | Shell: Profile |
 | `/customer/shop/:id` | Shop + order |
-| `/driver/route` | Driver home |
+| `/driver/customers` | Driver home |
+| `/driver/route` | Driver deliveries |
 | `/` | Admin dashboard |
 
 ---
@@ -244,7 +249,7 @@ customerShopLinks/{uid_shopId}
 | Phase | Deliverable |
 |-------|-------------|
 | **A** ✓ | Admin + Driver roles |
-| **B** (current) | Master plan + Customer UI mock + welcome screen |
+| **B** (current) | Master plan + Customer UI mock; customer entry paused |
 | **C** | Monthly customer account polish + multi-admin customer links |
 | **D** | Admin subscription mock UI |
 | **E** | Firebase Auth + Firestore |

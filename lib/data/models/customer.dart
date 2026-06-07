@@ -9,6 +9,10 @@ class Customer {
     required this.address,
     this.email = '',
     this.place = '',
+    this.driverNameTe = '',
+    this.driverNameHi = '',
+    this.driverAddressNoteTe = '',
+    this.driverAddressNoteHi = '',
     this.routeId,
     this.paymentFrequency = 'Monthly',
     this.productPrices = const [],
@@ -23,6 +27,10 @@ class Customer {
   String address;
   String email;
   String place;
+  String driverNameTe;
+  String driverNameHi;
+  String driverAddressNoteTe;
+  String driverAddressNoteHi;
   String? routeId;
   String paymentFrequency;
   final List<CustomerProductPrice> productPrices;
@@ -52,6 +60,10 @@ class Customer {
     String? address,
     String? email,
     String? place,
+    String? driverNameTe,
+    String? driverNameHi,
+    String? driverAddressNoteTe,
+    String? driverAddressNoteHi,
     String? routeId,
     bool clearRoute = false,
     String? paymentFrequency,
@@ -66,6 +78,10 @@ class Customer {
       address: address ?? this.address,
       email: email ?? this.email,
       place: place ?? this.place,
+      driverNameTe: driverNameTe ?? this.driverNameTe,
+      driverNameHi: driverNameHi ?? this.driverNameHi,
+      driverAddressNoteTe: driverAddressNoteTe ?? this.driverAddressNoteTe,
+      driverAddressNoteHi: driverAddressNoteHi ?? this.driverAddressNoteHi,
       routeId: clearRoute ? null : routeId ?? this.routeId,
       paymentFrequency: paymentFrequency ?? this.paymentFrequency,
       productPrices: productPrices ?? this.productPrices,

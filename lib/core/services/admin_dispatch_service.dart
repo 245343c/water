@@ -1,4 +1,5 @@
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
+import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/data/models/order_line_item.dart';
 import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
@@ -53,16 +54,45 @@ class AdminDispatchService {
 
   Future<void> markDeliveredByAdmin({
     required String orderId,
+    required List<Map<String, dynamic>> lines,
+    required int emptyNormalReturned,
+    required int emptyCoolReturned,
     required String collectionStatus,
     double collectedAmount = 0,
     String collectionMethod = 'cash',
   }) async {
-    await _plant.updateWalkInDispatchInFirestore(
+    await _plant.fulfillInstantDispatchInFirestore(
       orderId: orderId,
-      action: 'markDelivered',
+      date: DateTime.now(),
+      lines: lines,
+      emptyNormalReturned: emptyNormalReturned,
+      emptyCoolReturned: emptyCoolReturned,
       collectionStatus: collectionStatus,
       collectedAmount: collectedAmount,
       collectionMethod: collectionMethod,
+      driverName: 'Admin',
+    );
+  }
+
+  Future<Delivery> fulfillInstantDispatchByAdmin({
+    required String orderId,
+    required List<Map<String, dynamic>> lines,
+    required int emptyNormalReturned,
+    required int emptyCoolReturned,
+    required String collectionStatus,
+    double collectedAmount = 0,
+    String collectionMethod = 'cash',
+  }) {
+    return _plant.fulfillInstantDispatchInFirestore(
+      orderId: orderId,
+      date: DateTime.now(),
+      lines: lines,
+      emptyNormalReturned: emptyNormalReturned,
+      emptyCoolReturned: emptyCoolReturned,
+      collectionStatus: collectionStatus,
+      collectedAmount: collectedAmount,
+      collectionMethod: collectionMethod,
+      driverName: 'Admin',
     );
   }
 

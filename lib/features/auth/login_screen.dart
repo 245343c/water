@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/localization/app_strings.dart';
+import 'package:sri_sai_ro_water/core/localization/language_controller.dart';
+import 'package:sri_sai_ro_water/core/localization/language_picker.dart';
+import 'package:sri_sai_ro_water/core/services/push_notification_service.dart';
+import 'package:sri_sai_ro_water/core/utils/input_validators.dart';
 import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
@@ -36,6 +41,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final auth = context.read<AuthRepository>();
     final repo = context.read<WaterPlantRepository>();
+    final push = context.read<PushNotificationService>();
+    final strings = context.read<LanguageController>().strings;
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
     final error = await auth.login(
       email: _emailController.text,
       password: _passwordController.text,
@@ -50,10 +59,13 @@ class _LoginScreenState extends State<LoginScreen> {
           ? await repo.loadDriverForCurrentUserFromFirestore(driverId)
           : null;
       if (driver == null || !driver.active) {
+        if (!mounted) return;
+        await push.unregisterCurrentToken();
         await auth.logout();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('This driver account is inactive. Contact admin.'),
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(strings.inactiveDriver),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -62,17 +74,18 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text(error), behavior: SnackBarBehavior.floating),
       );
       return;
     }
-    context.go(homeRouteForRole(auth.currentUser!));
+    router.go(homeRouteForRole(auth.currentUser!));
   }
 
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.paddingOf(context).bottom;
+    final strings = context.l10n;
 
     return Scaffold(
       backgroundColor: const Color(0xFF001F3F),
@@ -87,31 +100,6 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.only(left: 6, top: 4),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Material(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        child: InkWell(
-                          onTap: () => context.canPop()
-                              ? context.pop()
-                              : context.go(AppRoutes.welcome),
-                          borderRadius: BorderRadius.circular(12),
-                          child: const SizedBox(
-                            width: 42,
-                            height: 42,
-                            child: Icon(
-                              Icons.arrow_back_rounded,
-                              color: Colors.white,
-                              size: 22,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
                   const _LoginCompactHero(),
                   Expanded(
                     child: LayoutBuilder(
@@ -119,8 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         return SingleChildScrollView(
                           keyboardDismissBehavior:
                               ScrollViewKeyboardDismissBehavior.onDrag,
-                          padding:
-                              EdgeInsets.fromLTRB(20, 0, 20, bottom + 28),
+                          padding: EdgeInsets.fromLTRB(20, 0, 20, bottom + 28),
                           child: ConstrainedBox(
                             constraints: BoxConstraints(
                               minHeight: constraints.maxHeight,
@@ -137,7 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Text(
-                                          'Welcome back',
+                                          strings.signIn,
                                           style: GoogleFonts.poppins(
                                             fontSize: 26,
                                             fontWeight: FontWeight.w800,
@@ -148,7 +135,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         ),
                                         const SizedBox(height: 6),
                                         Text(
-                                          'Sign in to continue',
+                                          strings.staffSubtitle,
                                           style: GoogleFonts.poppins(
                                             fontSize: 13,
                                             color: LoginColors.labelGrey,
@@ -159,34 +146,47 @@ class _LoginScreenState extends State<LoginScreen> {
                                         const LoginRoleHintRow(),
                                         const SizedBox(height: 22),
                                         LoginTextField(
-                                          label: 'Email or mobile number',
+                                          label: strings.mobileNumber,
                                           controller: _emailController,
-                                          hint: 'you@shop.com or 98XXXXXXXX',
-                                          icon: Icons.badge_outlined,
-                                          keyboardType:
-                                              TextInputType.emailAddress,
+                                          hint: '98XXXXXXXX',
+                                          icon: Icons.phone_iphone_rounded,
+                                          keyboardType: TextInputType.phone,
                                           textInputAction: TextInputAction.next,
+                                          autovalidateMode: AutovalidateMode
+                                              .onUserInteraction,
                                           validator: (v) {
-                                            if (v == null ||
-                                                v.trim().isEmpty) {
-                                              return 'Email or mobile number is required';
+                                            if (v == null || v.trim().isEmpty) {
+                                              return strings.mobileRequired;
                                             }
                                             final text = v.trim();
-                                            final digits = text.replaceAll(
-                                              RegExp(r'\D'),
-                                              '',
-                                            );
-                                            if (!text.contains('@') &&
-                                                digits.length != 10) {
-                                              return 'Enter exactly 10 mobile digits';
+                                            if (text.contains('@')) {
+                                              return InputValidators.requiredEmail(
+                                                text,
+                                              );
+                                            }
+                                            if (!InputValidators.isValidIndianMobile(
+                                              text,
+                                            )) {
+                                              return strings.validMobile;
                                             }
                                             return null;
                                           },
                                         ),
+                                        Transform.translate(
+                                          offset: const Offset(0, -8),
+                                          child: Text(
+                                            strings.driverLoginHint,
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 11,
+                                              color: LoginColors.labelGrey,
+                                              height: 1.35,
+                                            ),
+                                          ),
+                                        ),
                                         LoginTextField(
-                                          label: 'Password',
+                                          label: strings.password,
                                           controller: _passwordController,
-                                          hint: 'Your password',
+                                          hint: strings.yourPassword,
                                           icon: Icons.lock_outline_rounded,
                                           obscureText: _obscurePassword,
                                           textInputAction: TextInputAction.done,
@@ -195,7 +195,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                             icon: Icon(
                                               _obscurePassword
                                                   ? Icons
-                                                      .visibility_off_outlined
+                                                        .visibility_off_outlined
                                                   : Icons.visibility_outlined,
                                               color: LoginColors.labelGrey,
                                               size: 20,
@@ -207,8 +207,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                           ),
                                           validator: (v) =>
                                               v == null || v.isEmpty
-                                                  ? 'Password is required'
-                                                  : null,
+                                              ? strings.passwordRequired
+                                              : null,
                                         ),
                                         Transform.translate(
                                           offset: const Offset(0, -6),
@@ -221,16 +221,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                               style: TextButton.styleFrom(
                                                 padding:
                                                     const EdgeInsets.symmetric(
-                                                  horizontal: 4,
-                                                  vertical: 2,
-                                                ),
+                                                      horizontal: 4,
+                                                      vertical: 2,
+                                                    ),
                                                 minimumSize: Size.zero,
                                                 tapTargetSize:
                                                     MaterialTapTargetSize
                                                         .shrinkWrap,
                                               ),
                                               child: Text(
-                                                'Forgot password?',
+                                                strings.forgotPassword,
                                                 style: GoogleFonts.poppins(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w600,
@@ -250,8 +250,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                         const LoginSecureNote(embedded: true),
                                         LoginFooterLink(
                                           embedded: true,
-                                          onCreateAccount: () => context
-                                              .push(AppRoutes.register),
+                                          onCreateAccount: () =>
+                                              context.push(AppRoutes.register),
                                         ),
                                       ],
                                     ),
@@ -279,6 +279,7 @@ class _LoginCompactHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.l10n;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
       child: Container(
@@ -293,9 +294,7 @@ class _LoginCompactHero extends StatelessWidget {
             ],
           ),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.2),
-          ),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
         ),
         child: Row(
           children: [
@@ -304,9 +303,7 @@ class _LoginCompactHero extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.16),
                 borderRadius: BorderRadius.circular(13),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.25),
-                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
               ),
               child: const Icon(
                 Icons.water_drop_rounded,
@@ -320,7 +317,7 @@ class _LoginCompactHero extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Staff portal',
+                    strings.appName,
                     style: GoogleFonts.poppins(
                       color: Colors.white,
                       fontSize: 20,
@@ -331,7 +328,7 @@ class _LoginCompactHero extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    'Deliveries · Customers · Billing',
+                    strings.loginTagline,
                     style: GoogleFonts.poppins(
                       color: Colors.white.withValues(alpha: 0.78),
                       fontSize: 11,
@@ -342,6 +339,7 @@ class _LoginCompactHero extends StatelessWidget {
                 ],
               ),
             ),
+            const LanguageSelectorButton(dark: true),
           ],
         ),
       ),

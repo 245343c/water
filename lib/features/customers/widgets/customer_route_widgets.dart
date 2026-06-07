@@ -33,7 +33,7 @@ class CustomerRoutePickerField extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         DropdownButtonFormField<String?>(
-          value: selectedRouteId,
+          initialValue: selectedRouteId,
           isExpanded: true,
           decoration: InputDecoration(
             filled: true,

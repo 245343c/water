@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/localization/app_strings.dart';
 import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/data/models/delivery_route.dart';
 
@@ -185,6 +186,7 @@ class DriverHeroStats extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.l10n;
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
       padding: const EdgeInsets.all(16),
@@ -203,9 +205,9 @@ class DriverHeroStats extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _Stat(label: 'Deliveries', value: '$deliveriesToday'),
+          _Stat(label: strings.deliveries, value: '$deliveriesToday'),
           _divider(),
-          _Stat(label: 'Cans today', value: '$cansToday'),
+          _Stat(label: strings.cansToday, value: '$cansToday'),
           _divider(),
           _Stat(label: pendingLabel, value: '$pendingOrders'),
         ],
@@ -307,13 +309,14 @@ class DriverRouteFilter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.l10n;
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
       child: DropdownButtonFormField<String?>(
-        value: selected,
+        initialValue: selected,
         isExpanded: true,
         decoration: InputDecoration(
-          labelText: 'Route',
+          labelText: strings.route,
           labelStyle: GoogleFonts.poppins(
             fontSize: 12,
             color: DriverColors.labelGrey,
@@ -349,8 +352,8 @@ class DriverRouteFilter extends StatelessWidget {
             value: null,
             child: Text(
               allCustomerCount == null
-                  ? 'All routes'
-                  : 'All routes ($allCustomerCount)',
+                  ? strings.allRoutes
+                  : strings.allRoutesCount(allCustomerCount!),
               style: GoogleFonts.poppins(),
             ),
           ),
@@ -359,8 +362,8 @@ class DriverRouteFilter extends StatelessWidget {
               value: driverUnassignedRouteFilter,
               child: Text(
                 unassignedCustomerCount == null
-                    ? 'No route yet'
-                    : 'No route yet ($unassignedCustomerCount)',
+                    ? strings.noRouteYet
+                    : strings.noRouteYetCount(unassignedCustomerCount!),
                 style: GoogleFonts.poppins(),
               ),
             ),

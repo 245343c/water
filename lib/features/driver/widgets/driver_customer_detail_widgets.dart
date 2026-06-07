@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/localization/app_strings.dart';
+import 'package:sri_sai_ro_water/core/localization/customer_display_localization.dart';
+import 'package:sri_sai_ro_water/core/localization/delivery_localization.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
@@ -20,6 +23,7 @@ class DriverCustomerDetailBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.l10n;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -44,7 +48,7 @@ class DriverCustomerDetailBar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  customer.name,
+                  customer.driverDisplayName(strings),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
@@ -90,7 +94,7 @@ class _StatusPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        deliveredToday ? 'Done' : 'Pending',
+        deliveredToday ? context.l10n.done : context.l10n.pending,
         style: GoogleFonts.poppins(
           fontSize: 11,
           fontWeight: FontWeight.w600,
@@ -137,7 +141,7 @@ class DriverContactRow extends StatelessWidget {
         Expanded(
           child: _ContactButton(
             icon: Icons.directions_rounded,
-            label: 'Directions',
+            label: context.l10n.directions,
             filled: false,
             onTap: onDirections,
           ),
@@ -146,7 +150,7 @@ class DriverContactRow extends StatelessWidget {
         Expanded(
           child: _ContactButton(
             icon: Icons.phone_rounded,
-            label: 'Call',
+            label: context.l10n.call,
             filled: true,
             onTap: onCall,
           ),
@@ -215,6 +219,8 @@ class DriverAddressBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.l10n;
+    final addressNote = customer.driverAddressNote(strings);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -230,7 +236,7 @@ class DriverAddressBlock extends StatelessWidget {
           const SizedBox(height: 4),
         ],
         Text(
-          customer.address,
+          addressNote.isNotEmpty ? addressNote : customer.address,
           style: GoogleFonts.poppins(
             fontSize: 12,
             color: DriverColors.labelGrey,
@@ -265,8 +271,8 @@ class DriverLastVisitLine extends StatelessWidget {
         Expanded(
           child: Text(
             lastDelivery == null
-                ? 'No previous visit on record'
-                : _summary(lastDelivery!),
+                ? context.l10n.noPreviousVisit
+                : _summary(context, lastDelivery!),
             style: GoogleFonts.poppins(
               fontSize: 12,
               color: DriverColors.labelGrey,
@@ -278,12 +284,16 @@ class DriverLastVisitLine extends StatelessWidget {
     );
   }
 
-  String _summary(Delivery d) {
+  String _summary(BuildContext context, Delivery d) {
+    final strings = context.l10n;
     final when = d.date.fullDate;
     if (d.isEmptyReturnOnly) {
-      return 'Last visit $when · ${d.totalEmptyReturned} empty returned';
+      return strings.lastVisit(
+        when,
+        strings.emptyReturnedCount(d.totalEmptyReturned),
+      );
     }
-    return 'Last visit $when · ${d.itemsSummary}';
+    return strings.lastVisit(when, strings.deliveryItemsSummary(d));
   }
 }
 

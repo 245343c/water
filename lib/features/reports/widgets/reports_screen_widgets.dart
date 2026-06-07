@@ -717,7 +717,6 @@ class _KpiCard extends StatelessWidget {
     required this.label,
     required this.value,
     required this.valueColor,
-    this.valueSize = 20,
   });
 
   final IconData icon;
@@ -725,7 +724,6 @@ class _KpiCard extends StatelessWidget {
   final String label;
   final String value;
   final Color valueColor;
-  final double valueSize;
 
   @override
   Widget build(BuildContext context) {
@@ -766,7 +764,7 @@ class _KpiCard extends StatelessWidget {
                   child: Text(
                     value,
                     style: GoogleFonts.poppins(
-                      fontSize: valueSize,
+                      fontSize: 20,
                       fontWeight: FontWeight.w800,
                       color: valueColor,
                       height: 1,

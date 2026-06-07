@@ -29,6 +29,7 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
   final Map<String, int> _bottleQty = {};
   final Map<String, int> _channelQty = {};
   final Map<String, TextEditingController> _volumeQty = {};
+  bool _saving = false;
 
   TextEditingController _volumeController(String variantId) {
     return _volumeQty.putIfAbsent(variantId, TextEditingController.new);
@@ -67,7 +68,11 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
     }
   }
 
-  List<BottleDeliveryInput> _bottleInputs(Customer customer, WaterPlantRepository repo, List<Product> catalog) {
+  List<BottleDeliveryInput> _bottleInputs(
+    Customer customer,
+    WaterPlantRepository repo,
+    List<Product> catalog,
+  ) {
     final inputs = <BottleDeliveryInput>[];
     for (final product in catalog) {
       for (final variant in product.variants) {
@@ -85,6 +90,7 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
               quantity: qty,
               unitPrice: unitPrice,
               productId: product.id,
+              variantId: variant.id,
             ),
           );
         }
@@ -202,7 +208,9 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
         final showNormalCans = repo.customerUsesNormalCans(customer);
         final showCoolCans = repo.customerUsesCoolCans(customer);
         final channelTypes = DeliveryProductType.catalog
-            .where((type) => type.productId == CustomerPricingKeys.channelProductId)
+            .where(
+              (type) => type.productId == CustomerPricingKeys.channelProductId,
+            )
             .where(
               (type) => repo.customerVariantEnabled(
                 customer,
@@ -211,14 +219,21 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
               ),
             )
             .toList();
-        final hasEnabledProducts = showNormalCans ||
+        final hasEnabledProducts =
+            showNormalCans ||
             showCoolCans ||
             channelTypes.isNotEmpty ||
             bottleCatalog.isNotEmpty;
-        final priceLines =
-            _priceLines(repo, customer, bottleCatalog, channelTypes);
+        final priceLines = _priceLines(
+          repo,
+          customer,
+          bottleCatalog,
+          channelTypes,
+        );
         final total = _total(priceLines);
-        final colorIndex = repo.customers.indexWhere((c) => c.id == widget.customerId);
+        final colorIndex = repo.customers.indexWhere(
+          (c) => c.id == widget.customerId,
+        );
 
         return Scaffold(
           backgroundColor: AddDeliveryColors.screenBg,
@@ -235,7 +250,10 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
                         colorIndex: colorIndex >= 0 ? colorIndex : 0,
                       ),
                       AddDeliverySurfaceCard(
-                        child: AddDeliveryDateRow(date: _date, onTap: _pickDate),
+                        child: AddDeliveryDateRow(
+                          date: _date,
+                          onTap: _pickDate,
+                        ),
                       ),
                       if (!hasEnabledProducts)
                         const AddDeliveryNoProductsHint()
@@ -246,7 +264,8 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
                             children: [
                               const AddDeliveryInCardTitle(
                                 title: 'Products',
-                                subtitle: 'Only products enabled for this customer',
+                                subtitle:
+                                    'Only products enabled for this customer',
                               ),
                               if (showNormalCans)
                                 AddDeliveryCanStepper(
@@ -264,8 +283,9 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
                                 if (type.quantityIsVolumeLiters) {
                                   return AddDeliveryVolumeQuantityField(
                                     type: type,
-                                    controller:
-                                        _volumeController(type.variantId),
+                                    controller: _volumeController(
+                                      type.variantId,
+                                    ),
                                     onChanged: () => setState(() {}),
                                   );
                                 }
@@ -331,7 +351,8 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
                   ),
                 ),
                 AddDeliverySaveButton(
-                  enabled: hasEnabledProducts &&
+                  enabled:
+                      hasEnabledProducts &&
                       _hasItems(
                         showNormalCans: showNormalCans,
                         showCoolCans: showCoolCans,
@@ -340,7 +361,7 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
                         customer: customer,
                         repo: repo,
                       ),
-                  onPressed: () {
+                  onPressed: () async {
                     final auth = context.read<AuthRepository>();
                     final staffId = auth.currentUser?.role == AppRole.driver
                         ? auth.currentUser?.driverId
@@ -357,27 +378,47 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
                               variantId: type.variantId,
                             ),
                             productId: type.productId,
+                            variantId: type.variantId,
                           ),
                         )
                         .toList();
-                    final delivery = repo.addDelivery(
-                      customerId: widget.customerId,
-                      date: _date,
-                      normalQty: _normal,
-                      coolQty: _cool,
-                      emptyNormalReturned: _emptyNormalReturned,
-                      emptyCoolReturned: _emptyCoolReturned,
-                      bottles: [
-                        ..._bottleInputs(customer, repo, bottleCatalog),
-                        ...channelInputs,
-                      ],
-                      driverId: staffId,
-                    );
-                    context.pushReplacement(
-                      '/customers/${widget.customerId}/delivery/success',
-                      extra: delivery,
-                    );
+                    setState(() => _saving = true);
+                    try {
+                      final delivery = await repo.addDeliveryToCurrentShop(
+                        customerId: widget.customerId,
+                        date: _date,
+                        normalQty: _normal,
+                        coolQty: _cool,
+                        emptyNormalReturned: _emptyNormalReturned,
+                        emptyCoolReturned: _emptyCoolReturned,
+                        bottles: [
+                          ..._bottleInputs(customer, repo, bottleCatalog),
+                          ...channelInputs,
+                        ],
+                        driverId: staffId,
+                        driverName: auth.currentUser?.ownerName,
+                        customer: customer,
+                      );
+                      if (!context.mounted) return;
+                      context.pushReplacement(
+                        '/customers/${widget.customerId}/delivery/success',
+                        extra: delivery,
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            e.toString().replaceFirst('StateError: ', ''),
+                          ),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    } finally {
+                      if (mounted) setState(() => _saving = false);
+                    }
                   },
+                  loading: _saving,
                 ),
               ],
             ),

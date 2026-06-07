@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/services/push_notification_service.dart';
+import 'package:sri_sai_ro_water/core/utils/input_validators.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/auth/widgets/auth_screen_widgets.dart';
@@ -32,13 +34,15 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
 
   Future<void> _sendOtp() async {
     final phone = _phoneController.text.trim();
-    if (phone.replaceAll(RegExp(r'\D'), '').length != 10) {
+    if (!InputValidators.isValidIndianMobile(phone)) {
       _snack('Enter a valid 10-digit mobile number');
       return;
     }
 
     setState(() => _loading = true);
-    final error = await context.read<AuthRepository>().requestCustomerOtp(phone);
+    final error = await context.read<AuthRepository>().requestCustomerOtp(
+      phone,
+    );
     if (!mounted) return;
 
     setState(() {
@@ -104,7 +108,9 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
     );
     final crm = repo.linkedCrmCustomerForAppUser(user.id);
     if (crm == null) {
+      await context.read<PushNotificationService>().unregisterCurrentToken();
       await auth.logout();
+      if (!mounted) return;
       _snack('This mobile number is not added by a water plant admin.');
       return;
     }
@@ -138,9 +144,8 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
       heroTitle: 'Order pure water',
       heroSubtitle: 'Home delivery · Fresh RO water · Fast and reliable',
       heroIcon: Icons.water_drop_rounded,
-      onBack: () => context.canPop()
-          ? context.pop()
-          : context.go(AppRoutes.welcome),
+      onBack: () =>
+          context.canPop() ? context.pop() : context.go(AppRoutes.welcome),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -196,11 +201,7 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
                     icon: Icons.phone_android_rounded,
                     keyboardType: TextInputType.phone,
                     textInputAction: TextInputAction.next,
-                    validator: (v) {
-                      final digits = v?.replaceAll(RegExp(r'\D'), '') ?? '';
-                      if (digits.length != 10) return 'Enter 10-digit mobile';
-                      return null;
-                    },
+                    validator: InputValidators.requiredIndianMobile,
                   ),
                   if (_otpSent) ...[
                     LoginTextField(
@@ -223,7 +224,9 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
                   AuthPrimaryButton(
                     premium: true,
                     label: _otpSent ? 'Verify & continue' : 'Send OTP',
-                    icon: _otpSent ? Icons.verified_rounded : Icons.send_rounded,
+                    icon: _otpSent
+                        ? Icons.verified_rounded
+                        : Icons.send_rounded,
                     loading: _loading,
                     onPressed: () {
                       if (!_formKey.currentState!.validate()) return;

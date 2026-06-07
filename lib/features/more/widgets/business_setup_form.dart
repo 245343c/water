@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/utils/input_validators.dart';
 import 'package:sri_sai_ro_water/data/models/business_settings.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/add_edit_customer_widgets.dart';
@@ -202,8 +203,9 @@ class BusinessSetupFormState extends State<BusinessSetupForm> {
                 icon: Icons.storefront_outlined,
                 textCapitalization: TextCapitalization.words,
                 required: true,
-                validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Business name is required' : null,
+                validator: (v) => v == null || v.trim().isEmpty
+                    ? 'Business name is required'
+                    : null,
               ),
               AddEditCustomerField(
                 label: 'Address',
@@ -213,8 +215,9 @@ class BusinessSetupFormState extends State<BusinessSetupForm> {
                 textCapitalization: TextCapitalization.sentences,
                 maxLines: 2,
                 required: true,
-                validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Address is required' : null,
+                validator: (v) => v == null || v.trim().isEmpty
+                    ? 'Address is required'
+                    : null,
               ),
               AddEditCustomerField(
                 label: 'Phone number',
@@ -223,11 +226,7 @@ class BusinessSetupFormState extends State<BusinessSetupForm> {
                 icon: Icons.phone_outlined,
                 keyboardType: TextInputType.phone,
                 required: true,
-                validator: (v) {
-                  final digits = v?.replaceAll(RegExp(r'\D'), '') ?? '';
-                  if (digits.length < 10) return 'Valid phone required';
-                  return null;
-                },
+                validator: InputValidators.requiredIndianMobile,
               ),
               AddEditCustomerField(
                 label: 'Email',
@@ -235,7 +234,8 @@ class BusinessSetupFormState extends State<BusinessSetupForm> {
                 hint: 'business@email.com (optional)',
                 icon: Icons.email_outlined,
                 keyboardType: TextInputType.emailAddress,
-                validator: validateEmailOptional,
+                validator: InputValidators.optionalEmail,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
               ),
               const SizedBox(height: 8),
               SettingsSectionLabel(
@@ -253,7 +253,9 @@ class BusinessSetupFormState extends State<BusinessSetupForm> {
                     child: Ink(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AddEditCustomerColors.fieldBorder),
+                        border: Border.all(
+                          color: AddEditCustomerColors.fieldBorder,
+                        ),
                       ),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,

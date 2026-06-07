@@ -4,14 +4,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/foundation.dart';
 import 'package:sri_sai_ro_water/core/auth/app_role.dart';
+import 'package:sri_sai_ro_water/core/services/firebase_backend.dart';
+import 'package:sri_sai_ro_water/core/utils/input_validators.dart';
 import 'package:sri_sai_ro_water/data/models/app_user.dart';
 import 'package:uuid/uuid.dart';
 
 class _StoredAccount {
-  _StoredAccount({
-    required this.user,
-    required this.password,
-  });
+  _StoredAccount({required this.user, required this.password});
 
   final AppUser user;
   String password;
@@ -19,12 +18,18 @@ class _StoredAccount {
 
 /// Firebase-backed authentication for admins, drivers, and customers.
 class AuthRepository extends ChangeNotifier {
-  AuthRepository() {
-    _restoreFirebaseSession();
+  AuthRepository({
+    bool restoreFirebaseSession = true,
+    bool useMockCustomerOtp = false,
+  }) : _useMockCustomerOtp = useMockCustomerOtp {
+    if (restoreFirebaseSession) {
+      _restoreFirebaseSession();
+    }
   }
 
   static const _uuid = Uuid();
   final List<_StoredAccount> _accounts = [];
+  final bool _useMockCustomerOtp;
 
   AppUser? _currentUser;
   AppUser? get currentUser => _currentUser;
@@ -34,45 +39,82 @@ class AuthRepository extends ChangeNotifier {
     required String email,
     required String password,
   }) async {
-    final normalized = _staffLoginEmail(email);
-    if (normalized.isEmpty) return 'Email or mobile number is required';
+    final candidates = _staffLoginEmails(email);
+    if (candidates.isEmpty) return 'Email or mobile number is required';
     if (password.isEmpty) return 'Password is required';
 
-    try {
-      final credential = await firebase_auth.FirebaseAuth.instance
-          .signInWithEmailAndPassword(email: normalized, password: password);
-      final user = await _appUserForFirebaseUser(credential.user);
-      if (user == null) {
-        await firebase_auth.FirebaseAuth.instance.signOut();
-        return 'Account profile not found. Contact support.';
+    for (var i = 0; i < candidates.length; i++) {
+      try {
+        final credential = await firebase_auth.FirebaseAuth.instance
+            .signInWithEmailAndPassword(
+              email: candidates[i],
+              password: password,
+            );
+        final user = await _appUserForFirebaseUser(credential.user);
+        if (user == null) {
+          await firebase_auth.FirebaseAuth.instance.signOut();
+          return 'Account profile not found. Contact support.';
+        }
+        if (user.role == AppRole.customer) {
+          await firebase_auth.FirebaseAuth.instance.signOut();
+          return 'Customer app access is not available in this release';
+        }
+        if (user.role == AppRole.admin &&
+            credential.user?.emailVerified != true &&
+            credential.user?.phoneNumber == null) {
+          await credential.user?.sendEmailVerification();
+          await firebase_auth.FirebaseAuth.instance.signOut();
+          return 'Verify your email or mobile first.';
+        }
+        _currentUser = user;
+        notifyListeners();
+        return null;
+      } on firebase_auth.FirebaseAuthException catch (e) {
+        final canTryNext =
+            i < candidates.length - 1 &&
+            (e.code == 'user-not-found' ||
+                e.code == 'wrong-password' ||
+                e.code == 'invalid-credential');
+        if (!canTryNext) return _loginAuthErrorMessage(e);
+      } catch (_) {
+        return 'Could not sign in. Please try again';
       }
-      if (user.role == AppRole.customer) {
-        await firebase_auth.FirebaseAuth.instance.signOut();
-        return 'Use Order water for customer login';
-      }
-      _currentUser = user;
-      notifyListeners();
-      return null;
-    } on firebase_auth.FirebaseAuthException catch (e) {
-      return _loginAuthErrorMessage(e);
-    } catch (_) {
-      return 'Could not sign in. Please try again';
     }
+    return 'Invalid login ID or password';
   }
 
-  String _staffLoginEmail(String value) {
-    final cleaned = value.trim().toLowerCase();
-    if (cleaned.contains('@')) return cleaned;
-    final digits = cleaned.replaceAll(RegExp(r'\D'), '');
-    if (digits.length != 10) return '';
-    return 'driver_$digits@waterapp.local';
+  List<String> _staffLoginEmails(String value) {
+    final cleaned = InputValidators.normalizeEmail(value);
+    if (cleaned.contains('@')) {
+      return InputValidators.isValidEmail(cleaned) ? [cleaned] : const [];
+    }
+    final digits = InputValidators.phoneDigits(cleaned);
+    if (!InputValidators.isValidIndianMobile(digits)) return const [];
+    return [_adminAuthEmail(digits), _driverAuthEmail(digits)];
   }
+
+  String _adminAuthEmail(String phoneDigits) =>
+      'admin_$phoneDigits@waterapp.local';
+
+  String _driverAuthEmail(String phoneDigits) =>
+      'driver_$phoneDigits@waterapp.local';
 
   Future<void> _restoreFirebaseSession() async {
     final user = await _appUserForFirebaseUser(
       firebase_auth.FirebaseAuth.instance.currentUser,
     );
     if (user == null) return;
+    if (user.role == AppRole.customer) {
+      await firebase_auth.FirebaseAuth.instance.signOut();
+      return;
+    }
+    if (user.role == AppRole.admin &&
+        firebase_auth.FirebaseAuth.instance.currentUser?.emailVerified !=
+            true &&
+        firebase_auth.FirebaseAuth.instance.currentUser?.phoneNumber == null) {
+      await firebase_auth.FirebaseAuth.instance.signOut();
+      return;
+    }
     _currentUser = user;
     notifyListeners();
   }
@@ -96,8 +138,7 @@ class AuthRepository extends ChangeNotifier {
       businessName: data['businessName'] as String? ?? '',
       role: role,
       driverId: data['driverId'] as String?,
-      customerProfileComplete:
-          data['customerProfileComplete'] as bool? ?? true,
+      customerProfileComplete: data['customerProfileComplete'] as bool? ?? true,
     );
   }
 
@@ -121,17 +162,19 @@ class AuthRepository extends ChangeNotifier {
     required double coolPrice,
     required bool homeDeliveryAvailable,
   }) async {
-    final normalized = email.trim().toLowerCase();
+    final normalized = InputValidators.normalizeEmail(email);
     final cleanOwnerName = ownerName.trim();
     final cleanBusinessName = businessName.trim();
-    final cleanPhone = phone.trim();
+    final cleanPhone = InputValidators.phoneDigits(phone);
     final cleanAddress = address.trim();
     if (ownerName.trim().isEmpty) return 'Owner name is required';
     if (businessName.trim().isEmpty) return 'Business name is required';
-    if (phone.trim().length < 10) return 'Valid phone number is required';
+    if (!InputValidators.isValidIndianMobile(cleanPhone)) {
+      return 'Enter a valid 10-digit mobile number';
+    }
     if (cleanAddress.length < 8) return 'Shop address is required';
-    if (normalized.isEmpty || !normalized.contains('@')) {
-      return 'Valid email is required';
+    if (!InputValidators.isValidEmail(normalized)) {
+      return 'Enter a valid real email address';
     }
     if (password.length < 6) return 'Password must be at least 6 characters';
 
@@ -150,6 +193,7 @@ class AuthRepository extends ChangeNotifier {
       if (firebaseUser == null) return 'Could not create Firebase account';
 
       await firebaseUser.updateDisplayName(cleanOwnerName);
+      await firebaseUser.sendEmailVerification();
 
       final shopId = _uuid.v4();
       final db = FirebaseFirestore.instance;
@@ -199,7 +243,8 @@ class AuthRepository extends ChangeNotifier {
         role: AppRole.admin,
       );
       _accounts.add(_StoredAccount(user: user, password: password));
-      _currentUser = user;
+      await firebase_auth.FirebaseAuth.instance.signOut();
+      _currentUser = null;
       notifyListeners();
       return null;
     } on firebase_auth.FirebaseAuthException catch (e) {
@@ -218,12 +263,185 @@ class AuthRepository extends ChangeNotifier {
     }
   }
 
+  Future<String?> requestAdminRegistrationOtp({
+    required String phone,
+    required String email,
+  }) async {
+    final digits = InputValidators.phoneDigits(phone);
+    final normalizedEmail = InputValidators.normalizeEmail(email);
+    if (!InputValidators.isValidIndianMobile(digits)) {
+      return 'Enter a valid 10-digit mobile number';
+    }
+    if (normalizedEmail.isNotEmpty &&
+        !InputValidators.isValidEmail(normalizedEmail)) {
+      return 'Enter a valid real email address';
+    }
+
+    try {
+      await FirebaseBackend.functions
+          .httpsCallable('checkAdminSignupAvailability')
+          .call({'phone': digits, 'email': normalizedEmail});
+    } on FirebaseException catch (e) {
+      return _adminSignupFunctionErrorMessage(
+        e,
+        fallback: 'Could not check account details',
+      );
+    } catch (_) {
+      return 'Could not check account details';
+    }
+
+    _clearPendingAdminOtp();
+    try {
+      await firebase_auth.FirebaseAuth.instance.signOut();
+      if (kIsWeb) {
+        _adminWebPhoneConfirmation = await firebase_auth.FirebaseAuth.instance
+            .signInWithPhoneNumber('+91$digits');
+        _pendingAdminOtp = _PendingCustomerOtp(
+          phone: digits,
+          expiresAt: DateTime.now().add(const Duration(minutes: 10)),
+        );
+        return null;
+      }
+
+      final result = Completer<String?>();
+      await firebase_auth.FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: '+91$digits',
+        verificationCompleted: (credential) {
+          _adminAutoVerifiedPhoneCredential = credential;
+          _pendingAdminOtp ??= _PendingCustomerOtp(
+            phone: digits,
+            expiresAt: DateTime.now().add(const Duration(minutes: 10)),
+          );
+          if (!result.isCompleted) result.complete(null);
+        },
+        verificationFailed: (error) {
+          if (!result.isCompleted) {
+            result.complete(_phoneAuthErrorMessage(error));
+          }
+        },
+        codeSent: (verificationId, _) {
+          _pendingAdminOtp = _PendingCustomerOtp(
+            phone: digits,
+            verificationId: verificationId,
+            expiresAt: DateTime.now().add(const Duration(minutes: 10)),
+          );
+          if (!result.isCompleted) result.complete(null);
+        },
+        codeAutoRetrievalTimeout: (verificationId) {
+          final pending = _pendingAdminOtp;
+          if (pending != null && pending.verificationId == null) {
+            _pendingAdminOtp = _PendingCustomerOtp(
+              phone: digits,
+              verificationId: verificationId,
+              expiresAt: pending.expiresAt,
+            );
+          }
+        },
+      );
+      return result.future;
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      return _phoneAuthErrorMessage(e);
+    } catch (_) {
+      return 'Could not send OTP. Please try again';
+    }
+  }
+
+  Future<String?> completeAdminRegistrationWithOtp({
+    required String ownerName,
+    required String businessName,
+    required String phone,
+    required String email,
+    required String password,
+    required String address,
+    required double normalPrice,
+    required double coolPrice,
+    required bool homeDeliveryAvailable,
+    required String otp,
+  }) async {
+    final digits = InputValidators.phoneDigits(phone);
+    final normalizedEmail = InputValidators.normalizeEmail(email);
+    final authEmail = normalizedEmail.isEmpty
+        ? _adminAuthEmail(digits)
+        : normalizedEmail;
+    final pending = _pendingAdminOtp;
+    if (pending == null || pending.phone != digits) {
+      return 'Send OTP to your mobile first';
+    }
+    if (DateTime.now().isAfter(pending.expiresAt)) {
+      _clearPendingAdminOtp();
+      return 'OTP expired. Request again';
+    }
+    if (ownerName.trim().isEmpty) return 'Owner name is required';
+    if (businessName.trim().isEmpty) return 'Business name is required';
+    if (address.trim().length < 8) return 'Shop address is required';
+    if (normalizedEmail.isNotEmpty &&
+        !InputValidators.isValidEmail(normalizedEmail)) {
+      return 'Enter a valid real email address';
+    }
+    if (password.length < 6) return 'Password must be at least 6 characters';
+
+    try {
+      final credential = await _confirmAdminOtp(otp.trim());
+      final firebaseUser = credential.user;
+      if (firebaseUser == null) return 'Could not verify mobile number';
+
+      final emailCredential = firebase_auth.EmailAuthProvider.credential(
+        email: authEmail,
+        password: password,
+      );
+      try {
+        await firebaseUser.linkWithCredential(emailCredential);
+      } on firebase_auth.FirebaseAuthException catch (e) {
+        if (e.code != 'provider-already-linked') rethrow;
+      }
+
+      final result = await FirebaseBackend.functions
+          .httpsCallable('completeAdminRegistration')
+          .call({
+            'ownerName': ownerName.trim(),
+            'businessName': businessName.trim(),
+            'phone': digits,
+            'email': normalizedEmail,
+            'address': address.trim(),
+            'normalPrice': normalPrice,
+            'coolPrice': coolPrice,
+            'homeDeliveryAvailable': homeDeliveryAvailable,
+          });
+      final data = Map<String, dynamic>.from(result.data as Map);
+      final userData = Map<String, dynamic>.from(data['user'] as Map);
+      final user = AppUser(
+        id: userData['id'] as String? ?? firebaseUser.uid,
+        ownerName: userData['ownerName'] as String? ?? ownerName.trim(),
+        email: userData['email'] as String? ?? normalizedEmail,
+        phone: userData['phone'] as String? ?? digits,
+        businessName:
+            userData['businessName'] as String? ?? businessName.trim(),
+        role: AppRole.admin,
+      );
+      _accounts.add(_StoredAccount(user: user, password: password));
+      _currentUser = null;
+      _clearPendingAdminOtp();
+      await firebase_auth.FirebaseAuth.instance.signOut();
+      notifyListeners();
+      return null;
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      return _adminSignupAuthErrorMessage(e);
+    } on FirebaseException catch (e) {
+      return _adminSignupFunctionErrorMessage(
+        e,
+        fallback: 'Could not create account',
+      );
+    } catch (_) {
+      return 'Could not create account. Please try again';
+    }
+  }
+
   String _authErrorMessage(firebase_auth.FirebaseAuthException e) {
     switch (e.code) {
       case 'email-already-in-use':
         return 'An account with this email already exists';
       case 'invalid-email':
-        return 'Valid email is required';
+        return 'Enter a valid real email address';
       case 'weak-password':
         return 'Password must be at least 6 characters';
       case 'network-request-failed':
@@ -250,6 +468,49 @@ class AuthRepository extends ChangeNotifier {
     }
   }
 
+  String _adminSignupAuthErrorMessage(firebase_auth.FirebaseAuthException e) {
+    switch (e.code) {
+      case 'email-already-in-use':
+      case 'credential-already-in-use':
+      case 'account-exists-with-different-credential':
+        return 'Email or mobile number already has an account';
+      case 'invalid-verification-code':
+        return 'Invalid OTP';
+      case 'session-expired':
+        return 'OTP expired. Request again';
+      case 'invalid-email':
+        return 'Enter a valid real email address';
+      case 'weak-password':
+        return 'Password must be at least 6 characters';
+      case 'network-request-failed':
+        return 'Network error. Check your connection and try again';
+      default:
+        return e.message ?? 'Could not create account';
+    }
+  }
+
+  String _adminSignupFunctionErrorMessage(
+    FirebaseException e, {
+    required String fallback,
+  }) {
+    if (e.code == 'not-found') {
+      return 'Firebase signup functions are not deployed yet. Deploy Cloud Functions and try again.';
+    }
+    if (e.code == 'already-exists') {
+      return e.message ?? 'Email or mobile number already has an account';
+    }
+    if (e.code == 'invalid-argument') {
+      return e.message ?? 'Check the entered account details';
+    }
+    if (e.code == 'permission-denied' || e.code == 'failed-precondition') {
+      return e.message ?? 'Could not verify account details';
+    }
+    if (e.code == 'unavailable') {
+      return 'Firebase is temporarily unavailable. Please try again';
+    }
+    return e.message ?? fallback;
+  }
+
   /// Admin creates driver login linked to [driverId] from [WaterPlantRepository].
   String? createDriverAccount({
     required String driverId,
@@ -258,11 +519,13 @@ class AuthRepository extends ChangeNotifier {
     required String email,
     required String password,
   }) {
-    final normalized = email.trim().toLowerCase();
+    final normalized = InputValidators.normalizeEmail(email);
     if (name.trim().isEmpty) return 'Name is required';
-    if (phone.trim().length < 10) return 'Valid phone is required';
-    if (normalized.isEmpty || !normalized.contains('@')) {
-      return 'Valid email is required';
+    if (!InputValidators.isValidIndianMobile(phone)) {
+      return 'Enter a valid 10-digit mobile number';
+    }
+    if (!InputValidators.isValidEmail(normalized)) {
+      return 'Enter a valid real email address';
     }
     if (password.length < 6) return 'Password must be at least 6 characters';
     if (_accounts.any((a) => a.user.email.toLowerCase() == normalized)) {
@@ -276,7 +539,7 @@ class AuthRepository extends ChangeNotifier {
       id: _uuid.v4(),
       ownerName: name.trim(),
       email: normalized,
-      phone: phone.trim(),
+      phone: InputValidators.phoneDigits(phone),
       businessName: 'Sri Sai RO Water Plant',
       role: AppRole.driver,
       driverId: driverId,
@@ -287,7 +550,7 @@ class AuthRepository extends ChangeNotifier {
   }
 
   void updateDriverAccountEmail(String driverId, String newEmail) {
-    final normalized = newEmail.trim().toLowerCase();
+    final normalized = InputValidators.normalizeEmail(newEmail);
     final index = _accounts.indexWhere((a) => a.user.driverId == driverId);
     if (index < 0) return;
     final user = _accounts[index].user;
@@ -315,7 +578,7 @@ class AuthRepository extends ChangeNotifier {
     required String phone,
     required String email,
   }) {
-    final normalized = email.trim().toLowerCase();
+    final normalized = InputValidators.normalizeEmail(email);
     final index = _accounts.indexWhere((a) => a.user.driverId == driverId);
     if (index < 0) return;
     final user = _accounts[index].user;
@@ -324,7 +587,7 @@ class AuthRepository extends ChangeNotifier {
         id: user.id,
         ownerName: name.trim(),
         email: normalized,
-        phone: phone.trim(),
+        phone: InputValidators.phoneDigits(phone),
         businessName: user.businessName,
         role: user.role,
         driverId: user.driverId,
@@ -367,18 +630,32 @@ class AuthRepository extends ChangeNotifier {
     await firebase_auth.FirebaseAuth.instance.signOut();
     _currentUser = null;
     _clearPendingCustomerOtp();
+    _clearPendingAdminOtp();
     notifyListeners();
   }
 
   _PendingCustomerOtp? _pendingCustomerOtp;
+  _PendingCustomerOtp? _pendingAdminOtp;
 
   firebase_auth.ConfirmationResult? _webPhoneConfirmation;
   firebase_auth.PhoneAuthCredential? _autoVerifiedPhoneCredential;
+  firebase_auth.ConfirmationResult? _adminWebPhoneConfirmation;
+  firebase_auth.PhoneAuthCredential? _adminAutoVerifiedPhoneCredential;
 
   /// Sends a Firebase SMS verification code to an Indian mobile number.
   Future<String?> requestCustomerOtp(String phone) async {
-    final digits = phone.replaceAll(RegExp(r'\D'), '');
-    if (digits.length != 10) return 'Enter a valid 10-digit mobile number';
+    final digits = InputValidators.phoneDigits(phone);
+    if (!InputValidators.isValidIndianMobile(digits)) {
+      return 'Enter a valid 10-digit mobile number';
+    }
+    if (_useMockCustomerOtp) {
+      _pendingCustomerOtp = _PendingCustomerOtp(
+        phone: digits,
+        verificationId: 'mock',
+        expiresAt: DateTime.now().add(const Duration(minutes: 10)),
+      );
+      return null;
+    }
     final phoneNumber = '+91$digits';
     _clearPendingCustomerOtp();
 
@@ -469,7 +746,26 @@ class AuthRepository extends ChangeNotifier {
       return confirmation.confirm(otp);
     }
     final pending = _pendingCustomerOtp;
-    final credential = _autoVerifiedPhoneCredential ??
+    final credential =
+        _autoVerifiedPhoneCredential ??
+        firebase_auth.PhoneAuthProvider.credential(
+          verificationId: pending?.verificationId ?? '',
+          smsCode: otp,
+        );
+    return firebase_auth.FirebaseAuth.instance.signInWithCredential(credential);
+  }
+
+  Future<firebase_auth.UserCredential> _confirmAdminOtp(String otp) {
+    if (kIsWeb) {
+      final confirmation = _adminWebPhoneConfirmation;
+      if (confirmation == null) {
+        throw StateError('Send OTP to your mobile first');
+      }
+      return confirmation.confirm(otp);
+    }
+    final pending = _pendingAdminOtp;
+    final credential =
+        _adminAutoVerifiedPhoneCredential ??
         firebase_auth.PhoneAuthProvider.credential(
           verificationId: pending?.verificationId ?? '',
           smsCode: otp,
@@ -481,6 +777,12 @@ class AuthRepository extends ChangeNotifier {
     _pendingCustomerOtp = null;
     _webPhoneConfirmation = null;
     _autoVerifiedPhoneCredential = null;
+  }
+
+  void _clearPendingAdminOtp() {
+    _pendingAdminOtp = null;
+    _adminWebPhoneConfirmation = null;
+    _adminAutoVerifiedPhoneCredential = null;
   }
 
   /// Returns error message or null on success.
@@ -496,6 +798,24 @@ class AuthRepository extends ChangeNotifier {
     if (DateTime.now().isAfter(pending.expiresAt)) {
       _pendingCustomerOtp = null;
       return 'OTP expired. Request again';
+    }
+    if (_useMockCustomerOtp) {
+      if (otp.trim() != '123456') return 'Invalid OTP';
+      final user = AppUser(
+        id: 'customer-$digits',
+        ownerName: 'Customer',
+        email: '',
+        phone: digits,
+        businessName: '',
+        role: AppRole.customer,
+        customerProfileComplete: false,
+      );
+      _accounts.removeWhere((a) => a.user.id == user.id);
+      _accounts.add(_StoredAccount(user: user, password: ''));
+      _currentUser = user;
+      _clearPendingCustomerOtp();
+      notifyListeners();
+      return null;
     }
     try {
       final credential = await _confirmCustomerOtp(otp.trim());
@@ -558,8 +878,8 @@ class AuthRepository extends ChangeNotifier {
   }
 
   Future<String?> requestPasswordReset(String email) async {
-    final normalized = email.trim().toLowerCase();
-    if (normalized.isEmpty || !normalized.contains('@')) {
+    final normalized = InputValidators.normalizeEmail(email);
+    if (!InputValidators.isValidEmail(normalized)) {
       return 'Enter a valid email address';
     }
 

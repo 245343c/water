@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/widgets/month_year_wheel_picker.dart';
+import 'package:sri_sai_ro_water/data/models/delivery_line_item.dart';
 import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/notifications/notifications_screen.dart';
@@ -34,7 +35,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final repo = context.read<WaterPlantRepository>();
-      await repo.loadLedgerForCurrentShopFromFirestore(force: true);
+      await repo.loadLedgerForCurrentShopFromFirestore(
+        force: true,
+        month: _month,
+      );
     });
   }
 
@@ -160,13 +164,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _pickMonth() async {
+    final repo = context.read<WaterPlantRepository>();
     final picked = await showMonthYearWheelPicker(
       context,
       initial: _month,
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
     );
-    if (picked != null) setState(() => _month = picked);
+    if (picked == null || !mounted) return;
+    setState(() => _month = picked);
+    await repo.loadLedgerForCurrentShopFromFirestore(month: picked);
   }
 
   void _showCustomerPicker(BuildContext context, WaterPlantRepository repo) {
@@ -245,6 +252,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     return Consumer2<WaterPlantRepository, NotificationRepository>(
@@ -253,9 +261,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final business = repo.settings.businessName;
         final today = DateTime.now();
         final todayDeliveries = repo.deliveriesOnDate(today);
-        final todayTotalUnits = todayDeliveries.fold<int>(
+        final todayCanUnits = todayDeliveries.fold<int>(
           0,
-          (sum, d) => sum + d.lines.fold<int>(0, (s, l) => s + l.quantity),
+          (sum, d) =>
+              sum +
+              d.lines
+                  .where(
+                    (line) =>
+                        line.quantityUnit == DeliveryQuantityUnit.can ||
+                        line.quantityUnit == DeliveryQuantityUnit.unit,
+                  )
+                  .fold<int>(0, (s, l) => s + l.quantity),
+        );
+        final todayLiters = todayDeliveries.fold<int>(
+          0,
+          (sum, d) =>
+              sum +
+              d.lines
+                  .where((line) => line.quantityUnit == DeliveryQuantityUnit.liter)
+                  .fold<int>(0, (s, l) => s + l.quantity),
+        );
+        final todayLoads = todayDeliveries.fold<int>(
+          0,
+          (sum, d) =>
+              sum +
+              d.lines
+                  .where((line) => line.quantityUnit == DeliveryQuantityUnit.load)
+                  .fold<int>(0, (s, l) => s + l.quantity),
         );
         final todaySales = todayDeliveries.fold<double>(
           0,
@@ -268,6 +300,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           totalSales: CurrencyUtils.format(stats.totalSales),
           totalDeliveries: _countFmt.format(stats.totalDeliveries),
           totalUnits: _countFmt.format(stats.totalCans),
+          totalLiters: _countFmt.format(stats.totalLiters),
+          totalLoads: _countFmt.format(stats.totalLoads),
           activeCustomers: _countFmt.format(stats.activeCustomers),
           paidThisMonth: CurrencyUtils.format(stats.paidThisMonth),
           pendingAmount: CurrencyUtils.format(stats.pendingAmount),
@@ -288,12 +322,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     adminImagePath: repo.adminImagePath,
                     onAdminTap: () => _pickAdminImage(repo),
                     notificationCount: notifications.unreadCountForAdmin(),
-                    onNotificationsTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => const NotificationsScreen(),
-                      ),
-                    ),
+                    onNotificationsTap: () =>
+                        showAdminNotificationsSheet(context),
                   ),
                   Expanded(
                     child: ListView(
@@ -306,7 +336,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(height: 14),
                         DashboardOwnerSnapshot(
                           todayDeliveries: todayDeliveries.length,
-                          todayTotalUnits: todayTotalUnits,
+                          todayCanUnits: todayCanUnits,
+                          todayLiters: todayLiters,
+                          todayLoads: todayLoads,
                           todaySales: todaySales,
                           productBreakdown: productBreakdown,
                         ),

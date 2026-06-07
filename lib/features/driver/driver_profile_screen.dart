@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/localization/app_strings.dart';
+import 'package:sri_sai_ro_water/core/localization/language_controller.dart';
+import 'package:sri_sai_ro_water/core/localization/language_picker.dart';
+import 'package:sri_sai_ro_water/core/services/push_notification_service.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_customer_detail_widgets.dart';
@@ -15,6 +19,7 @@ class DriverProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthRepository>();
     final repo = context.watch<WaterPlantRepository>();
+    final strings = context.l10n;
     final user = auth.currentUser;
     final driverId = user?.driverId;
     final driver = driverId != null ? repo.driverById(driverId) : null;
@@ -23,8 +28,7 @@ class DriverProfileScreen extends StatelessWidget {
     final name = driver?.name ?? user?.ownerName ?? 'Driver';
     final phone = driver?.phone ?? user?.phone ?? '';
     final email = driver?.email ?? user?.email ?? '';
-    final initial =
-        name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : 'D';
+    final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : 'D';
     final active = driver?.active ?? true;
 
     return Scaffold(
@@ -47,30 +51,32 @@ class DriverProfileScreen extends StatelessWidget {
                       if (email.isNotEmpty)
                         _ProfileInfoRow(
                           icon: Icons.mail_outline_rounded,
-                          label: 'Email',
+                          label: strings.email,
                           value: email,
                         ),
                       if (email.isNotEmpty) const _ProfileDivider(),
                       _ProfileInfoRow(
                         icon: Icons.storefront_rounded,
-                        label: 'Water plant',
-                        value: assignedShop?.name ?? 'Not assigned yet',
+                        label: strings.waterPlant,
+                        value: assignedShop?.name ?? strings.notAssignedYet,
                       ),
                       const _ProfileDivider(),
                       _ProfileInfoRow(
                         icon: Icons.groups_rounded,
-                        label: 'Customers',
+                        label: strings.customers,
                         value: customerCount == 0
-                            ? 'None assigned'
-                            : '$customerCount on your route',
+                            ? strings.noneAssigned
+                            : strings.customersOnRoute(customerCount),
                       ),
+                      const _ProfileDivider(),
+                      _LanguageRow(),
                     ],
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 4, 4, 16),
                   child: Text(
-                    'Contact and plant details are set by your admin.',
+                    strings.profileHelp,
                     style: GoogleFonts.poppins(
                       fontSize: 11,
                       color: DriverColors.labelGrey,
@@ -79,7 +85,11 @@ class DriverProfileScreen extends StatelessWidget {
                   ),
                 ),
                 _SignOutButton(
-                  onTap: () {
+                  onTap: () async {
+                    await context
+                        .read<PushNotificationService>()
+                        .unregisterCurrentToken();
+                    if (!context.mounted) return;
                     auth.logout();
                     context.go(AppRoutes.login);
                   },
@@ -108,6 +118,7 @@ class _DriverProfileBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.l10n;
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
@@ -140,7 +151,7 @@ class _DriverProfileBar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Profile',
+                  strings.profile,
                   style: GoogleFonts.poppins(
                     color: Colors.white.withValues(alpha: 0.85),
                     fontSize: 12,
@@ -180,7 +191,7 @@ class _DriverProfileBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                'Inactive',
+                strings.inactive,
                 style: GoogleFonts.poppins(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -253,6 +264,48 @@ class _ProfileDivider extends StatelessWidget {
   }
 }
 
+class _LanguageRow extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.l10n;
+    return InkWell(
+      onTap: () => showLanguagePicker(context),
+      borderRadius: BorderRadius.circular(12),
+      child: Row(
+        children: [
+          const Icon(Icons.language_rounded, size: 20, color: DriverColors.accent),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  strings.languageLabel,
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: DriverColors.labelGrey,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  context.watch<LanguageController>().language.nativeName,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: DriverColors.titleNavy,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right_rounded, color: DriverColors.labelGrey),
+        ],
+      ),
+    );
+  }
+}
+
 class _SignOutButton extends StatelessWidget {
   const _SignOutButton({required this.onTap});
 
@@ -260,6 +313,7 @@ class _SignOutButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = context.l10n;
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(14),
@@ -275,10 +329,14 @@ class _SignOutButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.logout_rounded, color: Color(0xFFDC2626), size: 20),
+              const Icon(
+                Icons.logout_rounded,
+                color: Color(0xFFDC2626),
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Text(
-                'Sign out',
+                strings.signOut,
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,

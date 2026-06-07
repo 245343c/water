@@ -331,19 +331,17 @@ class _ShopActionButton extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.onTap,
-    this.outlined = false,
   });
 
   final String label;
   final IconData icon;
   final VoidCallback onTap;
-  final bool outlined;
 
   @override
   Widget build(BuildContext context) {
-    final fg = outlined ? CustomerColors.accent : Colors.white;
+    const fg = Colors.white;
     return Material(
-      color: outlined ? Colors.white : CustomerColors.accent,
+      color: CustomerColors.accent,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,

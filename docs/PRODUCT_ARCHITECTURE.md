@@ -6,11 +6,16 @@ This document is the **source of truth** for roles, permissions, and UI scope. A
 
 **One Flutter app**, multiple **roles** after login:
 
+**Current release scope:** admin + driver only. Customer portal UI is paused and must not be exposed through app entry or routing.
+
 | Role | Status | Shell |
 |------|--------|--------|
 | **Admin** | Implemented | Dashboard · Customers · Orders · Products · Menu |
-| **Driver** | Implemented | Route · Customers · Profile |
+| **Driver** | Implemented | Customers · Deliveries · Profile |
 | **Customer** | Implemented (mock) | Home · Orders · Profile — see [MASTER_PLAN.md](MASTER_PLAN.md) |
+
+Current release app entry opens directly to staff sign-in. The old `/welcome`
+role picker is kept only as a legacy redirect to `/login`.
 
 ## Design system (premium)
 
@@ -20,6 +25,22 @@ This document is the **source of truth** for roles, permissions, and UI scope. A
 - Cards: white, 14–16px radius, light border `#E5E7EB`, soft shadow
 - Primary actions: `#1A73E8` (admin), teal gradient (driver)
 - Reuse shared widgets: `CustomerInfoBar`, delivery flows, login premium scaffold
+
+## Language support
+
+- Supported app languages: English, Telugu, Hindi.
+- UI translations live in the Flutter app; Firebase stores only `languageCode`
+  on the user profile.
+- Firestore status keys and business data remain stable and untranslated
+  (`accepted`, `delivered`, official customer names, official addresses,
+  product names, etc.).
+- Customers can optionally store driver-only display fields such as
+  `driverNameTe`, `driverNameHi`, `driverAddressNoteTe`, and
+  `driverAddressNoteHi`. Driver UI shows these fields when the driver's
+  selected language matches; admin, billing, and reports keep using official
+  customer data.
+- Drivers and admins can choose their own language. Admin-created driver
+  credentials do not force the driver's language.
 
 ## Permissions matrix
 
@@ -51,7 +72,7 @@ Enforce in **three layers**: `AppPermissions` → **go_router redirect** → **h
 
 - Login: mobile number + password (created by admin). Admin login still uses email + password.
 - **Field flow:** visit customer → ask how many cans → enter normal/cool on customer screen → **Save & notify** → admin + customer notified (in-app + local push mock).
-- Home: **Route** — admin-confirmed customer requests + today's stops + completed.
+- Home: **Customers** — driver searches/selects a customer first; Deliveries shows admin-confirmed requests + today's stops + completed.
 - Driver sees **accepted orders only** (not pending). Admin accept → push + in-app alert to driver.
 - **Customers**: search/list; detail is read-only except **Add delivery**.
 - Cannot edit prices, payments, settings, or customer profile.
@@ -64,8 +85,9 @@ Enforce in **three layers**: `AppPermissions` → **go_router redirect** → **h
 
 ## Routing
 
+- Staff sign-in: `/login`
 - Admin home: `/`
-- Driver home: `/driver/route` (legacy `/driver/today` redirects)
+- Driver home: `/driver/customers` (legacy `/driver/today` redirects)
 - Driver customer: `/driver/customers/:id`
 - Shared delivery flow: `/customers/:id/delivery` (allowed for driver with guard)
 

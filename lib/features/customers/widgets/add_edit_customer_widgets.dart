@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
+import 'package:sri_sai_ro_water/core/utils/input_validators.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 abstract final class AddEditCustomerColors {
@@ -111,7 +111,7 @@ class AddEditCustomerSectionCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (trailing != null) trailing!,
+                ?trailing,
               ],
             ),
             const SizedBox(height: 12),
@@ -137,6 +137,7 @@ class AddEditCustomerField extends StatelessWidget {
     this.required = false,
     this.obscureText = false,
     this.suffix,
+    this.autovalidateMode,
   });
 
   final String label;
@@ -150,6 +151,7 @@ class AddEditCustomerField extends StatelessWidget {
   final bool required;
   final bool obscureText;
   final Widget? suffix;
+  final AutovalidateMode? autovalidateMode;
 
   @override
   Widget build(BuildContext context) {
@@ -187,6 +189,7 @@ class AddEditCustomerField extends StatelessWidget {
             maxLines: maxLines,
             obscureText: obscureText,
             validator: validator,
+            autovalidateMode: autovalidateMode,
             style: GoogleFonts.poppins(
               fontSize: 15,
               fontWeight: FontWeight.w500,
@@ -468,8 +471,8 @@ class AddEditCustomerSaveButton extends StatelessWidget {
             style: FilledButton.styleFrom(
               backgroundColor: AddEditCustomerColors.primaryBtn,
               foregroundColor: Colors.white,
-              disabledBackgroundColor:
-                  AddEditCustomerColors.primaryBtn.withValues(alpha: 0.6),
+              disabledBackgroundColor: AddEditCustomerColors.primaryBtn
+                  .withValues(alpha: 0.6),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -502,16 +505,10 @@ class AddEditCustomerScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomersScaffold(
-      usePageGradient: true,
-      child: child,
-    );
+    return CustomersScaffold(usePageGradient: true, child: child);
   }
 }
 
 String? validateEmailOptional(String? value) {
-  if (value == null || value.trim().isEmpty) return null;
-  final email = value.trim();
-  final valid = RegExp(r'^[\w\.\-+%]+@[\w\-]+\.[a-zA-Z]{2,}$').hasMatch(email);
-  return valid ? null : 'Enter a valid email address';
+  return InputValidators.optionalEmail(value);
 }

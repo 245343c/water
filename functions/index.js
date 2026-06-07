@@ -2,6 +2,7 @@
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
+const crypto = require("crypto");
 
 admin.initializeApp();
 
@@ -54,10 +55,46 @@ function cleanText(value, field, minLength = 1) {
   return text;
 }
 
+const blockedEmailDomains = new Set([
+  "example.com",
+  "example.org",
+  "example.net",
+  "test.com",
+  "test.local",
+  "waterapp.local",
+  "mailinator.com",
+  "tempmail.com",
+  "temp-mail.org",
+  "10minutemail.com",
+  "guerrillamail.com",
+  "yopmail.com",
+]);
+
+function isValidPublicEmail(email) {
+  if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(email)) {
+    return false;
+  }
+  const parts = email.split("@");
+  if (parts.length !== 2) return false;
+  const [local, domain] = parts;
+  if (local.startsWith(".") || local.endsWith(".") || local.includes("..")) {
+    return false;
+  }
+  if (
+    domain.startsWith("-") ||
+    domain.endsWith("-") ||
+    domain.includes("..") ||
+    blockedEmailDomains.has(domain)
+  ) {
+    return false;
+  }
+  return true;
+}
+
 function cleanEmail(value) {
   const email = cleanText(value, "Email").toLowerCase();
-  if (!email.includes("@")) {
-    throw new HttpsError("invalid-argument", "Enter a valid email.");
+  if (!isValidPublicEmail(email)) {
+    throw new HttpsError("invalid-argument", "Enter a valid real email.");
   }
   return email;
 }
@@ -65,18 +102,18 @@ function cleanEmail(value) {
 function cleanOptionalEmail(value) {
   const email = String(value || "").trim().toLowerCase();
   if (!email) return "";
-  if (!email.includes("@")) {
-    throw new HttpsError("invalid-argument", "Enter a valid email.");
+  if (!isValidPublicEmail(email)) {
+    throw new HttpsError("invalid-argument", "Enter a valid real email.");
   }
   return email;
 }
 
 function normalizePhone(value) {
   const digits = String(value || "").replace(/\D/g, "");
-  if (digits.length !== 10) {
+  if (!/^[6-9]\d{9}$/.test(digits)) {
     throw new HttpsError(
       "invalid-argument",
-      "Enter exactly 10 mobile digits.",
+      "Enter a valid 10-digit mobile number.",
     );
   }
   return digits;
@@ -94,6 +131,10 @@ function driverAuthEmail(phoneDigits) {
   return `driver_${phoneDigits}@waterapp.local`;
 }
 
+function adminAuthEmail(phoneDigits) {
+  return `admin_${phoneDigits}@waterapp.local`;
+}
+
 function cleanPassword(value) {
   const password = String(value || "");
   if (password.length < 6) {
@@ -105,6 +146,65 @@ function cleanPassword(value) {
   return password;
 }
 
+async function assertAdminSignupAvailable({ email, phone, allowUid = null }) {
+  const normalizedPhone = normalizePhone(phone);
+  const authEmail = adminAuthEmail(normalizedPhone);
+  const emailsToCheck = email ? [email, authEmail] : [authEmail];
+  for (const candidateEmail of emailsToCheck) {
+    try {
+      const user = await admin.auth().getUserByEmail(candidateEmail);
+      if (!allowUid || user.uid !== allowUid) {
+        throw new HttpsError(
+          "already-exists",
+          candidateEmail === authEmail
+            ? "Mobile number already has an account."
+            : "Email already has an account.",
+        );
+      }
+    } catch (error) {
+      if (error instanceof HttpsError) throw error;
+      if (error.code !== "auth/user-not-found") throw error;
+    }
+  }
+  try {
+    const user = await admin.auth().getUserByPhoneNumber(`+91${normalizedPhone}`);
+    if (!allowUid || user.uid !== allowUid) {
+      throw new HttpsError("already-exists", "Mobile number already has an account.");
+    }
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    if (error.code !== "auth/user-not-found") throw error;
+  }
+
+  const existingPhone = await db
+    .collection("users")
+    .where("normalizedPhone", "==", normalizedPhone)
+    .limit(1)
+    .get();
+  if (!existingPhone.empty) {
+    throw new HttpsError("already-exists", "Mobile number already has an account.");
+  }
+  const legacyPhone = await db
+    .collection("users")
+    .where("phone", "==", normalizedPhone)
+    .limit(1)
+    .get();
+  if (!legacyPhone.empty) {
+    throw new HttpsError("already-exists", "Mobile number already has an account.");
+  }
+  if (email) {
+    const existingEmail = await db
+      .collection("users")
+      .where("email", "==", email)
+      .limit(1)
+      .get();
+    if (!existingEmail.empty) {
+      throw new HttpsError("already-exists", "Email already has an account.");
+    }
+  }
+  return normalizedPhone;
+}
+
 function driverPayload(driverId, data) {
   return {
     id: driverId,
@@ -114,6 +214,136 @@ function driverPayload(driverId, data) {
     active: data.active !== false,
     uid: data.uid || null,
   };
+}
+
+function cleanFcmToken(value) {
+  const token = String(value || "").trim();
+  if (token.length < 20 || token.length > 4096) {
+    throw new HttpsError("invalid-argument", "A valid FCM token is required.");
+  }
+  return token;
+}
+
+function tokenDocId(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function cleanPlatform(value) {
+  const platform = String(value || "").trim().toLowerCase();
+  return ["android", "ios", "web", "macos", "windows"].includes(platform)
+    ? platform
+    : "unknown";
+}
+
+function pushData(data) {
+  const result = {};
+  for (const [key, value] of Object.entries(data || {})) {
+    if (value === undefined || value === null) continue;
+    result[key] = String(value);
+  }
+  return result;
+}
+
+async function tokenDocsForUser(uid) {
+  const snap = await db
+    .collection("users")
+    .doc(uid)
+    .collection("fcmTokens")
+    .where("active", "==", true)
+    .get();
+  return snap.docs.map((doc) => ({ ref: doc.ref, token: doc.data().token }));
+}
+
+async function userIdsForPushAudience({ shopId, audience, customerId }) {
+  if (audience === "admin" || audience === "driver") {
+    const snap = await db
+      .collection("users")
+      .where("shopId", "==", shopId)
+      .where("role", "==", audience)
+      .get();
+    return snap.docs
+      .filter((doc) => doc.data().active !== false)
+      .map((doc) => doc.id);
+  }
+
+  if (audience === "customer" && customerId) {
+    const snap = await db
+      .collection("customerShopLinks")
+      .where("shopId", "==", shopId)
+      .where("customerId", "==", customerId)
+      .where("active", "==", true)
+      .get();
+    return snap.docs
+      .map((doc) => doc.data().uid)
+      .filter((uid) => !!uid);
+  }
+
+  return [];
+}
+
+async function sendPushToAudience({
+  shopId,
+  audience,
+  title,
+  body,
+  customerId,
+  data,
+}) {
+  const userIds = await userIdsForPushAudience({ shopId, audience, customerId });
+  if (userIds.length === 0) return;
+
+  const tokenDocs = [];
+  for (const uid of userIds) {
+    tokenDocs.push(...await tokenDocsForUser(uid));
+  }
+  const unique = new Map();
+  for (const item of tokenDocs) {
+    if (item.token) unique.set(item.token, item.ref);
+  }
+  const tokens = [...unique.keys()];
+  if (tokens.length === 0) return;
+
+  for (let i = 0; i < tokens.length; i += 500) {
+    const chunk = tokens.slice(i, i + 500);
+    const message = {
+      tokens: chunk,
+      notification: { title, body },
+      data: pushData({
+        shopId,
+        audience,
+        customerId,
+        ...data,
+      }),
+      android: {
+        priority: "high",
+        notification: {
+          channelId: "deliveries",
+          icon: "ic_launcher",
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: "default",
+          },
+        },
+      },
+    };
+    const response = await admin.messaging().sendEachForMulticast(message);
+    const deletes = [];
+    response.responses.forEach((item, index) => {
+      if (item.success) return;
+      const code = item.error?.code || "";
+      if (
+        code === "messaging/registration-token-not-registered" ||
+        code === "messaging/invalid-registration-token"
+      ) {
+        const ref = unique.get(chunk[index]);
+        if (ref) deletes.push(ref.delete());
+      }
+    });
+    if (deletes.length > 0) await Promise.all(deletes);
+  }
 }
 
 function paymentPayload(paymentId, data) {
@@ -474,6 +704,7 @@ function cleanDeliveryLines(value) {
       unitPrice,
       lineTotal: quantity * unitPrice,
       productId: item.productId ? String(item.productId).trim() : null,
+      variantId: item.variantId ? String(item.variantId).trim() : null,
     };
   });
 }
@@ -504,6 +735,17 @@ function customerPrice(customer, productId, variantId, fallback) {
   return Number.isFinite(value) && value >= 0 ? value : fallback;
 }
 
+function channelFallbackPrice(shop, variantId) {
+  const key = String(variantId || "").trim();
+  const fallbackByVariant = {
+    lorryLiters: Number(shop.lorryLiterPrice) || 0,
+    fullLorry: Number(shop.fullLorryPrice) || 0,
+    autoLiters: Number(shop.autoLiterPrice) || 0,
+    autoCans: Number(shop.autoCanPrice) || 0,
+  };
+  return fallbackByVariant[key] ?? 0;
+}
+
 async function applyCanonicalDeliveryPrices(shopId, customer, lines) {
   const shopSnap = await db.collection("shops").doc(shopId).get();
   const shop = shopSnap.data() || {};
@@ -530,6 +772,25 @@ async function applyCanonicalDeliveryPrices(shopId, customer, lines) {
       if (!line.productId) {
         throw new HttpsError("invalid-argument", "Bottle product is required.");
       }
+      if (line.productId === CHANNEL_PRODUCT_ID) {
+        if (!line.variantId) {
+          throw new HttpsError(
+            "invalid-argument",
+            "Delivery channel variant is required.",
+          );
+        }
+        unitPrice = customerPrice(
+          customer,
+          CHANNEL_PRODUCT_ID,
+          line.variantId,
+          channelFallbackPrice(shop, line.variantId),
+        );
+        return {
+          ...line,
+          unitPrice,
+          lineTotal: line.quantity * unitPrice,
+        };
+      }
       const productSnap = await db
         .collection("shops")
         .doc(shopId)
@@ -547,6 +808,7 @@ async function applyCanonicalDeliveryPrices(shopId, customer, lines) {
           price &&
           price.enabled !== false &&
           price.productId === line.productId &&
+          (!line.variantId || price.variantId === line.variantId) &&
           Number.isFinite(Number(price.unitPrice)) &&
           Number(price.unitPrice) >= 0);
       const selectedPrice = allowedPrices.find(
@@ -796,6 +1058,185 @@ async function getDriverForAdmin(adminCtx, driverId) {
   }
   return { driverRef, driver };
 }
+
+exports.checkAdminSignupAvailability = onCall(callableOptions, async (request) => {
+  const email = cleanOptionalEmail(request.data.email);
+  const phone = cleanText(request.data.phone, "Phone", 10);
+  const normalizedPhone = await assertAdminSignupAvailable({ email, phone });
+  return { ok: true, normalizedPhone };
+});
+
+exports.completeAdminRegistration = onCall(callableOptions, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Verify mobile OTP first.");
+  }
+  const authPhone = normalizeAuthPhone(request.auth.token.phone_number);
+  const email = cleanOptionalEmail(request.data.email);
+  const normalizedPhone = normalizePhone(request.data.phone);
+  const expectedAuthEmail = email || adminAuthEmail(normalizedPhone);
+  if (authPhone !== normalizedPhone) {
+    throw new HttpsError(
+      "permission-denied",
+      "Verified mobile number does not match this signup.",
+    );
+  }
+  await assertAdminSignupAvailable({
+    email,
+    phone: normalizedPhone,
+    allowUid: request.auth.uid,
+  });
+
+  const ownerName = cleanText(request.data.ownerName, "Owner name");
+  const businessName = cleanText(request.data.businessName, "Business name");
+  const address = cleanText(request.data.address, "Shop address", 8);
+  const normalPrice = Number(request.data.normalPrice);
+  const coolPrice = Number(request.data.coolPrice);
+  const homeDeliveryAvailable = request.data.homeDeliveryAvailable === true;
+  const uid = request.auth.uid;
+  const authUser = await admin.auth().getUser(uid);
+  if (authUser.email && authUser.email.toLowerCase() !== expectedAuthEmail) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Verified account email does not match this signup.",
+    );
+  }
+  if (!authUser.email) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Set login password before completing signup.",
+    );
+  }
+
+  const shopRef = db.collection("shops").doc();
+  const userRef = db.collection("users").doc(uid);
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const authPhoneNumber = request.auth.token.phone_number || `+91${normalizedPhone}`;
+
+  await db.runTransaction(async (tx) => {
+    const userSnap = await tx.get(userRef);
+    if (userSnap.exists) {
+      throw new HttpsError("already-exists", "This account is already registered.");
+    }
+    tx.set(userRef, {
+      role: "admin",
+      name: ownerName,
+      email,
+      authEmail: expectedAuthEmail,
+      phone: normalizedPhone,
+      normalizedPhone,
+      authPhoneNumber,
+      businessName,
+      shopId: shopRef.id,
+      customerProfileComplete: true,
+      active: true,
+      phoneVerified: true,
+      emailVerified: authUser.emailVerified === true,
+      approvalStatus: "active",
+      createdAt: now,
+      updatedAt: now,
+    });
+    tx.set(shopRef, {
+      ownerUid: uid,
+      name: businessName,
+      address,
+      phone: normalizedPhone,
+      normalizedPhone,
+      email,
+      authEmail: expectedAuthEmail,
+      normalPrice: Number.isFinite(normalPrice) ? normalPrice : 20,
+      coolPrice: Number.isFinite(coolPrice) ? coolPrice : 30,
+      homeDeliveryAvailable,
+      subscriptionStatus: "trial",
+      trialEndsAt: admin.firestore.Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      ),
+      active: true,
+      isListed: homeDeliveryAvailable,
+      approvalStatus: "active",
+      createdAt: now,
+      updatedAt: now,
+    });
+  });
+
+  await admin.auth().setCustomUserClaims(uid, {
+    role: "admin",
+    shopId: shopRef.id,
+  });
+
+  return {
+    user: {
+      id: uid,
+      ownerName,
+      email,
+      phone: normalizedPhone,
+      businessName,
+      role: "admin",
+    },
+    shopId: shopRef.id,
+  };
+});
+
+exports.registerFcmToken = onCall(callableOptions, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in first.");
+  }
+  const token = cleanFcmToken(request.data.token);
+  const platform = cleanPlatform(request.data.platform);
+  const userSnap = await db.collection("users").doc(request.auth.uid).get();
+  const user = userSnap.data();
+  if (!user || user.active === false) {
+    throw new HttpsError("permission-denied", "Active user account required.");
+  }
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const docId = tokenDocId(token);
+  const staleSnap = await db
+    .collectionGroup("fcmTokens")
+    .where("tokenHash", "==", docId)
+    .where("active", "==", true)
+    .get();
+  const batch = db.batch();
+  staleSnap.docs.forEach((doc) => {
+    if (doc.ref.parent.parent?.id !== request.auth.uid) {
+      batch.set(doc.ref, { active: false, updatedAt: now }, { merge: true });
+    }
+  });
+  batch.set(userSnap.ref.collection("fcmTokens").doc(docId), {
+    token,
+    tokenHash: docId,
+    platform,
+    role: user.role || "",
+    shopId: user.shopId || "",
+    driverId: user.driverId || "",
+    active: true,
+    updatedAt: now,
+    createdAt: now,
+  }, { merge: true });
+  batch.set(userSnap.ref, {
+    lastFcmTokenAt: now,
+    updatedAt: now,
+  }, { merge: true });
+  await batch.commit();
+
+  return { ok: true };
+});
+
+exports.unregisterFcmToken = onCall(callableOptions, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in first.");
+  }
+  const token = cleanFcmToken(request.data.token);
+  await db
+    .collection("users")
+    .doc(request.auth.uid)
+    .collection("fcmTokens")
+    .doc(tokenDocId(token))
+    .set({
+      active: false,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  return { ok: true };
+});
 
 exports.createDriverAccount = onCall(callableOptions, async (request) => {
   const adminCtx = await requireAdmin(request.auth);
@@ -1205,6 +1646,32 @@ exports.recordCustomerDelivery = onCall(callableOptions, async (request) => {
     now,
   });
   await batch.commit();
+  await Promise.all([
+    sendPushToAudience({
+      shopId: staffCtx.shopId,
+      audience: "admin",
+      title: "Delivery recorded",
+      body: `${driverName} delivered ${summary} to ${customer.name || "Customer"}. Bill Rs.${Math.round(totals.totalAmount)} updated.`,
+      customerId,
+      data: {
+        type: "deliveryRecorded",
+        deliveryId: deliveryRef.id,
+        driverId,
+      },
+    }),
+    sendPushToAudience({
+      shopId: staffCtx.shopId,
+      audience: "customer",
+      title: "Water delivered today",
+      body: `${summary} delivered to your address. Amount Rs.${Math.round(totals.totalAmount)} added to your account.`,
+      customerId,
+      data: {
+        type: "deliveryRecorded",
+        deliveryId: deliveryRef.id,
+        driverId,
+      },
+    }),
+  ]);
 
   return deliveryPayload(deliveryRef.id, {
     ...delivery,
@@ -1469,6 +1936,32 @@ exports.respondToCustomerOrder = onCall(callableOptions, async (request) => {
     });
   }
   await batch.commit();
+  await sendPushToAudience({
+    shopId: adminCtx.shopId,
+    audience: "customer",
+    title: status === "accepted" ? "Request accepted" : "Request declined",
+    body: status === "accepted"
+      ? "Your water request was accepted. A driver will deliver soon."
+      : `Your water request was declined.${adminResponse ? ` Reason: ${adminResponse}` : ""}`,
+    customerId: order.customerId,
+    data: {
+      type: status === "accepted" ? "orderAccepted" : "orderRejected",
+      orderId,
+    },
+  });
+  if (status === "accepted") {
+    await sendPushToAudience({
+      shopId: adminCtx.shopId,
+      audience: "driver",
+      title: "New delivery task",
+      body: "An accepted customer request is ready for delivery.",
+      customerId: order.customerId,
+      data: {
+        type: "orderAccepted",
+        orderId,
+      },
+    });
+  }
   return orderPayload(orderId, {
     ...order,
     status,
@@ -1580,6 +2073,31 @@ async function createWalkInDispatchHandler(request) {
     });
   }
   await batch.commit();
+  if (sendToDriver) {
+    await sendPushToAudience({
+      shopId: adminCtx.shopId,
+      audience: "driver",
+      title: "Instant delivery",
+      body: `${callerName} - ${dispatchItemsSummary(lineItems)}`,
+      customerId: customerRef.id,
+      data: {
+        type: "orderAccepted",
+        orderId: orderRef.id,
+      },
+    });
+  } else {
+    await sendPushToAudience({
+      shopId: adminCtx.shopId,
+      audience: "admin",
+      title: "Instant - no stock",
+      body: `${callerName} - ${dispatchItemsSummary(lineItems)} - not sent to driver`,
+      customerId: customerRef.id,
+      data: {
+        type: "orderRejected",
+        orderId: orderRef.id,
+      },
+    });
+  }
 
   return {
     order: orderPayload(orderRef.id, {
@@ -1764,6 +2282,40 @@ exports.fulfillDispatchOrder = onCall(callableOptions, async (request) => {
     now,
   });
   await batch.commit();
+  await Promise.all([
+    sendPushToAudience({
+      shopId: staffCtx.shopId,
+      audience: "admin",
+      title: collectionStatus === "pending"
+        ? "Instant - payment pending"
+        : "Instant - delivered",
+      body: `${callerName} - ${summary} - ${collectionStatusLabel(
+        collectionStatus,
+        collectedAmount,
+        collectionMethod,
+      )}`,
+      customerId,
+      data: {
+        type: collectionStatus === "pending"
+          ? "dispatchPaymentPending"
+          : "dispatchFulfilled",
+        orderId,
+        deliveryId: deliveryRef.id,
+      },
+    }),
+    sendPushToAudience({
+      shopId: staffCtx.shopId,
+      audience: "customer",
+      title: "Water delivered today",
+      body: `${summary} delivered to your address. Amount Rs.${Math.round(totals.totalAmount)} added to your account.`,
+      customerId,
+      data: {
+        type: "deliveryRecorded",
+        orderId,
+        deliveryId: deliveryRef.id,
+      },
+    }),
+  ]);
 
   return {
     order: orderPayload(orderId, {
@@ -1848,7 +2400,7 @@ exports.updateWalkInDispatch = onCall(callableOptions, async (request) => {
     const notifyBatch = db.batch();
     notifyBatch.set(orderRef, updates, { merge: true });
     appendOrderNotification({
-      notifyBatch,
+      batch: notifyBatch,
       shopId: adminCtx.shopId,
       type: collectionStatus === "pending"
         ? "dispatchPaymentPending"
@@ -1865,6 +2417,23 @@ exports.updateWalkInDispatch = onCall(callableOptions, async (request) => {
       now,
     });
     await notifyBatch.commit();
+    await sendPushToAudience({
+      shopId: adminCtx.shopId,
+      audience: "admin",
+      title: "Instant - admin confirmed",
+      body: `${callerName} - ${collectionStatusLabel(
+        collectionStatus,
+        collectedAmount,
+        collectionMethod,
+      )}`,
+      customerId: order.customerId,
+      data: {
+        type: collectionStatus === "pending"
+          ? "dispatchPaymentPending"
+          : "dispatchFulfilled",
+        orderId,
+      },
+    });
     return orderPayload(orderId, responseOrder);
   } else if (action === "updateCollection") {
     if (!order.fulfilledAt) {

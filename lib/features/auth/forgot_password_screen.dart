@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/utils/input_validators.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/features/auth/widgets/auth_screen_widgets.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
@@ -29,9 +30,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
 
-    final error = await context
-        .read<AuthRepository>()
-        .requestPasswordReset(_emailController.text);
+    final error = await context.read<AuthRepository>().requestPasswordReset(
+      _emailController.text,
+    );
 
     if (!mounted) return;
     setState(() {
@@ -69,11 +70,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     required: true,
                     textInputAction: TextInputAction.done,
                     onFieldSubmitted: (_) => _sendCode(),
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Email is required';
-                      if (!v.contains('@')) return 'Enter a valid email';
-                      return null;
-                    },
+                    validator: InputValidators.requiredEmail,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
                   ),
                 ],
               ),

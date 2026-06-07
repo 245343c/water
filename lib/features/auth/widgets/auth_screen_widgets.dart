@@ -136,9 +136,7 @@ class _AuthPremiumHero extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.16),
                 borderRadius: BorderRadius.circular(13),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.25),
-                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
               ),
               child: Icon(icon, color: Colors.white, size: 24),
             ),
@@ -405,6 +403,7 @@ class AuthTextField extends StatelessWidget {
     this.inCard = true,
     this.premium = false,
     this.maxLines = 1,
+    this.autovalidateMode,
   });
 
   final String label;
@@ -422,6 +421,7 @@ class AuthTextField extends StatelessWidget {
   final bool inCard;
   final bool premium;
   final int maxLines;
+  final AutovalidateMode? autovalidateMode;
 
   @override
   Widget build(BuildContext context) {
@@ -434,7 +434,12 @@ class AuthTextField extends StatelessWidget {
     );
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(horizontal, 0, horizontal, premium ? 14 : 16),
+      padding: EdgeInsets.fromLTRB(
+        horizontal,
+        0,
+        horizontal,
+        premium ? 14 : 16,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -462,6 +467,7 @@ class AuthTextField extends StatelessWidget {
             textCapitalization: textCapitalization,
             obscureText: obscureText,
             validator: validator,
+            autovalidateMode: autovalidateMode,
             textInputAction: textInputAction,
             onFieldSubmitted: onFieldSubmitted,
             style: GoogleFonts.poppins(
@@ -479,26 +485,26 @@ class AuthTextField extends StatelessWidget {
               fillColor: premium ? Colors.white : AuthColors.fieldFill,
               prefixIcon: icon != null
                   ? premium
-                      ? Padding(
-                          padding: const EdgeInsets.only(left: 10, right: 4),
-                          child: Container(
-                            width: 38,
-                            height: 38,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: AuthColors.primaryBtn.withValues(
-                                alpha: 0.09,
+                        ? Padding(
+                            padding: const EdgeInsets.only(left: 10, right: 4),
+                            child: Container(
+                              width: 38,
+                              height: 38,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: AuthColors.primaryBtn.withValues(
+                                  alpha: 0.09,
+                                ),
+                                borderRadius: BorderRadius.circular(11),
                               ),
-                              borderRadius: BorderRadius.circular(11),
+                              child: Icon(
+                                icon,
+                                size: 18,
+                                color: AuthColors.primaryBtn,
+                              ),
                             ),
-                            child: Icon(
-                              icon,
-                              size: 18,
-                              color: AuthColors.primaryBtn,
-                            ),
-                          ),
-                        )
-                      : Icon(icon, size: 20, color: AuthColors.labelGrey)
+                          )
+                        : Icon(icon, size: 20, color: AuthColors.labelGrey)
                   : null,
               prefixIconConstraints: premium
                   ? const BoxConstraints(minWidth: 52, minHeight: 48)

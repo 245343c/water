@@ -232,19 +232,27 @@ class DashboardOwnerSnapshot extends StatelessWidget {
   const DashboardOwnerSnapshot({
     super.key,
     required this.todayDeliveries,
-    required this.todayTotalUnits,
+    required this.todayCanUnits,
+    required this.todayLiters,
+    required this.todayLoads,
     required this.todaySales,
     required this.productBreakdown,
   });
 
   final int todayDeliveries;
-  final int todayTotalUnits;
+  final int todayCanUnits;
+  final int todayLiters;
+  final int todayLoads;
   final double todaySales;
   final List<DashboardProductBreakdown> productBreakdown;
 
   @override
   Widget build(BuildContext context) {
     final topRows = productBreakdown.take(5).toList();
+    final bulkParts = <String>[
+      if (todayLiters > 0) '$todayLiters L',
+      if (todayLoads > 0) '$todayLoads load${todayLoads == 1 ? '' : 's'}',
+    ];
     return Container(
       decoration: DashboardColors.whiteCard,
       padding: const EdgeInsets.all(14),
@@ -293,9 +301,11 @@ class DashboardOwnerSnapshot extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _OwnerMetricTile(
-                  label: 'Total units',
-                  value: '$todayTotalUnits',
-                  helper: 'All products today',
+                  label: 'Cans / count',
+                  value: '$todayCanUnits',
+                  helper: bulkParts.isEmpty
+                      ? 'Countable items'
+                      : 'Bulk: ${bulkParts.join(' • ')}',
                   color: DashboardColors.statBlue,
                   icon: Icons.inventory_2_outlined,
                 ),
@@ -633,9 +643,9 @@ class _ProductBreakdownRow extends StatelessWidget {
             ),
           ),
           SizedBox(
-            width: 34,
+            width: 58,
             child: Text(
-              '${row.quantity}',
+              row.quantityLabel,
               textAlign: TextAlign.right,
               style: GoogleFonts.poppins(
                 fontSize: 12,
@@ -1022,6 +1032,8 @@ class DashboardOverviewData {
     required this.totalSales,
     required this.totalDeliveries,
     required this.totalUnits,
+    required this.totalLiters,
+    required this.totalLoads,
     required this.activeCustomers,
     required this.paidThisMonth,
     required this.pendingAmount,
@@ -1030,6 +1042,8 @@ class DashboardOverviewData {
   final String totalSales;
   final String totalDeliveries;
   final String totalUnits;
+  final String totalLiters;
+  final String totalLoads;
   final String activeCustomers;
   final String paidThisMonth;
   final String pendingAmount;
@@ -1112,6 +1126,8 @@ class DashboardOverviewCard extends StatelessWidget {
             totalSales: data.totalSales,
             deliveries: data.totalDeliveries,
             units: data.totalUnits,
+            liters: data.totalLiters,
+            loads: data.totalLoads,
           ),
           const SizedBox(height: 10),
 
@@ -1156,7 +1172,7 @@ class DashboardOverviewCard extends StatelessWidget {
               Expanded(
                 child: _CompactMetric(
                   value: data.totalUnits,
-                  label: 'Units',
+                  label: 'Cans',
                   color: DashboardColors.statTeal,
                   icon: Icons.water_drop_rounded,
                 ),
@@ -1185,14 +1201,26 @@ class _SalesHero extends StatelessWidget {
     required this.totalSales,
     required this.deliveries,
     required this.units,
+    required this.liters,
+    required this.loads,
   });
 
   final String totalSales;
   final String deliveries;
   final String units;
+  final String liters;
+  final String loads;
 
   @override
   Widget build(BuildContext context) {
+    final bulkParts = <String>[
+      if (liters != '0') '$liters L',
+      if (loads != '0') '$loads loads',
+    ];
+    final quantityText = [
+      '$units cans',
+      ...bulkParts,
+    ].join('  •  ');
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
@@ -1234,7 +1262,7 @@ class _SalesHero extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '$deliveries deliveries  •  $units units',
+                  '$deliveries deliveries  •  $quantityText',
                   style: GoogleFonts.poppins(
                     fontSize: 11,
                     fontWeight: FontWeight.w500,

@@ -17,10 +17,10 @@ class DeliveryRecordingService {
     required NotificationRepository notifications,
     required PushNotificationService push,
     required AuthRepository auth,
-  })  : _plant = plant,
-        _notifications = notifications,
-        _push = push,
-        _auth = auth;
+  }) : _plant = plant,
+       _notifications = notifications,
+       _push = push,
+       _auth = auth;
 
   final WaterPlantRepository _plant;
   final NotificationRepository _notifications;
@@ -29,23 +29,26 @@ class DeliveryRecordingService {
 
   static const int maxCansPerDelivery = 50;
 
-  Delivery recordCansDelivery({
+  Future<Delivery> recordCansDelivery({
     required String customerId,
     required int normalQty,
     required int coolQty,
+    DateTime? date,
     int emptyNormalReturned = 0,
     int emptyCoolReturned = 0,
     List<BottleDeliveryInput> extraBottles = const [],
     String? driverNote,
     bool driverMode = false,
-  }) {
+  }) async {
     final user = _auth.currentUser;
     if (user == null) {
       throw DeliveryValidationException('You must be signed in');
     }
 
     if (driverMode && !user.isDriver) {
-      throw DeliveryValidationException('Only drivers can use field delivery mode');
+      throw DeliveryValidationException(
+        'Only drivers can use field delivery mode',
+      );
     }
 
     final customer = _plant.customerById(customerId);
@@ -53,14 +56,15 @@ class DeliveryRecordingService {
       throw DeliveryValidationException('Customer not found');
     }
 
-    final extraQty =
-        extraBottles.fold<int>(0, (sum, b) => sum + b.quantity);
+    final extraQty = extraBottles.fold<int>(0, (sum, b) => sum + b.quantity);
     final totalCans = normalQty + coolQty + extraQty;
     if (totalCans <= 0) {
       throw DeliveryValidationException('Enter at least 1 item delivered');
     }
     if (normalQty + coolQty > maxCansPerDelivery) {
-      throw DeliveryValidationException('Maximum $maxCansPerDelivery cans per trip');
+      throw DeliveryValidationException(
+        'Maximum $maxCansPerDelivery cans per trip',
+      );
     }
 
     if (normalQty < 0 || coolQty < 0) {
@@ -80,20 +84,22 @@ class DeliveryRecordingService {
         ? DateTime(today.year, today.month, today.day, today.hour, today.minute)
         : today;
 
-    final delivery = _plant.addDelivery(
+    final driverName = user.isDriver
+        ? (_plant.driverById(user.driverId)?.name ?? user.ownerName)
+        : user.ownerName;
+
+    final delivery = await _plant.addDeliveryToCurrentShop(
       customerId: customerId,
-      date: deliveryDate,
+      date: date ?? deliveryDate,
       normalQty: normalQty,
       coolQty: coolQty,
       emptyNormalReturned: emptyNormalReturned,
       emptyCoolReturned: emptyCoolReturned,
       bottles: extraBottles,
       driverId: staffId,
+      driverName: driverName,
+      customer: customer,
     );
-
-    final driverName = user.isDriver
-        ? (_plant.driverById(user.driverId)?.name ?? user.ownerName)
-        : user.ownerName;
 
     _notifications.recordDelivery(
       delivery: delivery,

@@ -3,8 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/services/admin_dispatch_service.dart';
+import 'package:sri_sai_ro_water/core/constants/customer_pricing_keys.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
+import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
+import 'package:sri_sai_ro_water/data/models/delivery_line_item.dart';
+import 'package:sri_sai_ro_water/data/models/order_line_item.dart';
 import 'package:sri_sai_ro_water/data/models/order_status.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
@@ -155,17 +159,83 @@ class _AdminDispatchManageSheetState extends State<_AdminDispatchManageSheet> {
     );
   }
 
-  Future<void> _confirmMarkDelivered() async {
-    final choice = await _pickCollection();
+  Future<_AdminFulfillmentChoice?> _pickFulfillment(
+    CustomerOrder order,
+    WaterPlantRepository repo,
+  ) {
+    final customer = repo.customerById(order.customerId);
+    if (customer == null) {
+      _snack('Instant customer record not found. Refresh and try again.');
+      return Future.value(null);
+    }
+    return showDialog<_AdminFulfillmentChoice>(
+      context: context,
+      builder: (ctx) => _AdminFulfillmentDialog(
+        order: order,
+        customer: customer,
+        repo: repo,
+      ),
+    );
+  }
+
+  List<Map<String, dynamic>> _deliveryLinesForChoice({
+    required _AdminFulfillmentChoice choice,
+    required Customer customer,
+    required WaterPlantRepository repo,
+  }) {
+    final bottles = <BottleDeliveryInput>[
+      for (final item in choice.items)
+        if (!item.isNormalCan && !item.isCoolCan && item.quantity > 0)
+          BottleDeliveryInput(
+            label: item.label,
+            quantity: item.quantity,
+            unitPrice: repo.customerUnitPrice(
+              customer,
+              productId: item.productId,
+              variantId: item.variantId,
+            ),
+            productId: item.productId,
+            variantId: item.variantId,
+          ),
+    ];
+
+    return repo.buildDeliveryLineMaps(
+      customerId: customer.id,
+      date: DateTime.now(),
+      normalQty: choice.normalQty,
+      coolQty: choice.coolQty,
+      bottles: bottles,
+      customer: customer,
+    );
+  }
+
+  Future<void> _confirmMarkDelivered(
+    CustomerOrder order,
+    WaterPlantRepository repo,
+  ) async {
+    final choice = await _pickFulfillment(order, repo);
     if (choice == null || !mounted) return;
+    final customer = repo.customerById(order.customerId);
+    if (customer == null) {
+      _snack('Instant customer record not found. Refresh and try again.');
+      return;
+    }
+    final lines = _deliveryLinesForChoice(
+      choice: choice,
+      customer: customer,
+      repo: repo,
+    );
     await _run(
       () => context.read<AdminDispatchService>().markDeliveredByAdmin(
             orderId: widget.orderId,
+            lines: lines,
+            emptyNormalReturned: choice.emptyNormalReturned,
+            emptyCoolReturned: choice.emptyCoolReturned,
             collectionStatus: choice.status,
             collectedAmount: choice.amount,
             collectionMethod: choice.method,
           ),
-      'Marked as delivered',
+      'Delivery saved and ledger updated',
     );
     if (mounted) Navigator.pop(context);
   }
@@ -395,7 +465,9 @@ class _AdminDispatchManageSheetState extends State<_AdminDispatchManageSheet> {
                         ],
                         if (canManage) ...[
                           FilledButton.icon(
-                            onPressed: _busy ? null : _confirmMarkDelivered,
+                            onPressed: _busy
+                                ? null
+                                : () => _confirmMarkDelivered(order, repo),
                             style: FilledButton.styleFrom(
                               backgroundColor: CustomersColors.addButton,
                               padding: const EdgeInsets.symmetric(vertical: 14),
@@ -858,6 +930,371 @@ class _AdminCollectionChoice {
   final String method;
 }
 
+class _AdminFulfillmentChoice {
+  const _AdminFulfillmentChoice({
+    required this.items,
+    required this.normalQty,
+    required this.coolQty,
+    required this.emptyNormalReturned,
+    required this.emptyCoolReturned,
+    required this.status,
+    required this.amount,
+    required this.method,
+  });
+
+  final List<OrderLineItem> items;
+  final int normalQty;
+  final int coolQty;
+  final int emptyNormalReturned;
+  final int emptyCoolReturned;
+  final String status;
+  final double amount;
+  final String method;
+}
+
+class _AdminFulfillmentDialog extends StatefulWidget {
+  const _AdminFulfillmentDialog({
+    required this.order,
+    required this.customer,
+    required this.repo,
+  });
+
+  final CustomerOrder order;
+  final Customer customer;
+  final WaterPlantRepository repo;
+
+  @override
+  State<_AdminFulfillmentDialog> createState() =>
+      _AdminFulfillmentDialogState();
+}
+
+class _AdminFulfillmentDialogState extends State<_AdminFulfillmentDialog> {
+  final Map<String, int> _qtyByKey = {};
+  final _amount = TextEditingController();
+  String _status = 'collected';
+  String _method = 'cash';
+  int _emptyNormal = 0;
+  int _emptyCool = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final items = widget.order.lineItems.isNotEmpty
+        ? widget.order.lineItems
+        : [
+            if (widget.order.normalQty > 0)
+              OrderLineItem(
+                productId: CustomerPricingKeys.canProductId,
+                variantId: CustomerPricingKeys.normalVariantId,
+                label: 'Normal Can',
+                quantity: widget.order.normalQty,
+              ),
+            if (widget.order.coolQty > 0)
+              OrderLineItem(
+                productId: CustomerPricingKeys.canProductId,
+                variantId: CustomerPricingKeys.coolVariantId,
+                label: 'Cool Can',
+                quantity: widget.order.coolQty,
+              ),
+          ];
+    for (final item in items) {
+      _qtyByKey[_key(item)] = item.quantity;
+    }
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    super.dispose();
+  }
+
+  String _key(OrderLineItem item) => '${item.productId}|${item.variantId}';
+
+  List<OrderLineItem> get _templateItems {
+    if (widget.order.lineItems.isNotEmpty) return widget.order.lineItems;
+    return [
+      if (widget.order.normalQty > 0)
+        OrderLineItem(
+          productId: CustomerPricingKeys.canProductId,
+          variantId: CustomerPricingKeys.normalVariantId,
+          label: 'Normal Can',
+          quantity: widget.order.normalQty,
+        ),
+      if (widget.order.coolQty > 0)
+        OrderLineItem(
+          productId: CustomerPricingKeys.canProductId,
+          variantId: CustomerPricingKeys.coolVariantId,
+          label: 'Cool Can',
+          quantity: widget.order.coolQty,
+        ),
+    ];
+  }
+
+  List<OrderLineItem> get _actualItems {
+    return [
+      for (final item in _templateItems)
+        if ((_qtyByKey[_key(item)] ?? 0) > 0)
+          OrderLineItem(
+            productId: item.productId,
+            variantId: item.variantId,
+            label: item.label,
+            quantity: _qtyByKey[_key(item)] ?? 0,
+          ),
+    ];
+  }
+
+  int get _normalQty => _actualItems
+      .where((item) => item.isNormalCan)
+      .fold<int>(0, (total, item) => total + item.quantity);
+
+  int get _coolQty => _actualItems
+      .where((item) => item.isCoolCan)
+      .fold<int>(0, (total, item) => total + item.quantity);
+
+  int get _deliveredTotal =>
+      _actualItems.fold<int>(0, (total, item) => total + item.quantity);
+
+  double get _estimate =>
+      widget.repo.estimateDispatchTotal(widget.customer, _actualItems);
+
+  void _submit() {
+    if (_deliveredTotal <= 0) {
+      _snack('Enter what was delivered');
+      return;
+    }
+    final typedAmount = double.tryParse(_amount.text.trim());
+    final amount = _status == 'collected' ? (typedAmount ?? _estimate) : 0.0;
+    if (_status == 'collected' && amount <= 0) {
+      _snack('Enter amount collected');
+      return;
+    }
+    Navigator.pop(
+      context,
+      _AdminFulfillmentChoice(
+        items: _actualItems,
+        normalQty: _normalQty,
+        coolQty: _coolQty,
+        emptyNormalReturned: _emptyNormal,
+        emptyCoolReturned: _emptyCool,
+        status: _status,
+        amount: amount,
+        method: _method,
+      ),
+    );
+  }
+
+  void _snack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg, style: GoogleFonts.poppins())),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(
+        'Confirm delivered',
+        style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Actual delivered',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: CustomersColors.titleNavy,
+              ),
+            ),
+            const SizedBox(height: 8),
+            for (final item in _templateItems) ...[
+              _AdminQtyRow(
+                label: item.label,
+                value: _qtyByKey[_key(item)] ?? 0,
+                onChanged: (value) =>
+                    setState(() => _qtyByKey[_key(item)] = value),
+              ),
+              const SizedBox(height: 8),
+            ],
+            Text(
+              'Empty returned',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: CustomersColors.titleNavy,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _AdminQtyRow(
+              label: 'Empty normal',
+              value: _emptyNormal,
+              onChanged: (value) => setState(() => _emptyNormal = value),
+            ),
+            const SizedBox(height: 8),
+            _AdminQtyRow(
+              label: 'Empty cool',
+              value: _emptyCool,
+              onChanged: (value) => setState(() => _emptyCool = value),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Payment',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: CustomersColors.titleNavy,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _RadioTile(
+              title: 'Cash / UPI received',
+              value: 'collected',
+              group: _status,
+              onChanged: (v) => setState(() => _status = v),
+            ),
+            _RadioTile(
+              title: 'Not paid - customer will pay admin',
+              value: 'pending',
+              group: _status,
+              onChanged: (v) => setState(() => _status = v),
+            ),
+            _RadioTile(
+              title: 'Pay later / waived',
+              value: 'waived',
+              group: _status,
+              onChanged: (v) => setState(() => _status = v),
+            ),
+            if (_status == 'collected') ...[
+              const SizedBox(height: 8),
+              Text(
+                'Estimated amount: ${CurrencyUtils.format(_estimate)}',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: CustomersColors.labelGrey,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _amount,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Collected amount',
+                  hintText: _estimate > 0 ? _estimate.toStringAsFixed(0) : '',
+                  labelStyle: GoogleFonts.poppins(),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                style: GoogleFonts.poppins(),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: _method,
+                decoration: InputDecoration(
+                  labelText: 'Method',
+                  labelStyle: GoogleFonts.poppins(),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'cash', child: Text('Cash')),
+                  DropdownMenuItem(value: 'upi', child: Text('UPI')),
+                ],
+                onChanged: (v) {
+                  if (v != null) setState(() => _method = v);
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel', style: GoogleFonts.poppins()),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          style: FilledButton.styleFrom(
+            backgroundColor: CustomersColors.addButton,
+          ),
+          child: Text(
+            'Save delivery',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AdminQtyRow extends StatelessWidget {
+  const _AdminQtyRow({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: CustomersColors.cardBorder),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: CustomersColors.titleNavy,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: value > 0 ? () => onChanged(value - 1) : null,
+            icon: const Icon(Icons.remove_circle_outline),
+            color: CustomersColors.addButton,
+          ),
+          SizedBox(
+            width: 34,
+            child: Text(
+              '$value',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: CustomersColors.titleNavy,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: () => onChanged(value + 1),
+            icon: const Icon(Icons.add_circle),
+            color: CustomersColors.addButton,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AdminCollectionDialog extends StatefulWidget {
   const _AdminCollectionDialog();
 
@@ -942,7 +1379,7 @@ class _AdminCollectionDialogState extends State<_AdminCollectionDialog> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _method,
+                initialValue: _method,
                 decoration: InputDecoration(
                   labelText: 'Method',
                   labelStyle: GoogleFonts.poppins(),
@@ -990,15 +1427,18 @@ class _RadioTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RadioListTile<String>(
-      title: Text(title, style: GoogleFonts.poppins(fontSize: 13)),
-      value: value,
-      groupValue: group,
-      onChanged: (v) {
-        if (v != null) onChanged(v);
-      },
+    final selected = value == group;
+    return ListTile(
       contentPadding: EdgeInsets.zero,
       dense: true,
+      minLeadingWidth: 24,
+      leading: Icon(
+        selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+        color: selected ? CustomersColors.addButton : CustomersColors.labelGrey,
+        size: 20,
+      ),
+      title: Text(title, style: GoogleFonts.poppins(fontSize: 13)),
+      onTap: () => onChanged(value),
     );
   }
 }

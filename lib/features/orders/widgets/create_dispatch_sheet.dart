@@ -91,9 +91,7 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
           ? _volumeQuantity(type.variantId)
           : (_channelQty[type.variantId] ?? 0);
       if (qty > 0) {
-        items.add(
-          OrderLineItem.fromDeliveryType(type: type, quantity: qty),
-        );
+        items.add(OrderLineItem.fromDeliveryType(type: type, quantity: qty));
       }
     }
     for (final product in repo.catalogProducts()) {
@@ -115,7 +113,7 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
     return items;
   }
 
-  Future<void> _save({required bool sendToDriver}) async {
+  Future<void> _save() async {
     if (_name.text.trim().isEmpty) {
       _snack('Who called? Enter a name');
       return;
@@ -137,21 +135,19 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
     setState(() => _saving = true);
     try {
       await context.read<AdminDispatchService>().createInstantDelivery(
-            callerName: _name.text.trim(),
-            callerPhone: _phone.text.trim(),
-            callerAddress: _address.text.trim(),
-            callerPlace: _place.text.trim(),
-            lineItems: items,
-            note: _note.text.trim().isEmpty ? null : _note.text.trim(),
-            sendToDriver: sendToDriver,
-          );
+        callerName: _name.text.trim(),
+        callerPhone: _phone.text.trim(),
+        callerAddress: _address.text.trim(),
+        callerPlace: _place.text.trim(),
+        lineItems: items,
+        note: _note.text.trim().isEmpty ? null : _note.text.trim(),
+        sendToDriver: true,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            sendToDriver
-                ? 'Sent to driver — they will deliver & collect payment'
-                : 'Saved — no stock, customer informed',
+            'Sent to driver - they will deliver and collect payment',
             style: GoogleFonts.poppins(),
           ),
           behavior: SnackBarBehavior.floating,
@@ -166,9 +162,9 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
   }
 
   void _snack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg, style: GoogleFonts.poppins())),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(msg, style: GoogleFonts.poppins())));
   }
 
   String _messageForError(Object error) {
@@ -205,7 +201,7 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
           ),
           child: SafeArea(
             child: SizedBox(
-              height: MediaQuery.sizeOf(context).height * 0.88,
+              height: MediaQuery.sizeOf(context).height * 0.82,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -237,7 +233,7 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
                                 ),
                               ),
                               Text(
-                                'Walk-in / phone · not a monthly customer',
+                                'Phone order - one-time delivery',
                                 style: GoogleFonts.poppins(
                                   fontSize: 12,
                                   color: CustomersColors.labelGrey,
@@ -298,7 +294,7 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
                         const SizedBox(height: 8),
                         ValueListenableBuilder<int>(
                           valueListenable: _normal,
-                          builder: (_, v, __) => AddDeliveryCanStepper(
+                          builder: (context, v, child) => AddDeliveryCanStepper(
                             label: 'Normal Can',
                             value: v,
                             onChanged: (n) => _normal.value = n,
@@ -306,7 +302,7 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
                         ),
                         ValueListenableBuilder<int>(
                           valueListenable: _cool,
-                          builder: (_, v, __) => AddDeliveryCanStepper(
+                          builder: (context, v, child) => AddDeliveryCanStepper(
                             label: 'Cool Can',
                             value: v,
                             onChanged: (n) => _cool.value = n,
@@ -404,7 +400,7 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         FilledButton(
-                          onPressed: _saving ? null : () => _save(sendToDriver: true),
+                          onPressed: _saving ? null : _save,
                           style: FilledButton.styleFrom(
                             backgroundColor: CustomersColors.addButton,
                             padding: const EdgeInsets.symmetric(vertical: 14),
@@ -422,33 +418,12 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
                                   ),
                                 )
                               : Text(
-                                  'Have stock — send to driver',
+                                  'Send to driver',
                                   style: GoogleFonts.poppins(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 15,
                                   ),
                                 ),
-                        ),
-                        const SizedBox(height: 10),
-                        OutlinedButton(
-                          onPressed: _saving
-                              ? null
-                              : () => _save(sendToDriver: false),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFFDC2626),
-                            side: const BorderSide(color: Color(0xFFFECACA)),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(
-                            'No stock — inform customer',
-                            style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                          ),
                         ),
                       ],
                     ),

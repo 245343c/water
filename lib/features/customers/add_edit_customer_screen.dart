@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/utils/input_validators.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/customer_product_price.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
@@ -30,6 +31,10 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
   late final TextEditingController _emailController;
   late final TextEditingController _placeController;
   late final TextEditingController _addressController;
+  late final TextEditingController _driverNameTeController;
+  late final TextEditingController _driverNameHiController;
+  late final TextEditingController _driverAddressNoteTeController;
+  late final TextEditingController _driverAddressNoteHiController;
   bool _loaded = false;
   bool _pricingReady = false;
   List<CustomerProductPrice> _productPrices = [];
@@ -40,13 +45,19 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      await context.read<WaterPlantRepository>().loadDeliveryRoutesForCurrentAdmin();
+      await context
+          .read<WaterPlantRepository>()
+          .loadDeliveryRoutesForCurrentAdmin();
     });
     _nameController = TextEditingController();
     _phoneController = TextEditingController();
     _emailController = TextEditingController();
     _placeController = TextEditingController();
     _addressController = TextEditingController();
+    _driverNameTeController = TextEditingController();
+    _driverNameHiController = TextEditingController();
+    _driverAddressNoteTeController = TextEditingController();
+    _driverAddressNoteHiController = TextEditingController();
   }
 
   void _loadCustomer(Customer? customer, WaterPlantRepository repo) {
@@ -57,6 +68,10 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
       _emailController.text = customer.email;
       _placeController.text = customer.place;
       _addressController.text = customer.address;
+      _driverNameTeController.text = customer.driverNameTe;
+      _driverNameHiController.text = customer.driverNameHi;
+      _driverAddressNoteTeController.text = customer.driverAddressNoteTe;
+      _driverAddressNoteHiController.text = customer.driverAddressNoteHi;
       _productPrices = customer.productPrices.isEmpty
           ? repo.defaultCustomerPricing()
           : List<CustomerProductPrice>.from(customer.productPrices);
@@ -80,6 +95,10 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
     _emailController.dispose();
     _placeController.dispose();
     _addressController.dispose();
+    _driverNameTeController.dispose();
+    _driverNameHiController.dispose();
+    _driverAddressNoteTeController.dispose();
+    _driverAddressNoteHiController.dispose();
     super.dispose();
   }
 
@@ -88,10 +107,14 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
 
     final data = (
       name: _nameController.text.trim(),
-      phone: _phoneController.text.trim(),
+      phone: InputValidators.phoneDigits(_phoneController.text),
       email: _emailController.text.trim(),
       place: _placeController.text.trim(),
       address: _addressController.text.trim(),
+      driverNameTe: _driverNameTeController.text.trim(),
+      driverNameHi: _driverNameHiController.text.trim(),
+      driverAddressNoteTe: _driverAddressNoteTeController.text.trim(),
+      driverAddressNoteHi: _driverAddressNoteHiController.text.trim(),
     );
 
     try {
@@ -104,39 +127,30 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
             email: data.email,
             place: data.place,
             address: data.address,
+            driverNameTe: data.driverNameTe,
+            driverNameHi: data.driverNameHi,
+            driverAddressNoteTe: data.driverAddressNoteTe,
+            driverAddressNoteHi: data.driverAddressNoteHi,
             productPrices: _productPrices,
             routeId: _selectedRouteId,
             clearRoute: _selectedRouteId == null,
           );
-          try {
-            await repo.updateCustomerInCurrentAdminShop(updated);
-          } catch (_) {
-            repo.updateCustomer(updated);
-            await repo.setCustomerRoute(existing.id, _selectedRouteId);
-          }
+          await repo.updateCustomerInCurrentAdminShop(updated);
         }
       } else {
-        try {
-          await repo.addCustomerToCurrentAdminShop(
-            name: data.name,
-            phone: data.phone,
-            email: data.email,
-            place: data.place,
-            address: data.address,
-            productPrices: _productPrices,
-            routeId: _selectedRouteId,
-          );
-        } catch (_) {
-          repo.addCustomer(
-            name: data.name,
-            phone: data.phone,
-            email: data.email,
-            place: data.place,
-            address: data.address,
-            productPrices: _productPrices,
-            routeId: _selectedRouteId,
-          );
-        }
+        await repo.addCustomerToCurrentAdminShop(
+          name: data.name,
+          phone: data.phone,
+          email: data.email,
+          place: data.place,
+          address: data.address,
+          driverNameTe: data.driverNameTe,
+          driverNameHi: data.driverNameHi,
+          driverAddressNoteTe: data.driverAddressNoteTe,
+          driverAddressNoteHi: data.driverAddressNoteHi,
+          productPrices: _productPrices,
+          routeId: _selectedRouteId,
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -167,9 +181,26 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
   }
 
   Future<void> _delete(WaterPlantRepository repo, String customerName) async {
-    final confirmed = await confirmDeleteCustomer(context, customerName: customerName);
+    final confirmed = await confirmDeleteCustomer(
+      context,
+      customerName: customerName,
+    );
     if (!confirmed || !mounted) return;
-    repo.deleteCustomer(widget.customerId!);
+    try {
+      await repo.deleteCustomerFromCurrentAdminShop(widget.customerId!);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().replaceFirst('StateError: ', ''),
+            style: GoogleFonts.poppins(),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -184,7 +215,9 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
   Widget build(BuildContext context) {
     return Consumer<WaterPlantRepository>(
       builder: (context, repo, _) {
-        final customer = widget.isEditing ? repo.customerById(widget.customerId!) : null;
+        final customer = widget.isEditing
+            ? repo.customerById(widget.customerId!)
+            : null;
         _loadCustomer(customer, repo);
         _initPricingForNewCustomer(repo);
 
@@ -228,9 +261,13 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
                 children: [
                   AddEditCustomerHeader(
                     title: widget.isEditing ? 'Edit Customer' : 'Add Customer',
-                    subtitle: widget.isEditing ? null : 'Monthly customer account',
+                    subtitle: widget.isEditing
+                        ? null
+                        : 'Monthly customer account',
                     onBack: () => context.pop(),
-                    onDelete: widget.isEditing ? () => _delete(repo, customer!.name) : null,
+                    onDelete: widget.isEditing
+                        ? () => _delete(repo, customer!.name)
+                        : null,
                   ),
                   Expanded(
                     child: Form(
@@ -249,7 +286,8 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
                                   icon: Icons.person_outline_rounded,
                                   textCapitalization: TextCapitalization.words,
                                   required: true,
-                                  validator: (v) => v == null || v.trim().isEmpty
+                                  validator: (v) =>
+                                      v == null || v.trim().isEmpty
                                       ? 'Name is required'
                                       : null,
                                 ),
@@ -260,11 +298,8 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
                                   icon: Icons.phone_outlined,
                                   keyboardType: TextInputType.phone,
                                   required: true,
-                                  validator: (v) {
-                                    final digits = v?.replaceAll(RegExp(r'\D'), '') ?? '';
-                                    if (digits.length < 10) return 'Valid phone required';
-                                    return null;
-                                  },
+                                  validator:
+                                      InputValidators.requiredIndianMobile,
                                 ),
                                 AddEditCustomerField(
                                   label: 'Email',
@@ -273,6 +308,8 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
                                   icon: Icons.email_outlined,
                                   keyboardType: TextInputType.emailAddress,
                                   validator: validateEmailOptional,
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
                                 ),
                                 AddEditCustomerField(
                                   label: 'Place',
@@ -281,7 +318,8 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
                                   icon: Icons.place_outlined,
                                   textCapitalization: TextCapitalization.words,
                                   required: true,
-                                  validator: (v) => v == null || v.trim().isEmpty
+                                  validator: (v) =>
+                                      v == null || v.trim().isEmpty
                                       ? 'Place is required'
                                       : null,
                                 ),
@@ -290,12 +328,56 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
                                   controller: _addressController,
                                   hint: 'Door no, street, landmark',
                                   icon: Icons.home_outlined,
-                                  textCapitalization: TextCapitalization.sentences,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
                                   maxLines: 3,
                                   required: true,
-                                  validator: (v) => v == null || v.trim().isEmpty
+                                  validator: (v) =>
+                                      v == null || v.trim().isEmpty
                                       ? 'Address is required'
                                       : null,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          AddEditCustomerSectionCard(
+                            title: 'Driver language display',
+                            subtitle:
+                                'Optional. Driver app shows these names only when that language is selected.',
+                            child: Column(
+                              children: [
+                                AddEditCustomerField(
+                                  label: 'Telugu driver name',
+                                  controller: _driverNameTeController,
+                                  hint: 'Example: రమేష్ కుమార్',
+                                  icon: Icons.translate_rounded,
+                                  textCapitalization: TextCapitalization.words,
+                                ),
+                                AddEditCustomerField(
+                                  label: 'Hindi driver name',
+                                  controller: _driverNameHiController,
+                                  hint: 'Example: रमेश कुमार',
+                                  icon: Icons.translate_rounded,
+                                  textCapitalization: TextCapitalization.words,
+                                ),
+                                AddEditCustomerField(
+                                  label: 'Telugu driver address note',
+                                  controller: _driverAddressNoteTeController,
+                                  hint: 'Example: గుడి పక్కన, మెయిన్ రోడ్',
+                                  icon: Icons.edit_location_alt_outlined,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
+                                  maxLines: 2,
+                                ),
+                                AddEditCustomerField(
+                                  label: 'Hindi driver address note',
+                                  controller: _driverAddressNoteHiController,
+                                  hint: 'Example: मंदिर के पास, मेन रोड',
+                                  icon: Icons.edit_location_alt_outlined,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
+                                  maxLines: 2,
                                 ),
                               ],
                             ),
@@ -318,12 +400,16 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
                             trailing: TextButton(
                               onPressed: () {
                                 setState(() {
-                                  _productPrices = repo.defaultCustomerPricing();
+                                  _productPrices = repo
+                                      .defaultCustomerPricing();
                                 });
                               },
                               style: TextButton.styleFrom(
-                                foregroundColor: AddEditCustomerColors.primaryBtn,
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                foregroundColor:
+                                    AddEditCustomerColors.primaryBtn,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
                                 minimumSize: Size.zero,
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),

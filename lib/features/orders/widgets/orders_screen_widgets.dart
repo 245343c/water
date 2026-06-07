@@ -399,7 +399,7 @@ class OrderListCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = CustomersColors
         .avatarBgs[colorIndex % CustomersColors.avatarBgs.length];
-    final statusStyle = dispatchStatusStyle(order);
+    final statusStyle = _dispatchStatusStyle(order);
     final statusLabel = order.isPhoneDispatch || order.isDelivered || order.isCancelled
         ? order.dispatchTrackerLabel
         : order.status.label;
@@ -730,7 +730,7 @@ _StatusStyle _statusStyle(OrderStatus status) {
   };
 }
 
-_StatusStyle dispatchStatusStyle(CustomerOrder order) {
+_StatusStyle _dispatchStatusStyle(CustomerOrder order) {
   if (order.isCancelled) {
     return const _StatusStyle(
       bg: Color(0xFFF3F4F6),
@@ -756,7 +756,7 @@ _StatusStyle dispatchStatusStyle(CustomerOrder order) {
 }
 
 Widget dispatchStatusBadge(CustomerOrder order) {
-  final style = dispatchStatusStyle(order);
+  final style = _dispatchStatusStyle(order);
   final label = order.isPhoneDispatch || order.isDelivered || order.isCancelled
       ? order.dispatchTrackerLabel
       : order.status.label;

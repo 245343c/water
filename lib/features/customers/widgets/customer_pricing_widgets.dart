@@ -4,12 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/data/models/delivery_product_type.dart';
 import 'package:sri_sai_ro_water/data/models/customer_product_price.dart';
-import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/models/product_category.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/add_edit_customer_widgets.dart';
 import 'package:sri_sai_ro_water/features/products/models/product_icon_choice.dart';
-import 'package:sri_sai_ro_water/features/products/widgets/delivery_product_type_widgets.dart';
 
 /// Editable pricing list for Add / Edit Customer.
 class CustomerPricingEditor extends StatefulWidget {
@@ -66,32 +64,6 @@ class _CustomerPricingEditorState extends State<CustomerPricingEditor> {
     setState(() {});
   }
 
-  void _setDeliveryTypeEnabled(DeliveryProductType type, bool enabled) {
-    final existing = _find(type.productId, type.variantId);
-    final price =
-        existing?.unitPrice ?? widget.repo.shopDefaultRateForDeliveryType(type);
-    _upsert(
-      CustomerProductPrice(
-        productId: type.productId,
-        variantId: type.variantId,
-        unitPrice: price,
-        enabled: enabled,
-      ),
-    );
-  }
-
-  void _setDeliveryTypePrice(DeliveryProductType type, double price) {
-    final existing = _find(type.productId, type.variantId);
-    _upsert(
-      CustomerProductPrice(
-        productId: type.productId,
-        variantId: type.variantId,
-        unitPrice: price,
-        enabled: existing?.enabled ?? false,
-      ),
-    );
-  }
-
   bool _isDeliveryTypeEnabled(DeliveryProductType type) {
     return _find(type.productId, type.variantId)?.enabled ?? false;
   }
@@ -101,66 +73,9 @@ class _CustomerPricingEditorState extends State<CustomerPricingEditor> {
         widget.repo.shopDefaultRateForDeliveryType(type);
   }
 
-  void _addBottleProduct(Product product) {
-    for (final variant in product.variants) {
-      if (_find(product.id, variant.id) != null) continue;
-      _upsert(
-        CustomerProductPrice(
-          productId: product.id,
-          variantId: variant.id,
-          unitPrice: variant.price,
-          enabled: true,
-        ),
-      );
-    }
-  }
-
-  void _removeBottleProduct(String productId) {
-    _entries.removeWhere((e) => e.productId == productId);
-    _emit();
-    setState(() {});
-  }
-
-  void _setBottlePrice(String productId, String variantId, double price) {
-    final existing = _find(productId, variantId);
-    _upsert(
-      CustomerProductPrice(
-        productId: productId,
-        variantId: variantId,
-        unitPrice: price,
-        enabled: existing?.enabled ?? false,
-      ),
-    );
-  }
-
-  void _setBottleEnabled(String productId, String variantId, bool enabled) {
-    final existing = _find(productId, variantId);
-    if (existing == null) return;
-    _upsert(existing.copyWith(enabled: enabled));
-  }
-
   void _resetToShopRates() {
     setState(() => _entries = widget.repo.defaultCustomerPricing());
     _emit();
-  }
-
-  List<Product> get _bottleProductsInEntries {
-    final ids = _entries.map((e) => e.productId).toSet();
-    return widget.repo.products
-        .where((p) => p.category == ProductCategory.bottle && ids.contains(p.id))
-        .toList();
-  }
-
-  List<Product> get _availableToAdd {
-    final added = _entries.map((e) => e.productId).toSet();
-    return widget.repo.products
-        .where(
-          (p) =>
-              p.isActive &&
-              p.category == ProductCategory.bottle &&
-              !added.contains(p.id),
-        )
-        .toList();
   }
 
   List<_CustomerSelectableItem> _allSelectableItems() {
@@ -522,120 +437,6 @@ class _EnabledItemsPricingCard extends StatelessWidget {
   }
 }
 
-class _DeliveryTypesCustomerSection extends StatelessWidget {
-  const _DeliveryTypesCustomerSection({
-    required this.isEnabled,
-    required this.priceFor,
-    required this.shopRateFor,
-    required this.onToggle,
-    required this.onPrice,
-    this.embedded = false,
-  });
-
-  final bool Function(DeliveryProductType type) isEnabled;
-  final double Function(DeliveryProductType type) priceFor;
-  final double Function(DeliveryProductType type) shopRateFor;
-  final ValueChanged<DeliveryProductType> onToggle;
-  final void Function(DeliveryProductType type, double price) onPrice;
-  final bool embedded;
-
-  @override
-  Widget build(BuildContext context) {
-    final enabledTypes =
-        DeliveryProductType.catalog.where(isEnabled).toList();
-
-    return _PricingCardShell(
-      embedded: embedded,
-      icon: Icons.grid_view_rounded,
-      iconColor: const Color(0xFF2563EB),
-      title: 'Delivery product types',
-      subtitle: 'Tap to enable or disable for this customer',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          DeliveryProductTypeGrid(
-            compact: true,
-            types: DeliveryProductType.catalog,
-            builder: (context, type) {
-              final enabled = isEnabled(type);
-              return DeliveryProductTypeBox(
-                type: type,
-                compact: true,
-                selected: enabled,
-                enabled: enabled,
-                onTap: () => onToggle(type),
-              );
-            },
-          ),
-          if (enabledTypes.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            for (var i = 0; i < enabledTypes.length; i++) ...[
-              _VariantPriceRow(
-                label: enabledTypes[i].title,
-                enabled: true,
-                price: priceFor(enabledTypes[i]),
-                shopHint: shopRateFor(enabledTypes[i]),
-                onEnabled: (_) => onToggle(enabledTypes[i]),
-                onPrice: (v) => onPrice(enabledTypes[i], v),
-              ),
-              if (i != enabledTypes.length - 1) const SizedBox(height: 10),
-            ],
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _BottlePricingCard extends StatelessWidget {
-  const _BottlePricingCard({
-    required this.product,
-    required this.entries,
-    required this.onRemove,
-    required this.onPriceChanged,
-    required this.onEnabledChanged,
-    this.embedded = false,
-  });
-
-  final Product product;
-  final List<CustomerProductPrice> entries;
-  final VoidCallback onRemove;
-  final void Function(String variantId, double price) onPriceChanged;
-  final void Function(String variantId, bool enabled) onEnabledChanged;
-  final bool embedded;
-
-  @override
-  Widget build(BuildContext context) {
-    return _PricingCardShell(
-      embedded: embedded,
-      icon: productIconByKey(product.iconKey).icon,
-      iconColor: const Color(0xFF0D9488),
-      title: product.name,
-      subtitle: product.variantSummary,
-      trailing: IconButton(
-        icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF9CA3AF)),
-        onPressed: onRemove,
-        tooltip: 'Remove product',
-      ),
-      child: Column(
-        children: [
-          for (final entry in entries) ...[
-            _VariantPriceRow(
-              label: product.variants.firstWhere((v) => v.id == entry.variantId).label,
-              enabled: entry.enabled,
-              price: entry.unitPrice,
-              shopHint: product.variants.firstWhere((v) => v.id == entry.variantId).price,
-              onEnabled: (v) => onEnabledChanged(entry.variantId, v),
-              onPrice: (v) => onPriceChanged(entry.variantId, v),
-            ),
-            if (entry != entries.last) const SizedBox(height: 10),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 class _PricingCardShell extends StatelessWidget {
   const _PricingCardShell({
     required this.icon,
@@ -643,7 +444,6 @@ class _PricingCardShell extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.child,
-    this.trailing,
     this.embedded = false,
   });
 
@@ -652,7 +452,6 @@ class _PricingCardShell extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget child;
-  final Widget? trailing;
   final bool embedded;
 
   @override
@@ -711,7 +510,6 @@ class _PricingCardShell extends StatelessWidget {
                     ],
                   ),
                 ),
-                ?trailing,
               ],
             ),
           ),
@@ -877,61 +675,3 @@ class _PriceFieldState extends State<_PriceField> {
   }
 }
 
-class _AddProductDropdown extends StatelessWidget {
-  const _AddProductDropdown({
-    required this.products,
-    required this.onSelected,
-    this.embedded = false,
-  });
-
-  final List<Product> products;
-  final ValueChanged<Product> onSelected;
-  final bool embedded;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.only(bottom: embedded ? 8 : 4),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AddEditCustomerColors.fieldBorder, width: 1.5),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<Product>(
-          isExpanded: true,
-          hint: Row(
-            children: [
-              Icon(Icons.add_circle_outline, size: 20, color: AddEditCustomerColors.primaryBtn),
-              const SizedBox(width: 10),
-              Text(
-                'Add bottle product',
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AddEditCustomerColors.primaryBtn,
-                ),
-              ),
-            ],
-          ),
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AddEditCustomerColors.primaryBtn),
-          items: products
-              .map(
-                (p) => DropdownMenuItem(
-                  value: p,
-                  child: Text(
-                    p.name,
-                    style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
-                  ),
-                ),
-              )
-              .toList(),
-          onChanged: (p) {
-            if (p != null) onSelected(p);
-          },
-        ),
-      ),
-    );
-  }
-}

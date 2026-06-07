@@ -44,14 +44,18 @@ class _MonthlyBillScreenState extends State<MonthlyBillScreen> {
       if (!mounted) return;
       final repo = context.read<WaterPlantRepository>();
       await repo.loadCustomersForCurrentAdminFromFirestore();
-      await repo.loadLedgerForCurrentShopFromFirestore();
+      await repo.loadLedgerForCurrentShopFromFirestore(month: _month);
     });
   }
 
-  void _shiftMonth(int delta) {
+  Future<void> _shiftMonth(int delta) async {
+    final nextMonth = DateTime(_month.year, _month.month + delta);
     setState(() {
-      _month = DateTime(_month.year, _month.month + delta);
+      _month = nextMonth;
     });
+    await context
+        .read<WaterPlantRepository>()
+        .loadLedgerForCurrentShopFromFirestore(month: nextMonth);
   }
 
   bool get _canGoNext {
@@ -165,8 +169,9 @@ class _MonthlyBillScreenState extends State<MonthlyBillScreen> {
           repo.deliveriesForCustomer(widget.customerId, month: _month),
         );
         final stats = repo.monthlyStatsForCustomer(widget.customerId, _month);
-        final colorIndex =
-            repo.customers.indexWhere((c) => c.id == widget.customerId);
+        final colorIndex = repo.customers.indexWhere(
+          (c) => c.id == widget.customerId,
+        );
 
         return Scaffold(
           backgroundColor: CustomersColors.screenBg,
@@ -213,8 +218,9 @@ class _MonthlyBillScreenState extends State<MonthlyBillScreen> {
                     ),
                     MonthlyBillActionBar(
                       onDownload: _busy ? () {} : _downloadPdf,
-                      onWhatsApp:
-                          _busy ? () {} : () => _sharePdf(forWhatsApp: true),
+                      onWhatsApp: _busy
+                          ? () {}
+                          : () => _sharePdf(forWhatsApp: true),
                     ),
                   ],
                 ),

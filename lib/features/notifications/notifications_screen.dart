@@ -14,65 +14,181 @@ class NotificationsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return const _AdminNotificationsPanel(asSheet: false);
+  }
+}
+
+Future<void> showAdminNotificationsSheet(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (_) => const _AdminNotificationsPanel(asSheet: true),
+  );
+}
+
+class _AdminNotificationsPanel extends StatelessWidget {
+  const _AdminNotificationsPanel({required this.asSheet});
+
+  final bool asSheet;
+
+  @override
+  Widget build(BuildContext context) {
     return Consumer2<NotificationRepository, WaterPlantRepository>(
       builder: (context, notifications, repo, _) {
         final items = notifications.forAdmin();
+        final content = Column(
+          children: [
+            if (asSheet)
+              _NotificationsSheetHeader(
+                isEmpty: items.isEmpty,
+                onReadAll: notifications.markAllReadForAdmin,
+              )
+            else
+              AdminPageHeader(
+                title: 'Notifications',
+                subtitle: 'Admin alerts and customer activity',
+                onBack: () => Navigator.pop(context),
+                trailing: items.isEmpty
+                    ? null
+                    : TextButton(
+                        onPressed: notifications.markAllReadForAdmin,
+                        child: Text(
+                          'Read all',
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+              ),
+            Expanded(
+              child: items.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No notifications yet',
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFF6B7280),
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        asSheet ? 0 : 16,
+                        16,
+                        asSheet
+                            ? MediaQuery.paddingOf(context).bottom + 16
+                            : 16,
+                      ),
+                      itemCount: items.length,
+                      itemBuilder: (_, i) {
+                        final n = items[i];
+                        final customer = n.customerId != null
+                            ? repo.customerById(n.customerId!)
+                            : null;
+                        return _NotificationTile(
+                          notification: n,
+                          customerName: customer?.name,
+                          onTap: () => notifications.markRead(n.id),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        );
+
+        if (asSheet) {
+          return SafeArea(
+            top: false,
+            child: SizedBox(
+              height: MediaQuery.sizeOf(context).height * 0.72,
+              child: content,
+            ),
+          );
+        }
 
         return Scaffold(
           backgroundColor: AppColors.surface,
-          body: PremiumResponsiveBody(
-            maxWidth: 1180,
-            child: Column(
-              children: [
-                AdminPageHeader(
-                  title: 'Notifications',
-                  subtitle: 'Admin alerts and customer activity',
-                  onBack: () => Navigator.pop(context),
-                  trailing: items.isEmpty
-                      ? null
-                      : TextButton(
-                          onPressed: notifications.markAllReadForAdmin,
-                          child: Text(
-                            'Read all',
-                            style: GoogleFonts.poppins(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                ),
-                Expanded(
-                  child: items.isEmpty
-                      ? Center(
-                          child: Text(
-                            'No notifications yet',
-                            style: GoogleFonts.poppins(
-                              color: const Color(0xFF6B7280),
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: items.length,
-                          itemBuilder: (_, i) {
-                            final n = items[i];
-                            final customer = n.customerId != null
-                                ? repo.customerById(n.customerId!)
-                                : null;
-                            return _NotificationTile(
-                              notification: n,
-                              customerName: customer?.name,
-                              onTap: () => notifications.markRead(n.id),
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
-          ),
+          body: PremiumResponsiveBody(maxWidth: 1180, child: content),
         );
       },
+    );
+  }
+}
+
+class _NotificationsSheetHeader extends StatelessWidget {
+  const _NotificationsSheetHeader({
+    required this.isEmpty,
+    required this.onReadAll,
+  });
+
+  final bool isEmpty;
+  final VoidCallback onReadAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+      child: Column(
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE5E7EB),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Notifications',
+                      style: GoogleFonts.poppins(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                    Text(
+                      'Admin alerts and activity',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: const Color(0xFF6B7280),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (!isEmpty)
+                TextButton(
+                  onPressed: onReadAll,
+                  child: Text(
+                    'Read all',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF2563EB),
+                    ),
+                  ),
+                ),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

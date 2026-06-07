@@ -3,8 +3,14 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:sri_sai_ro_water/features/customer/widgets/customer_theme.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
+
+abstract final class _WelcomeColors {
+  static const titleNavy = Color(0xFF0F172A);
+  static const labelGrey = Color(0xFF64748B);
+  static const cardBorder = Color(0xFFE2E8F0);
+  static const staffAccent = Color(0xFF0F172A);
+}
 
 class RolePickerScreen extends StatelessWidget {
   const RolePickerScreen({super.key});
@@ -72,7 +78,7 @@ class _WelcomeHero extends StatelessWidget {
             ),
             const SizedBox(height: 26),
             Text(
-              'Pure water,\ndelivered home.',
+              'Sri Sai RO\nStaff portal.',
               style: GoogleFonts.poppins(
                 color: Colors.white,
                 fontSize: 32,
@@ -82,7 +88,7 @@ class _WelcomeHero extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Order RO water from trusted shops near you.\nFast - Fresh - Affordable',
+              'Manage customers, deliveries, billing,\nand driver field work from one app.',
               style: GoogleFonts.poppins(
                 color: Colors.white.withValues(alpha: 0.75),
                 fontSize: 12,
@@ -117,25 +123,16 @@ class _RolePickerCard extends StatelessWidget {
               fontSize: 10,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.2,
-              color: CustomerColors.labelGrey,
+              color: _WelcomeColors.labelGrey,
             ),
           ),
           const SizedBox(height: 14),
           _RoleTile(
-            icon: Icons.water_drop_rounded,
-            title: 'Order water',
-            subtitle: 'Fixed customer login - Home delivery',
-            badge: 'Customer',
-            accent: CustomerColors.accent,
-            onTap: () => context.push(AppRoutes.customerLogin),
-          ),
-          const SizedBox(height: 12),
-          _RoleTile(
             icon: Icons.storefront_rounded,
             title: 'Staff login',
-            subtitle: 'Owner - Drivers - Billing and customers',
+            subtitle: 'Admin - Drivers - Billing and customers',
             badge: 'Team',
-            accent: const Color(0xFF0F172A),
+            accent: _WelcomeColors.staffAccent,
             onTap: () => context.push(AppRoutes.login),
           ),
           const SizedBox(height: 20),
@@ -146,14 +143,14 @@ class _RolePickerCard extends StatelessWidget {
                 Icon(
                   Icons.lock_outline_rounded,
                   size: 13,
-                  color: CustomerColors.labelGrey,
+                  color: _WelcomeColors.labelGrey,
                 ),
                 const SizedBox(width: 5),
                 Text(
                   'Secure sign-in',
                   style: GoogleFonts.poppins(
                     fontSize: 12,
-                    color: CustomerColors.labelGrey,
+                    color: _WelcomeColors.labelGrey,
                   ),
                 ),
               ],
@@ -300,7 +297,7 @@ class _RoleTile extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: CustomerColors.cardBorder),
+            border: Border.all(color: _WelcomeColors.cardBorder),
             boxShadow: [
               BoxShadow(
                 color: accent.withValues(alpha: 0.10),
@@ -369,7 +366,7 @@ class _RoleTile extends StatelessWidget {
                               style: GoogleFonts.poppins(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
-                                color: CustomerColors.titleNavy,
+                                color: _WelcomeColors.titleNavy,
                               ),
                             ),
                             Text(
@@ -378,7 +375,7 @@ class _RoleTile extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.poppins(
                                 fontSize: 11,
-                                color: CustomerColors.labelGrey,
+                                color: _WelcomeColors.labelGrey,
                                 height: 1.35,
                               ),
                             ),

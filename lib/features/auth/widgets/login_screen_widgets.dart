@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/localization/app_strings.dart';
 import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 
 abstract final class LoginColors {
@@ -492,9 +493,7 @@ class LoginAuthCard extends StatelessWidget {
           end: Alignment.bottomCenter,
           colors: [Colors.white, Color(0xFFF8FAFC)],
         ),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.95),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.95)),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF001F3F).withValues(alpha: 0.32),
@@ -521,15 +520,9 @@ class LoginRoleHintRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: const [
-        _LoginRoleChip(
-          icon: Icons.storefront_outlined,
-          label: 'Shop owner',
-        ),
+        _LoginRoleChip(icon: Icons.storefront_outlined, label: 'Shop owner'),
         SizedBox(width: 8),
-        _LoginRoleChip(
-          icon: Icons.local_shipping_outlined,
-          label: 'Driver',
-        ),
+        _LoginRoleChip(icon: Icons.local_shipping_outlined, label: 'Driver'),
       ],
     );
   }
@@ -584,6 +577,7 @@ class LoginTextField extends StatelessWidget {
     this.textInputAction,
     this.onFieldSubmitted,
     this.suffix,
+    this.autovalidateMode,
   });
 
   final String label;
@@ -596,6 +590,7 @@ class LoginTextField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final void Function(String)? onFieldSubmitted;
   final Widget? suffix;
+  final AutovalidateMode? autovalidateMode;
 
   @override
   Widget build(BuildContext context) {
@@ -627,6 +622,7 @@ class LoginTextField extends StatelessWidget {
             keyboardType: keyboardType,
             obscureText: obscureText,
             validator: validator,
+            autovalidateMode: autovalidateMode,
             textInputAction: textInputAction,
             onFieldSubmitted: onFieldSubmitted,
             style: GoogleFonts.poppins(
@@ -756,7 +752,7 @@ class LoginSignInButton extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Sign in',
+                        context.l10n.signIn,
                         style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -803,7 +799,7 @@ class LoginSecureNote extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            'Secured sign-in',
+            context.l10n.securedSignIn,
             style: GoogleFonts.poppins(
               fontSize: 12,
               color: LoginColors.labelGrey,
@@ -838,7 +834,7 @@ class LoginFooterLink extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            'New here? ',
+            '${context.l10n.newShopOwner} ',
             style: GoogleFonts.poppins(
               fontSize: 13,
               color: LoginColors.labelGrey,
@@ -847,7 +843,7 @@ class LoginFooterLink extends StatelessWidget {
           GestureDetector(
             onTap: onCreateAccount,
             child: Text(
-              'Create account',
+              context.l10n.createAccount,
               style: GoogleFonts.poppins(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,

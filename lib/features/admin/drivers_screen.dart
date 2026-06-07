@@ -133,6 +133,7 @@ class _DriversScreenState extends State<DriversScreen> {
   }
 
   Future<void> _deleteDriver(BuildContext context, Driver driver) async {
+    final repo = context.read<WaterPlantRepository>();
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -163,9 +164,7 @@ class _DriversScreenState extends State<DriversScreen> {
     if (ok != true || !context.mounted) return;
 
     try {
-      await context
-          .read<WaterPlantRepository>()
-          .deleteDriverAccountInFirebase(driver.id);
+      await repo.deleteDriverAccountInFirebase(driver.id);
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -176,6 +175,7 @@ class _DriversScreenState extends State<DriversScreen> {
       );
       return;
     }
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Driver deleted', style: GoogleFonts.poppins())),
     );
@@ -188,8 +188,9 @@ class _DriversScreenState extends State<DriversScreen> {
     );
     if (password == null || !context.mounted) return;
 
+    final repo = context.read<WaterPlantRepository>();
     try {
-      await context.read<WaterPlantRepository>().resetDriverPasswordInFirebase(
+      await repo.resetDriverPasswordInFirebase(
         driverId: driver.id,
         password: password,
       );

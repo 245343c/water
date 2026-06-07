@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:sri_sai_ro_water/data/models/customer_can_balance.dart';
 
 /// Empty jars still with customer above this count show a red warning (admin + driver).
 const int emptyCanWarningThreshold = 4;

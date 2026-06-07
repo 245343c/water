@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sri_sai_ro_water/core/localization/app_strings.dart';
+import 'package:sri_sai_ro_water/core/localization/customer_display_localization.dart';
+import 'package:sri_sai_ro_water/core/localization/delivery_localization.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
@@ -26,10 +29,15 @@ class DriverInstantDeliveryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final walkIn = order.walkInContact;
     final customer = repo.customerById(order.customerId);
-    final name = walkIn?.name ?? customer?.name ?? 'Instant caller';
+    final strings = context.l10n;
+    final name =
+        walkIn?.name ?? customer?.driverDisplayName(strings) ?? strings.instant;
     final phone = walkIn?.phone ?? customer?.phone ?? '';
     final address = walkIn?.address ?? customer?.address ?? '';
-    final place = walkIn?.place ?? customer?.place ?? '';
+    final localAddress = customer?.driverAddressNote(strings) ?? '';
+    final place = walkIn?.place ??
+        (localAddress.isNotEmpty ? localAddress : customer?.place) ??
+        '';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
@@ -109,7 +117,7 @@ class DriverInstantDeliveryCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        'Collect cash',
+                        strings.collectCash,
                         style: GoogleFonts.poppins(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
@@ -143,7 +151,7 @@ class DriverInstantDeliveryCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          order.itemsSummary,
+                          strings.orderItemsSummary(order),
                           style: GoogleFonts.poppins(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -189,7 +197,7 @@ class DriverInstantDeliveryCard extends StatelessWidget {
                   ),
                   icon: const Icon(Icons.local_shipping_outlined, size: 20),
                   label: Text(
-                    'Open & deliver',
+                    strings.openDeliver,
                     style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                   ),
                 ),

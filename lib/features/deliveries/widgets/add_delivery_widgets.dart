@@ -25,17 +25,17 @@ abstract final class AddDeliveryColors {
   static const Color screenBg = CustomerDetailColors.screenBg;
 
   static BoxDecoration get surfaceCard => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: CustomerDetailColors.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      );
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(color: CustomerDetailColors.cardBorder),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.05),
+        blurRadius: 14,
+        offset: const Offset(0, 4),
+      ),
+    ],
+  );
 }
 
 /// White card on grey background — same rhythm as customer detail sections.
@@ -63,11 +63,7 @@ class AddDeliverySurfaceCard extends StatelessWidget {
 }
 
 class AddDeliveryInCardTitle extends StatelessWidget {
-  const AddDeliveryInCardTitle({
-    super.key,
-    required this.title,
-    this.subtitle,
-  });
+  const AddDeliveryInCardTitle({super.key, required this.title, this.subtitle});
 
   final String title;
   final String? subtitle;
@@ -130,7 +126,12 @@ class AddDeliveryHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: CustomersColors.headerGradient,
-      padding: EdgeInsets.fromLTRB(4, MediaQuery.paddingOf(context).top + 4, 4, 16),
+      padding: EdgeInsets.fromLTRB(
+        4,
+        MediaQuery.paddingOf(context).top + 4,
+        4,
+        16,
+      ),
       child: Row(
         children: [
           IconButton(
@@ -253,7 +254,11 @@ class AddDeliveryDateRow extends StatelessWidget {
 
 /// Legacy section title — prefer [AddDeliveryInCardTitle] inside a card.
 class AddDeliverySectionTitle extends StatelessWidget {
-  const AddDeliverySectionTitle({super.key, required this.title, this.subtitle});
+  const AddDeliverySectionTitle({
+    super.key,
+    required this.title,
+    this.subtitle,
+  });
 
   final String title;
   final String? subtitle;
@@ -541,6 +546,7 @@ class AddDeliveryCanStepper extends StatelessWidget {
   final String label;
   final int value;
   final ValueChanged<int> onChanged;
+
   /// When set, the + button stops at this value (e.g. customer can balance).
   final int? maxValue;
   final bool compact;
@@ -626,9 +632,7 @@ class _StepBtn extends StatelessWidget {
           height: size,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: const Color(0xFFBFDBFE),
-            ),
+            border: Border.all(color: const Color(0xFFBFDBFE)),
           ),
           child: Icon(
             icon,
@@ -689,7 +693,11 @@ class AddDeliveryPriceSection extends StatelessWidget {
               calc: line.calc,
               amount: CurrencyUtils.format(line.amount),
             ),
-        const Divider(height: 20, thickness: 1, color: AddDeliveryColors.divider),
+        const Divider(
+          height: 20,
+          thickness: 1,
+          color: AddDeliveryColors.divider,
+        ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
@@ -775,7 +783,10 @@ class _PriceLine extends StatelessWidget {
             flex: 2,
             child: Text(
               name,
-              style: GoogleFonts.poppins(fontSize: 14, color: AddDeliveryColors.titleNavy),
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: AddDeliveryColors.titleNavy,
+              ),
             ),
           ),
           Expanded(
@@ -783,7 +794,10 @@ class _PriceLine extends StatelessWidget {
             child: Text(
               calc,
               textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(fontSize: 13, color: AddDeliveryColors.labelGrey),
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: AddDeliveryColors.labelGrey,
+              ),
             ),
           ),
           Expanded(
@@ -809,10 +823,12 @@ class AddDeliverySaveButton extends StatelessWidget {
     super.key,
     required this.enabled,
     required this.onPressed,
+    this.loading = false,
   });
 
   final bool enabled;
   final VoidCallback onPressed;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -826,16 +842,25 @@ class AddDeliverySaveButton extends StatelessWidget {
             width: double.infinity,
             height: 48,
             child: FilledButton.icon(
-              onPressed: enabled ? onPressed : null,
-              icon: const Icon(Icons.check_rounded, size: 20),
+              onPressed: enabled && !loading ? onPressed : null,
+              icon: loading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.check_rounded, size: 20),
               label: Text(
-                'Save delivery',
+                loading ? 'Saving...' : 'Save delivery',
                 style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
               ),
               style: FilledButton.styleFrom(
                 backgroundColor: AddDeliveryColors.primaryBtn,
-                disabledBackgroundColor:
-                    AddDeliveryColors.primaryBtn.withValues(alpha: 0.45),
+                disabledBackgroundColor: AddDeliveryColors.primaryBtn
+                    .withValues(alpha: 0.45),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),

@@ -8,17 +8,15 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:provider/provider.dart';
 
+import 'package:sri_sai_ro_water/core/localization/app_strings.dart';
 import 'package:sri_sai_ro_water/core/services/shop_map_launcher.dart';
 
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/customer_billing_mode.dart';
-import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
-
-import 'package:sri_sai_ro_water/features/driver/driver_delivery_success_sheet.dart';
 
 import 'package:sri_sai_ro_water/features/driver/driver_empty_can_sheet.dart';
 
@@ -28,6 +26,7 @@ import 'package:sri_sai_ro_water/features/driver/widgets/driver_customer_detail_
 
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_dispatch_fulfill_card.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_field_delivery_card.dart';
+import 'package:sri_sai_ro_water/features/driver/widgets/driver_result_feedback.dart';
 
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_theme.dart';
 
@@ -53,7 +52,10 @@ class DriverCustomerDetailScreen extends StatelessWidget {
 
       SnackBar(
 
-        content: Text('Copied $phone', style: GoogleFonts.poppins()),
+        content: Text(
+          context.l10n.copiedPhone(phone),
+          style: GoogleFonts.poppins(),
+        ),
 
         behavior: SnackBarBehavior.floating,
 
@@ -68,6 +70,7 @@ class DriverCustomerDetailScreen extends StatelessWidget {
   @override
 
   Widget build(BuildContext context) {
+    final strings = context.l10n;
 
     return Consumer2<WaterPlantRepository, AuthRepository>(
 
@@ -77,7 +80,12 @@ class DriverCustomerDetailScreen extends StatelessWidget {
 
         final assignedShop = repo.shopForDriver(driverId);
 
-        final customer = _resolveCustomer(repo, customerId, dispatchOrderId);
+        final customer = _resolveCustomer(
+          repo,
+          customerId,
+          dispatchOrderId,
+          strings,
+        );
 
         if (!repo.canDriverAccessCustomer(driverId, customerId)) {
 
@@ -111,9 +119,9 @@ class DriverCustomerDetailScreen extends StatelessWidget {
 
                         assignedShop == null
 
-                            ? 'Driver is not linked to a water plant.'
+                            ? strings.driverNotLinked
 
-                            : 'This customer belongs to another plant.',
+                            : strings.customerAnotherPlant,
 
                         textAlign: TextAlign.center,
 
@@ -204,7 +212,7 @@ class DriverCustomerDetailScreen extends StatelessWidget {
                     if ((showNormalCans || showCoolCans) &&
                         !customer.isInstantDispatch) ...[
 
-                      const DriverSectionLabel(text: 'Empty cans'),
+                      DriverSectionLabel(text: strings.emptyCans),
 
                       DriverCanBalanceCard(
 
@@ -232,7 +240,7 @@ class DriverCustomerDetailScreen extends StatelessWidget {
 
                               content: Text(
 
-                                'Empty return saved',
+                                strings.emptyReturnSaved,
 
                                 style: GoogleFonts.poppins(fontSize: 13),
 
@@ -252,7 +260,7 @@ class DriverCustomerDetailScreen extends StatelessWidget {
 
                     ],
 
-                    const DriverSectionLabel(text: 'Record delivery'),
+                    DriverSectionLabel(text: strings.recordDelivery),
                     Builder(
                       builder: (context) {
                         final activeDispatch = repo.acceptedOrderForCustomer(
@@ -261,10 +269,15 @@ class DriverCustomerDetailScreen extends StatelessWidget {
                           orderId: dispatchOrderId,
                         );
                         void onSaved(Delivery delivery) {
-                          showDriverDeliverySuccessSheet(
+                          showDriverResultFeedback(
                             context,
-                            customerName: customer.name,
-                            delivery: delivery,
+                            success: true,
+                            title: delivery.isEmptyReturnOnly
+                                ? strings.emptyReturnSaved
+                                : strings.deliverySaved,
+                            message: delivery.isEmptyReturnOnly
+                                ? null
+                                : strings.adminUpdated,
                           );
                         }
                         if (activeDispatch != null && activeDispatch.isOpenForDriver) {
@@ -304,13 +317,14 @@ class DriverCustomerDetailScreen extends StatelessWidget {
     WaterPlantRepository repo,
     String customerId,
     String? dispatchOrderId,
+    AppStrings strings,
   ) {
     final stored = repo.customerById(customerId);
     if (dispatchOrderId == null) {
       return stored ??
           Customer(
             id: customerId,
-            name: 'Customer',
+            name: strings.customers,
             phone: '',
             address: '',
           );
@@ -331,7 +345,7 @@ class DriverCustomerDetailScreen extends StatelessWidget {
     return stored ??
         Customer(
           id: customerId,
-          name: 'Customer',
+          name: strings.customers,
           phone: '',
           address: '',
         );

@@ -39,7 +39,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
       if (!mounted) return;
       final repo = context.read<WaterPlantRepository>();
       await repo.loadCustomersForCurrentAdminFromFirestore();
-      await repo.loadLedgerForCurrentShopFromFirestore();
+      await repo.loadLedgerForCurrentShopFromFirestore(month: _month);
     });
   }
 
@@ -74,9 +74,17 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
 
         final stats = repo.monthlyStatsForCustomer(widget.customerId, _month);
         final balance = repo.customerBalance(widget.customerId);
-        final deliveries = repo.deliveriesForCustomer(widget.customerId, month: _month);
-        final payments = repo.paymentsForCustomer(widget.customerId, month: _month);
-        final colorIndex = repo.customers.indexWhere((c) => c.id == widget.customerId);
+        final deliveries = repo.deliveriesForCustomer(
+          widget.customerId,
+          month: _month,
+        );
+        final payments = repo.paymentsForCustomer(
+          widget.customerId,
+          month: _month,
+        );
+        final colorIndex = repo.customers.indexWhere(
+          (c) => c.id == widget.customerId,
+        );
 
         return Scaffold(
           backgroundColor: CustomersColors.screenBg,
@@ -117,12 +125,13 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                               ),
                               MonthlyPaymentsSection(
                                 payments: payments,
-                                onViewAllPayments: () => showMonthlyPaymentsSheet(
-                                  context,
-                                  customer: customer,
-                                  month: _month,
-                                  payments: payments,
-                                ),
+                                onViewAllPayments: () =>
+                                    showMonthlyPaymentsSheet(
+                                      context,
+                                      customer: customer,
+                                      month: _month,
+                                      payments: payments,
+                                    ),
                               ),
                               MonthlySummaryInfoBanner(month: _month),
                             ],

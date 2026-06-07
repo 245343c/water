@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/services/push_notification_service.dart';
 import 'package:sri_sai_ro_water/data/models/customer_app_profile.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
@@ -196,7 +197,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                                           latest?.address ??
                                           _addressController.text;
                                       _emailController.text =
-                                          latest?.email ?? _emailController.text;
+                                          latest?.email ??
+                                          _emailController.text;
                                       _lat = latest?.latitude ?? _lat;
                                       _lng = latest?.longitude ?? _lng;
                                       _place = latest?.place ?? _place;
@@ -236,7 +238,11 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   ],
                   const SizedBox(height: 18),
                   _AccountActions(
-                    onSignOut: () {
+                    onSignOut: () async {
+                      await context
+                          .read<PushNotificationService>()
+                          .unregisterCurrentToken();
+                      if (!context.mounted) return;
                       auth.logout();
                       context.go(AppRoutes.welcome);
                     },
@@ -397,10 +403,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 }
 
 class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({
-    required this.title,
-    this.onEdit,
-  });
+  const _ProfileHeader({required this.title, this.onEdit});
 
   final String title;
   final VoidCallback? onEdit;
@@ -657,9 +660,8 @@ class _ProfileDetailsPanel extends StatelessWidget {
             controller: addressController,
             hint: 'House no., street, area, city',
             maxLines: 2,
-            validator: (v) => v == null || v.trim().length < 8
-                ? 'Enter full address'
-                : null,
+            validator: (v) =>
+                v == null || v.trim().length < 8 ? 'Enter full address' : null,
             textCapitalization: TextCapitalization.sentences,
           ),
         ],
@@ -680,7 +682,6 @@ class _ProfileRow extends StatelessWidget {
     this.validator,
     this.maxLines = 1,
     this.textCapitalization = TextCapitalization.none,
-    this.onChanged,
   });
 
   final String label;
@@ -693,7 +694,6 @@ class _ProfileRow extends StatelessWidget {
   final String? Function(String?)? validator;
   final int maxLines;
   final TextCapitalization textCapitalization;
-  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -701,8 +701,9 @@ class _ProfileRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       child: Row(
-        crossAxisAlignment:
-            maxLines > 1 ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+        crossAxisAlignment: maxLines > 1
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.center,
         children: [
           _FieldIcon(icon: icon),
           const SizedBox(width: 12),
@@ -725,7 +726,6 @@ class _ProfileRow extends StatelessWidget {
                     keyboardType: keyboardType,
                     validator: validator,
                     maxLines: maxLines,
-                    onChanged: onChanged,
                     textCapitalization: textCapitalization,
                     style: GoogleFonts.poppins(
                       fontSize: 14,
@@ -759,9 +759,7 @@ class _ProfileRow extends StatelessWidget {
                       ),
                       errorBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFDC2626),
-                        ),
+                        borderSide: const BorderSide(color: Color(0xFFDC2626)),
                       ),
                     ),
                   )
@@ -774,7 +772,8 @@ class _ProfileRow extends StatelessWidget {
                       fontSize: 15,
                       height: 1.35,
                       fontWeight: FontWeight.w800,
-                      color: value == 'Not added' ||
+                      color:
+                          value == 'Not added' ||
                               value == 'Add delivery address'
                           ? CustomerColors.labelGrey
                           : CustomerColors.titleNavy,
@@ -813,9 +812,9 @@ class _ProfileInsetDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.only(left: 66),
-        child: Divider(height: 1, color: CustomerColors.cardBorder),
-      );
+    padding: EdgeInsets.only(left: 66),
+    child: Divider(height: 1, color: CustomerColors.cardBorder),
+  );
 }
 
 class _LocationBar extends StatelessWidget {
@@ -839,8 +838,8 @@ class _LocationBar extends StatelessWidget {
     final selectedLabel = place.trim().isNotEmpty
         ? place.trim()
         : hasPin
-            ? 'Selected pin: ${latitude!.toStringAsFixed(5)}, ${longitude!.toStringAsFixed(5)}'
-            : 'Tap to set delivery pin';
+        ? 'Selected pin: ${latitude!.toStringAsFixed(5)}, ${longitude!.toStringAsFixed(5)}'
+        : 'Tap to set delivery pin';
     final coordinateLabel = hasPin
         ? '${latitude!.toStringAsFixed(5)}, ${longitude!.toStringAsFixed(5)}'
         : 'No pin selected';
@@ -933,10 +932,7 @@ class _LocationBar extends StatelessWidget {
 }
 
 class _AccountActions extends StatelessWidget {
-  const _AccountActions({
-    required this.onSignOut,
-    required this.onDelete,
-  });
+  const _AccountActions({required this.onSignOut, required this.onDelete});
 
   final VoidCallback onSignOut;
   final VoidCallback onDelete;

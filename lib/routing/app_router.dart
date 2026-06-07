@@ -30,25 +30,18 @@ import 'package:sri_sai_ro_water/features/products/products_screen.dart';
 import 'package:sri_sai_ro_water/features/reports/reports_screen.dart';
 import 'package:sri_sai_ro_water/features/routes/delivery_route_detail_screen.dart';
 import 'package:sri_sai_ro_water/features/routes/delivery_routes_screen.dart';
-import 'package:sri_sai_ro_water/features/auth/role_picker_screen.dart';
-import 'package:sri_sai_ro_water/features/customer/customer_month_readonly_screen.dart';
-import 'package:sri_sai_ro_water/features/customer/customer_monthly_bill_screen.dart';
-import 'package:sri_sai_ro_water/features/customer/customer_login_screen.dart';
-import 'package:sri_sai_ro_water/features/customer/customer_onboarding_screen.dart';
-import 'package:sri_sai_ro_water/features/customer/customer_shop_screen.dart';
-import 'package:sri_sai_ro_water/features/shell/customer_shell.dart';
 import 'package:sri_sai_ro_water/features/shell/driver_shell.dart';
 import 'package:sri_sai_ro_water/features/shell/main_shell.dart';
-import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/routing/route_guard.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final shellNavigatorKey = GlobalKey<NavigatorState>();
 final driverShellNavigatorKey = GlobalKey<NavigatorState>();
-final customerShellNavigatorKey = GlobalKey<NavigatorState>();
 
 class AppRoutes {
   static const welcome = '/welcome';
+  // Customer portal routes are intentionally not registered for release.
+  // Customer records are still managed through the admin/driver CRM routes.
   static const customerLogin = '/customer/login';
   static const customerOnboarding = '/customer/onboarding';
   static const customerHome = '/customer/home';
@@ -78,93 +71,20 @@ class AppRoutes {
   static const driverProfile = '/driver/profile';
 }
 
-GoRouter createAppRouter(AuthRepository auth, WaterPlantRepository plant) {
+GoRouter createAppRouter(AuthRepository auth) {
   return GoRouter(
     navigatorKey: rootNavigatorKey,
-    initialLocation: AppRoutes.welcome,
+    initialLocation: AppRoutes.login,
     refreshListenable: auth,
     redirect: (context, state) => redirectForRole(
       user: auth.currentUser,
       location: state.matchedLocation,
-      customerProfile: plant.customerProfileByUserId,
     ),
+    errorBuilder: (context, state) => const LoginScreen(),
     routes: [
       GoRoute(
         path: AppRoutes.welcome,
-        builder: (context, state) => const RolePickerScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.customerLogin,
-        builder: (context, state) => const CustomerLoginScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.customerOnboarding,
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const CustomerOnboardingScreen(),
-      ),
-      GoRoute(
-        path: '/customer/shop/:id',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => CustomerShopScreen(
-          shopId: state.pathParameters['id']!,
-          orderId: state.uri.queryParameters['orderId'],
-        ),
-      ),
-      GoRoute(
-        path: AppRoutes.customerMonthDetail,
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) {
-          final customerId = state.uri.queryParameters['customerId'] ?? '';
-          final shopId = state.uri.queryParameters['shopId'];
-          final year = int.tryParse(state.uri.queryParameters['year'] ?? '');
-          final month = int.tryParse(state.uri.queryParameters['month'] ?? '');
-          DateTime? initial;
-          if (year != null && month != null && month >= 1 && month <= 12) {
-            initial = DateTime(year, month);
-          }
-          return CustomerMonthReadonlyScreen(
-            customerId: customerId,
-            shopId: shopId,
-            initialMonth: initial,
-          );
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.customerMonthlyBill,
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) {
-          final customerId = state.uri.queryParameters['customerId'] ?? '';
-          final shopId =
-              state.uri.queryParameters['shopId'] ??
-              WaterPlantRepository.defaultShopId;
-          final year = int.tryParse(state.uri.queryParameters['year'] ?? '');
-          final month = int.tryParse(state.uri.queryParameters['month'] ?? '');
-          DateTime? initial;
-          if (year != null && month != null && month >= 1 && month <= 12) {
-            initial = DateTime(year, month);
-          }
-          return CustomerMonthlyBillScreen(
-            customerId: customerId,
-            shopId: shopId,
-            initialMonth: initial,
-          );
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.customerHome,
-        builder: (context, state) => CustomerShell(location: state.uri),
-      ),
-      GoRoute(
-        path: AppRoutes.customerAccount,
-        builder: (context, state) => CustomerShell(location: state.uri),
-      ),
-      GoRoute(
-        path: AppRoutes.customerOrders,
-        builder: (context, state) => CustomerShell(location: state.uri),
-      ),
-      GoRoute(
-        path: AppRoutes.customerProfile,
-        builder: (context, state) => CustomerShell(location: state.uri),
+        redirect: (context, state) => AppRoutes.login,
       ),
       GoRoute(
         path: AppRoutes.login,
@@ -389,9 +309,8 @@ GoRouter createAppRouter(AuthRepository auth, WaterPlantRepository plant) {
         routes: [
           GoRoute(
             path: ':id',
-            builder: (context, state) => DeliveryRouteDetailScreen(
-              routeId: state.pathParameters['id']!,
-            ),
+            builder: (context, state) =>
+                DeliveryRouteDetailScreen(routeId: state.pathParameters['id']!),
           ),
         ],
       ),

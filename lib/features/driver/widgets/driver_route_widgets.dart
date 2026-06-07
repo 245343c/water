@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
+import 'package:sri_sai_ro_water/core/localization/app_strings.dart';
+import 'package:sri_sai_ro_water/core/localization/customer_display_localization.dart';
+import 'package:sri_sai_ro_water/core/localization/delivery_localization.dart';
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_theme.dart';
@@ -23,10 +25,15 @@ class DriverAcceptedOrderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final customer = repo.customerById(order.customerId);
     final walkIn = order.walkInContact;
-    final displayName = walkIn?.name ?? customer?.name ?? 'Instant';
+    final strings = context.l10n;
+    final displayName =
+        walkIn?.name ?? customer?.driverDisplayName(strings) ?? strings.instant;
     final displayPhone = walkIn?.phone ?? customer?.phone ?? '';
     final displayAddress = walkIn?.address ?? customer?.address ?? '';
-    final displayPlace = walkIn?.place ?? customer?.place ?? '';
+    final localAddress = customer?.driverAddressNote(strings) ?? '';
+    final displayPlace = walkIn?.place ??
+        (localAddress.isNotEmpty ? localAddress : customer?.place) ??
+        '';
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
       child: Material(
@@ -63,7 +70,8 @@ class DriverAcceptedOrderCard extends StatelessWidget {
                       ),
                     ),
                     _RequestBadge(
-                      label: order.isPhoneDispatch ? 'Instant' : 'Dispatch',
+                      label:
+                          order.isPhoneDispatch ? strings.instant : strings.dispatch,
                       icon: order.isPhoneDispatch
                           ? Icons.bolt_rounded
                           : Icons.verified_rounded,
@@ -92,7 +100,7 @@ class DriverAcceptedOrderCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  order.itemsSummary,
+                  strings.orderItemsSummary(order),
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -100,7 +108,7 @@ class DriverAcceptedOrderCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Collect payment at door',
+                  strings.collectPaymentAtDoor,
                   style: GoogleFonts.poppins(
                     fontSize: 11,
                     color: const Color(0xFFEA580C),
@@ -121,7 +129,7 @@ class DriverAcceptedOrderCard extends StatelessWidget {
                 ],
                 const SizedBox(height: 12),
                 DriverPrimaryButton(
-                  label: 'Deliver now',
+                  label: strings.deliverNow,
                   icon: Icons.arrow_forward_rounded,
                   onPressed: () => context.push(
                     '/driver/customers/${order.customerId}?orderId=${order.id}',
@@ -161,72 +169,6 @@ class _RequestBadge extends StatelessWidget {
               fontSize: 10,
               fontWeight: FontWeight.w600,
               color: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CanChip extends StatelessWidget {
-  const _CanChip({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.poppins(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color,
             ),
           ),
         ],
@@ -335,7 +277,7 @@ class DriverRouteStopCard extends StatelessWidget {
                 ],
                 const SizedBox(height: 10),
                 DriverPrimaryButton(
-                  label: done ? 'View customer' : 'Record delivery',
+                  label: done ? context.l10n.viewCustomer : context.l10n.recordDelivery,
                   onPressed: onTap,
                 ),
               ],
@@ -347,12 +289,3 @@ class DriverRouteStopCard extends StatelessWidget {
   }
 }
 
-String _timeAgo(DateTime date) {
-  final diff = DateTime.now().difference(date);
-  if (diff.inMinutes < 1) return 'Just now';
-  if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
-  if (diff.inHours < 24) return '${diff.inHours} hr ago';
-  if (diff.inDays == 1) return 'Yesterday';
-  if (diff.inDays < 7) return '${diff.inDays} days ago';
-  return date.dayMonth;
-}

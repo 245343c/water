@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/constants/empty_can_balance.dart';
+import 'package:sri_sai_ro_water/core/localization/app_strings.dart';
+import 'package:sri_sai_ro_water/core/localization/customer_display_localization.dart';
+import 'package:sri_sai_ro_water/core/localization/delivery_localization.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
+import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_theme.dart';
 
 enum DriverCustomerListFilter { all, pendingToday, deliveredToday }
@@ -14,6 +18,7 @@ class DriverCustomerListCard extends StatelessWidget {
     required this.lastDeliveryLabel,
     required this.deliveredToday,
     required this.onTap,
+    this.pendingOrder,
     this.emptyJarsWithCustomer = 0,
   });
 
@@ -21,6 +26,7 @@ class DriverCustomerListCard extends StatelessWidget {
   final String lastDeliveryLabel;
   final bool deliveredToday;
   final VoidCallback onTap;
+  final CustomerOrder? pendingOrder;
   final int emptyJarsWithCustomer;
 
   static const Color _avatar = DriverColors.accent;
@@ -29,6 +35,12 @@ class DriverCustomerListCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final jarsLabel = emptyJarsDueLabel(emptyJarsWithCustomer);
     final jarsWarning = emptyCanCountIsWarning(emptyJarsWithCustomer);
+    final order = pendingOrder;
+    final strings = context.l10n;
+    final displayName = customer.driverDisplayName(strings);
+    final displayPlace = customer.driverAddressNote(strings).isNotEmpty
+        ? customer.driverAddressNote(strings)
+        : customer.place;
 
     return Material(
       color: Colors.white,
@@ -50,7 +62,7 @@ class DriverCustomerListCard extends StatelessWidget {
                 radius: 20,
                 backgroundColor: _avatar.withValues(alpha: 0.15),
                 child: Text(
-                  customer.initials,
+                  customer.driverInitials(strings),
                   style: GoogleFonts.poppins(
                     color: DriverColors.accent,
                     fontWeight: FontWeight.w700,
@@ -64,7 +76,7 @@ class DriverCustomerListCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      customer.name,
+                      displayName,
                       style: GoogleFonts.poppins(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -75,8 +87,8 @@ class DriverCustomerListCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      customer.place.isNotEmpty
-                          ? '${customer.place} · ${customer.phone}'
+                      displayPlace.isNotEmpty
+                          ? '$displayPlace · ${customer.phone}'
                           : customer.phone,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -87,10 +99,19 @@ class DriverCustomerListCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      lastDeliveryLabel,
+                      order == null
+                          ? lastDeliveryLabel
+                          : context.l10n.orderItemsSummary(order),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
                         fontSize: 11,
-                        color: DriverColors.labelGrey,
+                        fontWeight: order == null
+                            ? FontWeight.w400
+                            : FontWeight.w700,
+                        color: order == null
+                            ? DriverColors.labelGrey
+                            : const Color(0xFF7C3AED),
                       ),
                     ),
                     if (jarsLabel.isNotEmpty) ...[
@@ -121,7 +142,24 @@ class DriverCustomerListCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (deliveredToday)
+              if (order != null)
+                Container(
+                  margin: const EdgeInsets.only(left: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    context.l10n.order,
+                    style: GoogleFonts.poppins(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF7C3AED),
+                    ),
+                  ),
+                )
+              else if (deliveredToday)
                 Container(
                   margin: const EdgeInsets.only(left: 6),
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -130,7 +168,7 @@ class DriverCustomerListCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    'Done',
+                    context.l10n.done,
                     style: GoogleFonts.poppins(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
@@ -207,7 +245,7 @@ class DriverCustomersToolbar extends StatelessWidget {
             onChanged: onSearchChanged,
             style: GoogleFonts.poppins(fontSize: 14, color: DriverColors.titleNavy),
             decoration: InputDecoration(
-              hintText: 'Search name or phone',
+              hintText: context.l10n.searchNamePhone,
               hintStyle: GoogleFonts.poppins(
                 fontSize: 14,
                 color: const Color(0xFF9CA3AF),
@@ -246,12 +284,6 @@ class DriverCustomersFilterChips extends StatelessWidget {
   final DriverCustomerListFilter selected;
   final ValueChanged<DriverCustomerListFilter> onSelected;
 
-  static const _labels = {
-    DriverCustomerListFilter.all: 'All',
-    DriverCustomerListFilter.pendingToday: 'Pending',
-    DriverCustomerListFilter.deliveredToday: 'Done today',
-  };
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -282,7 +314,13 @@ class DriverCustomersFilterChips extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      _labels[filter]!,
+                      switch (filter) {
+                        DriverCustomerListFilter.all => context.l10n.all,
+                        DriverCustomerListFilter.pendingToday =>
+                          context.l10n.pending,
+                        DriverCustomerListFilter.deliveredToday =>
+                          context.l10n.doneToday,
+                      },
                       style: GoogleFonts.poppins(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
