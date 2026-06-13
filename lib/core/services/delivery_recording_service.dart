@@ -55,6 +55,11 @@ class DeliveryRecordingService {
     if (customer == null) {
       throw DeliveryValidationException('Customer not found');
     }
+    if (driverMode && customer.isInstantDispatch) {
+      throw DeliveryValidationException(
+        'Use the quick delivery screen to complete this job',
+      );
+    }
 
     final extraQty = extraBottles.fold<int>(0, (sum, b) => sum + b.quantity);
     final totalCans = normalQty + coolQty + extraQty;

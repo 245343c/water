@@ -28,20 +28,47 @@ class DriverRouteScreen extends StatefulWidget {
 
 class _DriverRouteScreenState extends State<DriverRouteScreen> {
   String? _routeFilter;
+  late final NotificationRepository _notifications;
 
   @override
   void initState() {
     super.initState();
+    _notifications = context.read<NotificationRepository>();
+    _notifications.addListener(_refreshDriverOrders);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      final repo = context.read<WaterPlantRepository>();
-      await repo.loadDeliveryRoutesForCurrentAdmin();
-      await repo.loadCustomersForCurrentAdminFromFirestore(force: true);
-      await repo.loadLedgerForCurrentShopFromFirestore(force: true);
+      await _refreshDriverOrders();
+      if (!mounted) return;
       if (AppConfig.useInstantDispatchMock) {
-        repo.restoreMockInstantDispatchForDriver();
+        context.read<WaterPlantRepository>().restoreMockInstantDispatchForDriver();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _notifications.removeListener(_refreshDriverOrders);
+    super.dispose();
+  }
+
+  Future<void> _refreshDriverOrders() async {
+    if (!mounted) return;
+    final repo = context.read<WaterPlantRepository>();
+    final auth = context.read<AuthRepository>();
+    final driverId = auth.currentUser?.driverId;
+    await repo.loadDeliveryRoutesForCurrentAdmin();
+    await repo.loadCustomersForCurrentAdminFromFirestore(force: true);
+    await repo.loadLedgerForCurrentShopFromFirestore(force: true);
+    await repo.hydrateDriverOpenOrders(driverId: driverId);
+    final orderIds = _notifications
+        .forDriver(driverId: driverId)
+        .map((n) => n.orderId)
+        .whereType<String>()
+        .where((id) => id.isNotEmpty);
+    await repo.hydrateDriverOrdersFromNotifications(
+      orderIds,
+      driverId: driverId,
+    );
   }
 
   @override
@@ -67,7 +94,8 @@ class _DriverRouteScreenState extends State<DriverRouteScreen> {
             .driverAppAcceptedOrders(driverId: driverId)
             .where((order) => _orderMatchesRoute(order, repo))
             .toList();
-        final driverAlerts = notifications.unreadCountForDriver();
+        final driverAlerts =
+            notifications.unreadCountForDriver(driverId: driverId);
         final strings = context.l10n;
 
         return Scaffold(
@@ -79,7 +107,7 @@ class _DriverRouteScreenState extends State<DriverRouteScreen> {
                 dispatchCount: instantOrders.length,
                 shopName: assignedShop?.name,
                 unreadAlerts: driverAlerts,
-                onNotifications: () => _showNotifications(context),
+                onNotifications: () => _showNotifications(context, driverId),
               ),
               Expanded(
                 child: ListView(
@@ -212,7 +240,7 @@ class _DriverRouteScreenState extends State<DriverRouteScreen> {
     );
   }
 
-  void _showNotifications(BuildContext context) {
+  void _showNotifications(BuildContext context, String? driverId) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -220,7 +248,7 @@ class _DriverRouteScreenState extends State<DriverRouteScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
-      builder: (_) => const _DriverNotificationsSheet(),
+      builder: (_) => _DriverNotificationsSheet(driverId: driverId),
     );
   }
 
@@ -319,13 +347,15 @@ class _DeliveriesToolbar extends StatelessWidget {
 }
 
 class _DriverNotificationsSheet extends StatelessWidget {
-  const _DriverNotificationsSheet();
+  const _DriverNotificationsSheet({required this.driverId});
+
+  final String? driverId;
 
   @override
   Widget build(BuildContext context) {
     return Consumer<NotificationRepository>(
       builder: (context, notificationRepo, _) {
-        final items = notificationRepo.forDriver();
+        final items = notificationRepo.forDriver(driverId: driverId);
         return SafeArea(
           child: Padding(
             padding: EdgeInsets.fromLTRB(
@@ -400,7 +430,19 @@ class _DriverNotificationsSheet extends StatelessWidget {
                           final item = items[index];
                           return _DriverNotificationTile(
                             notification: item,
-                            onTap: () => notificationRepo.markRead(item.id),
+                            onTap: () async {
+                              notificationRepo.markRead(item.id);
+                              final orderId = item.orderId;
+                              if (orderId == null || orderId.isEmpty) return;
+                              final repo = context.read<WaterPlantRepository>();
+                              await repo.hydrateDriverOrderById(
+                                orderId,
+                                driverId: driverId,
+                              );
+                              await repo.loadCustomersForCurrentAdminFromFirestore(
+                                force: true,
+                              );
+                            },
                           );
                         },
                       ),

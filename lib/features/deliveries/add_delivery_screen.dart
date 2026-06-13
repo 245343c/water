@@ -9,6 +9,7 @@ import 'package:sri_sai_ro_water/data/models/delivery_product_type.dart';
 import 'package:sri_sai_ro_water/data/models/delivery_line_item.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
+import 'package:sri_sai_ro_water/core/widgets/customer_info_bar.dart';
 import 'package:sri_sai_ro_water/features/deliveries/widgets/add_delivery_widgets.dart';
 
 class AddDeliveryScreen extends StatefulWidget {
@@ -231,24 +232,21 @@ class _AddDeliveryScreenState extends State<AddDeliveryScreen> {
           channelTypes,
         );
         final total = _total(priceLines);
-        final colorIndex = repo.customers.indexWhere(
-          (c) => c.id == widget.customerId,
-        );
 
         return Scaffold(
           backgroundColor: AddDeliveryColors.screenBg,
           body: AddDeliveryScaffold(
             child: Column(
               children: [
-                AddDeliveryHeader(onBack: () => context.pop()),
+                AddDeliveryHeader(
+                  onBack: () => context.pop(),
+                  customerName: customer.name,
+                ),
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.only(bottom: 16),
                     children: [
-                      AddDeliveryCustomerBar(
-                        customer: customer,
-                        colorIndex: colorIndex >= 0 ? colorIndex : 0,
-                      ),
+                      CustomerAddressStrip(customer: customer),
                       AddDeliverySurfaceCard(
                         child: AddDeliveryDateRow(
                           date: _date,

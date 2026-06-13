@@ -3,8 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
-import 'package:sri_sai_ro_water/core/widgets/customer_info_bar.dart';
-import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/delivery_product_type.dart';
 import 'package:sri_sai_ro_water/data/models/product.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customer_detail_widgets.dart';
@@ -118,9 +116,14 @@ class AddDeliveryInCardTitle extends StatelessWidget {
 }
 
 class AddDeliveryHeader extends StatelessWidget {
-  const AddDeliveryHeader({super.key, required this.onBack});
+  const AddDeliveryHeader({
+    super.key,
+    required this.onBack,
+    this.customerName,
+  });
 
   final VoidCallback onBack;
+  final String? customerName;
 
   @override
   Widget build(BuildContext context) {
@@ -152,8 +155,12 @@ class AddDeliveryHeader extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Record today\'s delivery',
+                  customerName?.trim().isNotEmpty == true
+                      ? customerName!.trim()
+                      : 'Record today\'s delivery',
                   textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
                     color: Colors.white.withValues(alpha: 0.78),
                     fontSize: 12,
@@ -166,26 +173,6 @@ class AddDeliveryHeader extends StatelessWidget {
           const SizedBox(width: 48),
         ],
       ),
-    );
-  }
-}
-
-class AddDeliveryCustomerBar extends StatelessWidget {
-  const AddDeliveryCustomerBar({
-    super.key,
-    required this.customer,
-    required this.colorIndex,
-  });
-
-  final Customer customer;
-  final int colorIndex;
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomerInfoBar(
-      customer: customer,
-      colorIndex: colorIndex,
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
     );
   }
 }

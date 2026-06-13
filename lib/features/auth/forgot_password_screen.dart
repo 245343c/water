@@ -50,7 +50,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Widget build(BuildContext context) {
     return AuthScreenLayout(
       title: 'Reset password',
-      subtitle: 'We will send a reset link to your email',
+      subtitle: 'Enter your mobile number or registered email',
       onBack: () => context.pop(),
       child: Form(
         key: _formKey,
@@ -62,15 +62,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 children: [
                   const SizedBox(height: 16),
                   AuthTextField(
-                    label: 'Registered email',
+                    label: 'Mobile number or email',
                     controller: _emailController,
-                    hint: 'you@business.com',
+                    hint: '9876543210 or you@business.com',
                     icon: Icons.alternate_email_rounded,
                     keyboardType: TextInputType.emailAddress,
                     required: true,
                     textInputAction: TextInputAction.done,
                     onFieldSubmitted: (_) => _sendCode(),
-                    validator: InputValidators.requiredEmail,
+                    validator: InputValidators.requiredStaffLoginId,
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                   ),
                 ],
@@ -89,7 +89,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               const AuthInfoBanner(
                 tint: BannerTint.green,
                 message:
-                    'If this email is registered, a password reset link has been sent. Check your inbox and spam folder.',
+                    'If an account exists, a password reset link has been sent. Check your inbox and spam folder.',
               ),
               AuthPrimaryButton(
                 label: 'Back to sign in',
@@ -99,7 +99,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 child: TextButton(
                   onPressed: _loading ? null : _sendCode,
                   child: Text(
-                    'Resend code',
+                    'Resend link',
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
                       color: AuthColors.primaryBtn,

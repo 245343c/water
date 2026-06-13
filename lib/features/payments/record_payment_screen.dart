@@ -106,8 +106,6 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
 
         final enteredAmount = double.tryParse(_amountController.text) ?? 0;
         final preview = repo.previewPayment(widget.customerId, enteredAmount);
-        final colorIndex =
-            repo.customers.indexWhere((c) => c.id == widget.customerId);
 
         return Scaffold(
           backgroundColor: CustomersColors.screenBg,
@@ -117,16 +115,15 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  RecordPaymentHeader(onBack: () => context.pop()),
+                  RecordPaymentHeader(
+                    onBack: () => context.pop(),
+                    customerName: customer.name,
+                  ),
                   Expanded(
                     child: CustomersListPanel(
                       child: ListView(
                         padding: const EdgeInsets.only(bottom: 16),
                         children: [
-                          RecordPaymentCustomerBar(
-                            customer: customer,
-                            colorIndex: colorIndex >= 0 ? colorIndex : 0,
-                          ),
                           RecordPaymentSummaryBox(
                             month: month,
                             totalAmount: monthly.totalAmount,

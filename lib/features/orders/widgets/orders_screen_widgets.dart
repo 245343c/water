@@ -8,12 +8,12 @@ import 'package:sri_sai_ro_water/data/models/order_status.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
 enum OrderListFilter {
+  all,
   pending,
   walkIn,
   outForDelivery,
   payPending,
   delivered,
-  all,
 }
 
 extension OrderListFilterX on OrderListFilter {
@@ -35,14 +35,7 @@ extension OrderListFilterX on OrderListFilter {
         OrderListFilter.all => 'All',
       };
 
-  Color get accent => switch (this) {
-        OrderListFilter.pending => const Color(0xFFEA580C),
-        OrderListFilter.walkIn => const Color(0xFF7C3AED),
-        OrderListFilter.outForDelivery => CustomersColors.addButton,
-        OrderListFilter.payPending => const Color(0xFFD97706),
-        OrderListFilter.delivered => const Color(0xFF16A34A),
-        OrderListFilter.all => CustomersColors.titleNavy,
-      };
+  Color get accent => CustomersColors.addButton;
 
   IconData get icon => switch (this) {
         OrderListFilter.pending => Icons.notifications_active_outlined,
@@ -69,11 +62,12 @@ class OrdersStatusFilterBar extends StatelessWidget {
   final Map<OrderListFilter, int> counts;
   final ValueChanged<OrderListFilter> onSelected;
 
-  bool get _active => selected != OrderListFilter.outForDelivery;
+  bool get _active => selected != OrderListFilter.all;
 
   Future<void> _openSheet(BuildContext context) async {
     final picked = await showModalBottomSheet<OrderListFilter?>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -159,7 +153,7 @@ class _OrdersFilterPill extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEA580C),
+                    color: CustomersColors.addButton,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
@@ -200,100 +194,106 @@ class _OrdersStatusFilterSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.paddingOf(context).bottom;
+    const accent = CustomersColors.addButton;
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, bottom + 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: CustomersColors.divider,
-                borderRadius: BorderRadius.circular(999),
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(16, 12, 16, bottom + 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: CustomersColors.divider,
+                  borderRadius: BorderRadius.circular(999),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Show orders',
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: CustomersColors.titleNavy,
+            const SizedBox(height: 16),
+            Text(
+              'Show orders',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: CustomersColors.titleNavy,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Filter by delivery status',
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              color: CustomersColors.labelGrey,
+            const SizedBox(height: 4),
+            Text(
+              'Filter by delivery status',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: CustomersColors.labelGrey,
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
-          ...OrderListFilter.values.map((filter) {
-            final isSelected = filter == selected;
-            final count = counts[filter] ?? 0;
-            final badge = filter == OrderListFilter.pending && pendingCount > 0
-                ? pendingCount
-                : count;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Material(
-                color: isSelected
-                    ? filter.accent.withValues(alpha: 0.08)
-                    : const Color(0xFFF9FAFB),
-                borderRadius: BorderRadius.circular(12),
-                child: InkWell(
-                  onTap: () => Navigator.pop(context, filter),
+            const SizedBox(height: 14),
+            ...OrderListFilter.values.map((filter) {
+              final isSelected = filter == selected;
+              final count = counts[filter] ?? 0;
+              final badge = filter == OrderListFilter.pending && pendingCount > 0
+                  ? pendingCount
+                  : count;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Material(
+                  color: isSelected
+                      ? accent.withValues(alpha: 0.08)
+                      : const Color(0xFFF9FAFB),
                   borderRadius: BorderRadius.circular(12),
-                  child: Ink(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isSelected ? filter.accent : CustomersColors.cardBorder,
-                        width: isSelected ? 1.5 : 1,
+                  child: InkWell(
+                    onTap: () => Navigator.pop(context, filter),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Ink(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected ? accent : CustomersColors.cardBorder,
+                          width: isSelected ? 1.5 : 1,
+                        ),
                       ),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-                    child: Row(
-                      children: [
-                        Icon(filter.icon, size: 20, color: filter.accent),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            filter.label,
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: CustomersColors.titleNavy,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 13,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(filter.icon, size: 20, color: accent),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              filter.label,
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: CustomersColors.titleNavy,
+                              ),
                             ),
                           ),
-                        ),
-                        Text(
-                          '$badge',
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: CustomersColors.labelGrey,
+                          Text(
+                            '$badge',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: CustomersColors.labelGrey,
+                            ),
                           ),
-                        ),
-                        if (isSelected) ...[
-                          const SizedBox(width: 8),
-                          Icon(Icons.check_rounded, size: 20, color: filter.accent),
+                          if (isSelected) ...[
+                            const SizedBox(width: 8),
+                            Icon(Icons.check_rounded, size: 20, color: accent),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            );
-          }),
-        ],
+              );
+            }),
+          ],
+        ),
       ),
     );
   }
@@ -376,9 +376,6 @@ class OrderListCard extends StatelessWidget {
     super.key,
     required this.order,
     required this.customerName,
-    required this.customerPhone,
-    required this.shopName,
-    required this.isMonthlyCustomer,
     required this.initials,
     required this.colorIndex,
     required this.onTap,
@@ -387,9 +384,6 @@ class OrderListCard extends StatelessWidget {
 
   final CustomerOrder order;
   final String customerName;
-  final String customerPhone;
-  final String shopName;
-  final bool isMonthlyCustomer;
   final String initials;
   final int colorIndex;
   final VoidCallback onTap;
@@ -404,6 +398,12 @@ class OrderListCard extends StatelessWidget {
         ? order.dispatchTrackerLabel
         : order.status.label;
     final amountLabel = instantOrderAmountLabel(order, estimatedTotal);
+    final itemsLine = order.lineItems.isNotEmpty
+        ? order.itemsSummary
+        : [
+            if (order.normalQty > 0) '${order.normalQty} Normal',
+            if (order.coolQty > 0) '${order.coolQty} Cool',
+          ].join(' · ');
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -431,19 +431,18 @@ class OrderListCard extends StatelessWidget {
               ],
               color: Colors.white,
             ),
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 CircleAvatar(
-                  radius: 24,
+                  radius: 22,
                   backgroundColor: accent.withValues(alpha: 0.14),
                   child: Text(
                     initials,
                     style: GoogleFonts.poppins(
                       color: accent,
                       fontWeight: FontWeight.w800,
-                      fontSize: 15,
+                      fontSize: 14,
                     ),
                   ),
                 ),
@@ -472,96 +471,31 @@ class OrderListCard extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        shopName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: CustomersColors.addButton,
-                        ),
-                      ),
                       if (amountLabel != null) ...[
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 4),
                         Text(
                           amountLabel,
                           style: GoogleFonts.poppins(
-                            fontSize: 14,
+                            fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: order.isPaymentPending
-                                ? const Color(0xFFEA580C)
-                                : order.isDelivered &&
-                                        order.collectionStatus ==
-                                            DispatchCollectionStatus.collected
-                                    ? const Color(0xFF16A34A)
-                                    : CustomersColors.titleNavy,
+                            color: CustomersColors.titleNavy,
                           ),
                         ),
                       ],
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          _InfoChip(
-                            icon: Icons.account_balance_wallet_outlined,
-                            label: isMonthlyCustomer
-                                ? 'Monthly customer'
-                                : 'Customer',
-                            color: CustomersColors.addButton,
+                      if (itemsLine.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          itemsLine,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: CustomersColors.labelGrey,
                           ),
-                          if (customerPhone.isNotEmpty)
-                            _InfoChip(
-                              icon: Icons.phone_outlined,
-                              label: customerPhone,
-                              color: CustomersColors.labelGrey,
-                            ),
-                          if (order.isPhoneDispatch)
-                            _InfoChip(
-                              icon: Icons.bolt_rounded,
-                              label: order.isInstantNoStock ? 'No stock' : 'Instant',
-                              color: order.isInstantNoStock
-                                  ? const Color(0xFF6B7280)
-                                  : const Color(0xFF7C3AED),
-                            ),
-                          if (order.isPaymentPending)
-                            _InfoChip(
-                              icon: Icons.schedule_rounded,
-                              label: 'Pay pending',
-                              color: const Color(0xFFEA580C),
-                            ),
-                          if (order.isDelivered &&
-                              order.collectionStatus ==
-                                  DispatchCollectionStatus.collected)
-                            _InfoChip(
-                              icon: Icons.check_circle_outline,
-                              label: 'Paid',
-                              color: const Color(0xFF16A34A),
-                            ),
-                          if (order.lineItems.isNotEmpty)
-                            ...order.lineItems.map(
-                              (l) => _CanChip(
-                                label: '${l.quantity} ${l.label}',
-                                cool: l.isCoolCan,
-                              ),
-                            )
-                          else ...[
-                            if (order.normalQty > 0)
-                              _CanChip(
-                                label: '${order.normalQty} Normal',
-                                cool: false,
-                              ),
-                            if (order.coolQty > 0)
-                              _CanChip(
-                                label: '${order.coolQty} Cool',
-                                cool: true,
-                              ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 6),
+                        ),
+                      ],
+                      const SizedBox(height: 4),
                       Text(
                         'Requested ${_timeAgo(order.createdAt)}',
                         style: GoogleFonts.poppins(
@@ -569,20 +503,6 @@ class OrderListCard extends StatelessWidget {
                           color: CustomersColors.labelGrey,
                         ),
                       ),
-                      if (order.adminResponse != null &&
-                          order.adminResponse!.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          order.adminResponse!,
-                          style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            fontStyle: FontStyle.italic,
-                            color: statusStyle.text,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -623,71 +543,6 @@ class _StatusBadge extends StatelessWidget {
           fontWeight: FontWeight.w700,
           color: style.text,
         ),
-      ),
-    );
-  }
-}
-
-class _CanChip extends StatelessWidget {
-  const _CanChip({required this.label, required this.cool});
-
-  final String label;
-  final bool cool;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = cool ? const Color(0xFF0D9488) : CustomersColors.addButton;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.poppins(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(7),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
       ),
     );
   }

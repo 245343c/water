@@ -99,14 +99,15 @@ class CustomerListCard extends StatelessWidget {
                         ),
                       ],
                       const SizedBox(height: 8),
-                      _MetaRow(
-                        icon: Icons.water_drop_outlined,
-                        text: '$unitsThisMonth units this month',
-                      ),
-                      const SizedBox(height: 4),
-                      _MetaRow(
-                        icon: Icons.calendar_today_outlined,
-                        text: 'Last: $lastDeliveryLabel',
+                      Text(
+                        _activitySummary(unitsThisMonth, lastDeliveryLabel),
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: CustomersColors.labelGrey,
+                          height: 1.35,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -166,6 +167,15 @@ class CustomerListCard extends StatelessWidget {
   }
 }
 
+String _activitySummary(int unitsThisMonth, String lastDeliveryLabel) {
+  if (unitsThisMonth <= 0) {
+    return lastDeliveryLabel == 'No delivery yet'
+        ? 'No deliveries this month'
+        : 'Last delivery $lastDeliveryLabel';
+  }
+  return '$unitsThisMonth units this month · Last delivery $lastDeliveryLabel';
+}
+
 class _TintedAvatar extends StatelessWidget {
   const _TintedAvatar({required this.initials, required this.accent});
 
@@ -185,31 +195,6 @@ class _TintedAvatar extends StatelessWidget {
           fontSize: 15,
         ),
       ),
-    );
-  }
-}
-
-class _MetaRow extends StatelessWidget {
-  const _MetaRow({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: CustomersColors.labelGrey),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            style: GoogleFonts.poppins(fontSize: 11, color: CustomersColors.labelGrey),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
     );
   }
 }

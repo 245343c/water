@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/utils/input_validators.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
-import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/add_edit_customer_widgets.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
@@ -98,19 +97,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    final repo = context.read<WaterPlantRepository>();
-    repo.updateSettings(
-      repo.settings.copyWith(
-        businessName: _businessController.text.trim(),
-        address: _addressController.text.trim(),
-        phone: _phoneController.text.trim(),
-        email: _emailController.text.trim(),
-        normalPrice: _defaultNormalPrice,
-        coolPrice: _defaultCoolPrice,
-        homeDeliveryAvailable: _homeDelivery,
-      ),
-    );
-
     if (!mounted) return;
     const message =
         'Account created. Sign in with your mobile number and password.';
@@ -145,6 +131,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(8, 14, 8, 16),
                     children: [
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color(0xFF1A73E8).withValues(alpha: 0.25),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.celebration_rounded,
+                              color: Color(0xFF1A73E8),
+                              size: 22,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                '30-day free trial · Full admin + driver access. No card required today.',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: AddEditCustomerColors.titleNavy,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       AddEditCustomerSectionCard(
                         title: 'Your account',
                         child: Column(

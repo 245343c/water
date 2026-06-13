@@ -280,7 +280,24 @@ class DriverCustomerDetailScreen extends StatelessWidget {
                                 : strings.adminUpdated,
                           );
                         }
-                        if (activeDispatch != null && activeDispatch.isOpenForDriver) {
+                        if (customer.isInstantDispatch) {
+                          if (activeDispatch != null &&
+                              activeDispatch.isOpenForDriver) {
+                            return DriverDispatchFulfillCard(
+                              customer: customer,
+                              dispatch: activeDispatch,
+                              onSaved: onSaved,
+                            );
+                          }
+                          final closedOrder = dispatchOrderId != null
+                              ? repo.orderById(dispatchOrderId!)
+                              : repo.latestInstantOrderForCustomer(customerId);
+                          return DriverInstantDeliveryClosedCard(
+                            order: closedOrder,
+                          );
+                        }
+                        if (activeDispatch != null &&
+                            activeDispatch.isOpenForDriver) {
                           return DriverDispatchFulfillCard(
                             customer: customer,
                             dispatch: activeDispatch,

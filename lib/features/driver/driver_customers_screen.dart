@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,6 +10,7 @@ import 'package:sri_sai_ro_water/core/localization/delivery_localization.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
+import 'package:sri_sai_ro_water/data/repositories/notification_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customer_list_card.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_customers_screen_widgets.dart';
@@ -25,23 +28,61 @@ class _DriverCustomersScreenState extends State<DriverCustomersScreen> {
   String _query = '';
   String? _routeFilter;
   DriverCustomerListFilter _listFilter = DriverCustomerListFilter.all;
+  late final NotificationRepository _notifications;
+  bool _refreshingDriverOrders = false;
 
   @override
   void initState() {
     super.initState();
+    _notifications = context.read<NotificationRepository>();
+    _notifications.addListener(_onDriverNotificationsChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      final repo = context.read<WaterPlantRepository>();
-      await repo.loadDeliveryRoutesForCurrentAdmin();
-      await repo.loadCustomersForCurrentAdminFromFirestore(force: true);
-      await repo.loadLedgerForCurrentShopFromFirestore(force: true);
+      await _refreshDriverData();
     });
   }
 
   @override
   void dispose() {
+    _notifications.removeListener(_onDriverNotificationsChanged);
     _search.dispose();
     super.dispose();
+  }
+
+  void _onDriverNotificationsChanged() {
+    unawaited(_hydrateDriverOrdersFromNotifications());
+  }
+
+  Future<void> _refreshDriverData() async {
+    final repo = context.read<WaterPlantRepository>();
+    final auth = context.read<AuthRepository>();
+    final driverId = auth.currentUser?.driverId;
+    await repo.loadDeliveryRoutesForCurrentAdmin();
+    await repo.loadCustomersForCurrentAdminFromFirestore(force: true);
+    await repo.loadLedgerForCurrentShopFromFirestore(force: true);
+    await repo.hydrateDriverOpenOrders(driverId: driverId);
+    await _hydrateDriverOrdersFromNotifications(driverId: driverId);
+  }
+
+  Future<void> _hydrateDriverOrdersFromNotifications({String? driverId}) async {
+    if (_refreshingDriverOrders || !mounted) return;
+    _refreshingDriverOrders = true;
+    try {
+      final repo = context.read<WaterPlantRepository>();
+      final auth = context.read<AuthRepository>();
+      final resolvedDriverId = driverId ?? auth.currentUser?.driverId;
+      final orderIds = _notifications
+          .forDriver(driverId: resolvedDriverId)
+          .map((n) => n.orderId)
+          .whereType<String>()
+          .where((id) => id.isNotEmpty);
+      await repo.hydrateDriverOrdersFromNotifications(
+        orderIds,
+        driverId: resolvedDriverId,
+      );
+    } finally {
+      _refreshingDriverOrders = false;
+    }
   }
 
   @override

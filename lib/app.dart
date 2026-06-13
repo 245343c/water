@@ -9,6 +9,7 @@ import 'package:sri_sai_ro_water/core/localization/language_controller.dart';
 import 'package:sri_sai_ro_water/core/services/delivery_recording_service.dart';
 import 'package:sri_sai_ro_water/core/services/admin_dispatch_service.dart';
 import 'package:sri_sai_ro_water/core/services/order_workflow_service.dart';
+import 'package:sri_sai_ro_water/core/services/subscription_service.dart';
 import 'package:sri_sai_ro_water/core/services/push_notification_service.dart';
 import 'package:sri_sai_ro_water/core/theme/app_theme.dart';
 import 'package:sri_sai_ro_water/data/models/app_user.dart';
@@ -33,6 +34,7 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
   late final DeliveryRecordingService _deliveryRecording;
   late final OrderWorkflowService _orderWorkflow;
   late final AdminDispatchService _adminDispatch;
+  late final SubscriptionService _subscription;
   late final GoRouter _router;
   String? _lastLoadedUserId;
 
@@ -58,6 +60,7 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
       plant: _repository,
       notifications: _notifications,
     );
+    _subscription = SubscriptionService(plant: _repository);
     _router = createAppRouter(_auth);
     _push.initialize();
     _auth.addListener(_loadRepositoryForAuthUser);
@@ -103,6 +106,7 @@ class _SriSaiRoWaterAppState extends State<SriSaiRoWaterApp> {
         Provider.value(value: _deliveryRecording),
         Provider.value(value: _orderWorkflow),
         Provider.value(value: _adminDispatch),
+        Provider.value(value: _subscription),
       ],
       child: Consumer<LanguageController>(
         builder: (context, language, _) {

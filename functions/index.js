@@ -27,6 +27,136 @@ async function requireAdmin(auth) {
   return { uid: auth.uid, shopId: user.shopId };
 }
 
+const SUBSCRIPTION_PLANS = {
+  starter: {
+    id: "starter",
+    name: "Starter",
+    monthlyPriceInr: 499,
+    annualPriceInr: 4999,
+    customerLimit: 150,
+    driverLimit: 1,
+  },
+  standard: {
+    id: "standard",
+    name: "Standard",
+    monthlyPriceInr: 999,
+    annualPriceInr: 9999,
+    customerLimit: 500,
+    driverLimit: 5,
+  },
+  premium: {
+    id: "premium",
+    name: "Premium",
+    monthlyPriceInr: 1999,
+    annualPriceInr: 19999,
+    customerLimit: 1500,
+    driverLimit: 15,
+  },
+};
+
+const SUBSCRIPTION_TRIAL_DAYS = 30;
+const SUBSCRIPTION_GRACE_DAYS = 7;
+
+function addMonths(date, months) {
+  const next = new Date(date.getTime());
+  next.setMonth(next.getMonth() + months);
+  return next;
+}
+
+function timestampFromDate(date) {
+  return admin.firestore.Timestamp.fromDate(date);
+}
+
+function readDate(value) {
+  if (!value) return null;
+  if (value.toDate) return value.toDate();
+  if (value instanceof Date) return value;
+  const parsed = new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+async function ensureShopSubscriptionFresh(shopRef, shop) {
+  if (!shop) return shop;
+  const now = new Date();
+  const updates = {};
+  let status = shop.subscriptionStatus || "trial";
+  let trialEndsAt = readDate(shop.trialEndsAt);
+  const createdAt = readDate(shop.createdAt);
+
+  if (!trialEndsAt) {
+    const base = createdAt || now;
+    trialEndsAt = new Date(
+      base.getTime() + SUBSCRIPTION_TRIAL_DAYS * 24 * 60 * 60 * 1000,
+    );
+    updates.trialEndsAt = timestampFromDate(trialEndsAt);
+    if (!shop.subscriptionStatus) {
+      updates.subscriptionStatus = "trial";
+      status = "trial";
+    }
+  }
+
+  if (!shop.planId) {
+    updates.planId = "standard";
+  }
+  if (!shop.billingCycle) {
+    updates.billingCycle = "monthly";
+  }
+
+  const graceEndsAt = readDate(shop.graceEndsAt)
+    || (trialEndsAt
+      ? new Date(
+        trialEndsAt.getTime() + SUBSCRIPTION_GRACE_DAYS * 24 * 60 * 60 * 1000,
+      )
+      : null);
+
+  if (status === "trial" && trialEndsAt && now > trialEndsAt) {
+    if (graceEndsAt && now <= graceEndsAt) {
+      status = "grace";
+      updates.subscriptionStatus = "grace";
+      updates.graceEndsAt = timestampFromDate(graceEndsAt);
+    } else {
+      status = "expired";
+      updates.subscriptionStatus = "expired";
+    }
+  }
+
+  if (status === "grace") {
+    const graceEnd = readDate(shop.graceEndsAt) || graceEndsAt;
+    if (graceEnd && now > graceEnd) {
+      status = "expired";
+      updates.subscriptionStatus = "expired";
+    }
+  }
+
+  if (status === "active") {
+    const renewsAt = readDate(shop.currentPeriodEndsAt);
+    if (renewsAt && now > renewsAt) {
+      const activeGraceEnd = readDate(shop.graceEndsAt)
+        || new Date(
+          renewsAt.getTime() + SUBSCRIPTION_GRACE_DAYS * 24 * 60 * 60 * 1000,
+        );
+      if (now <= activeGraceEnd) {
+        status = "grace";
+        updates.subscriptionStatus = "grace";
+        if (!shop.graceEndsAt) {
+          updates.graceEndsAt = timestampFromDate(activeGraceEnd);
+        }
+      } else {
+        status = "expired";
+        updates.subscriptionStatus = "expired";
+      }
+    }
+  }
+
+  if (Object.keys(updates).length > 0) {
+    updates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+    await shopRef.set(updates, { merge: true });
+    return { ...shop, ...updates, subscriptionStatus: status };
+  }
+
+  return { ...shop, subscriptionStatus: status };
+}
+
 async function requireShopStaff(auth, { allowDriver = false } = {}) {
   if (!auth) {
     throw new HttpsError("unauthenticated", "Sign in first.");
@@ -254,7 +384,7 @@ async function tokenDocsForUser(uid) {
   return snap.docs.map((doc) => ({ ref: doc.ref, token: doc.data().token }));
 }
 
-async function userIdsForPushAudience({ shopId, audience, customerId }) {
+async function userIdsForPushAudience({ shopId, audience, customerId, driverId }) {
   if (audience === "admin" || audience === "driver") {
     const snap = await db
       .collection("users")
@@ -263,6 +393,10 @@ async function userIdsForPushAudience({ shopId, audience, customerId }) {
       .get();
     return snap.docs
       .filter((doc) => doc.data().active !== false)
+      .filter((doc) => {
+        if (audience !== "driver" || !driverId) return true;
+        return doc.data().driverId === driverId;
+      })
       .map((doc) => doc.id);
   }
 
@@ -287,9 +421,15 @@ async function sendPushToAudience({
   title,
   body,
   customerId,
+  driverId,
   data,
 }) {
-  const userIds = await userIdsForPushAudience({ shopId, audience, customerId });
+  const userIds = await userIdsForPushAudience({
+    shopId,
+    audience,
+    customerId,
+    driverId,
+  });
   if (userIds.length === 0) return;
 
   const tokenDocs = [];
@@ -431,6 +571,7 @@ function orderPayload(orderId, data) {
     collectionMethod: data.collectionMethod || "",
     collectionRecordedBy: data.collectionRecordedBy || "",
     instantOutcome: data.instantOutcome || "",
+    driverId: data.driverId || "",
   };
 }
 
@@ -583,9 +724,10 @@ function dispatchItemsSummary(lineItems) {
 }
 
 function shopPayload(shopId, data) {
-  const trialEndsAt = data.trialEndsAt && data.trialEndsAt.toDate
-    ? data.trialEndsAt.toDate()
-    : data.trialEndsAt;
+  const trialEndsAt = readDate(data.trialEndsAt);
+  const graceEndsAt = readDate(data.graceEndsAt);
+  const currentPeriodEndsAt = readDate(data.currentPeriodEndsAt);
+  const subscriptionStartedAt = readDate(data.subscriptionStartedAt);
   return {
     id: shopId,
     name: data.name || "",
@@ -597,6 +739,15 @@ function shopPayload(shopId, data) {
     longitude: data.longitude || null,
     subscriptionStatus: data.subscriptionStatus || "trial",
     trialEndsAt: trialEndsAt instanceof Date ? trialEndsAt.toISOString() : "",
+    graceEndsAt: graceEndsAt instanceof Date ? graceEndsAt.toISOString() : "",
+    currentPeriodEndsAt: currentPeriodEndsAt instanceof Date
+      ? currentPeriodEndsAt.toISOString()
+      : "",
+    subscriptionStartedAt: subscriptionStartedAt instanceof Date
+      ? subscriptionStartedAt.toISOString()
+      : "",
+    planId: data.planId || "standard",
+    billingCycle: data.billingCycle || "monthly",
     isListed: data.isListed !== false,
     homeDeliveryAvailable: data.homeDeliveryAvailable === true,
     normalPrice: data.normalPrice || 20,
@@ -908,6 +1059,7 @@ function appendOrderNotification({
   body,
   customerId,
   orderId,
+  driverId,
   now,
 }) {
   batch.set(
@@ -920,6 +1072,7 @@ function appendOrderNotification({
       body,
       customerId,
       orderId,
+      driverId: driverId || null,
       read: false,
       createdAt: now,
       updatedAt: now,
@@ -1128,6 +1281,7 @@ exports.completeAdminRegistration = onCall(callableOptions, async (request) => {
       businessName,
       shopId: shopRef.id,
       customerProfileComplete: true,
+      pricingSetupComplete: false,
       active: true,
       phoneVerified: true,
       emailVerified: authUser.emailVerified === true,
@@ -1148,8 +1302,10 @@ exports.completeAdminRegistration = onCall(callableOptions, async (request) => {
       homeDeliveryAvailable,
       subscriptionStatus: "trial",
       trialEndsAt: admin.firestore.Timestamp.fromDate(
-        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        new Date(Date.now() + SUBSCRIPTION_TRIAL_DAYS * 24 * 60 * 60 * 1000),
       ),
+      planId: "standard",
+      billingCycle: "monthly",
       active: true,
       isListed: homeDeliveryAvailable,
       approvalStatus: "active",
@@ -1171,6 +1327,7 @@ exports.completeAdminRegistration = onCall(callableOptions, async (request) => {
       phone: normalizedPhone,
       businessName,
       role: "admin",
+      pricingSetupComplete: false,
     },
     shopId: shopRef.id,
   };
@@ -1577,6 +1734,12 @@ exports.recordCustomerDelivery = onCall(callableOptions, async (request) => {
   const customer = customerSnap.data();
   if (!customer || customer.active === false) {
     throw new HttpsError("not-found", "Customer not found.");
+  }
+  if (lines.length > 0 && customer.billingMode === "instantDispatch") {
+    throw new HttpsError(
+      "failed-precondition",
+      "Quick delivery customers cannot receive regular deliveries.",
+    );
   }
   if (lines.length > 0) {
     lines = await applyCanonicalDeliveryPrices(staffCtx.shopId, customer, lines);
@@ -1994,6 +2157,14 @@ async function createWalkInDispatchHandler(request) {
   const totals = orderLineTotals(lineItems);
   const productPrices = await walkInProductPrices(adminCtx.shopId);
   const sendToDriver = request.data.sendToDriver !== false;
+  let assignedDriverId = null;
+  if (sendToDriver) {
+    assignedDriverId = cleanText(request.data.driverId, "Driver");
+    const { driver } = await getDriverForAdmin(adminCtx, assignedDriverId);
+    if (driver.active === false) {
+      throw new HttpsError("failed-precondition", "Selected driver is inactive.");
+    }
+  }
 
   const shopRef = db.collection("shops").doc(adminCtx.shopId);
   const customerRef = shopRef.collection("customers").doc();
@@ -2042,6 +2213,8 @@ async function createWalkInDispatchHandler(request) {
     respondedAt: now,
     createdAt: now,
     updatedAt: now,
+    fulfilledAt: null,
+    ...(assignedDriverId ? { driverId: assignedDriverId } : {}),
   };
 
   const batch = db.batch();
@@ -2057,6 +2230,7 @@ async function createWalkInDispatchHandler(request) {
       body: `${callerName} · ${dispatchItemsSummary(lineItems)}`,
       customerId: customerRef.id,
       orderId: orderRef.id,
+      driverId: assignedDriverId,
       now,
     });
   } else {
@@ -2080,6 +2254,7 @@ async function createWalkInDispatchHandler(request) {
       title: "Instant delivery",
       body: `${callerName} - ${dispatchItemsSummary(lineItems)}`,
       customerId: customerRef.id,
+      driverId: assignedDriverId,
       data: {
         type: "orderAccepted",
         orderId: orderRef.id,
@@ -2124,6 +2299,16 @@ exports.fulfillDispatchOrder = onCall(callableOptions, async (request) => {
   }
   if (order.source !== "phoneCall") {
     throw new HttpsError("failed-precondition", "Only instant dispatch orders use this flow.");
+  }
+  if (
+    staffCtx.role === "driver" &&
+    order.driverId &&
+    order.driverId !== staffCtx.driverId
+  ) {
+    throw new HttpsError(
+      "permission-denied",
+      "This delivery is assigned to another driver.",
+    );
   }
 
   const collectionStatus = cleanCollectionStatus(request.data.collectionStatus);
@@ -2461,12 +2646,110 @@ exports.updateWalkInDispatch = onCall(callableOptions, async (request) => {
     responseOrder.collectedAmount = updates.collectedAmount;
     responseOrder.collectionMethod = updates.collectionMethod;
     responseOrder.collectionRecordedBy = "admin";
+  } else if (action === "reassignDriver") {
+    if (order.fulfilledAt) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Already delivered — cannot reassign driver.",
+      );
+    }
+    if (order.status !== "accepted") {
+      throw new HttpsError(
+        "failed-precondition",
+        "Only active orders can be reassigned.",
+      );
+    }
+    const newDriverId = cleanText(request.data.driverId, "Driver");
+    const { driver } = await getDriverForAdmin(adminCtx, newDriverId);
+    if (driver.active === false) {
+      throw new HttpsError("failed-precondition", "Selected driver is inactive.");
+    }
+    updates.driverId = newDriverId;
+    responseOrder.driverId = newDriverId;
+
+    const callerName = order.walkInContact?.name || "Customer";
+    const batch = db.batch();
+    batch.set(orderRef, updates, { merge: true });
+    appendOrderNotification({
+      batch,
+      shopId: adminCtx.shopId,
+      type: "orderAccepted",
+      audience: "driver",
+      title: "Instant delivery",
+      body: `${callerName} · ${dispatchItemsSummary(order.lineItems || [])}`,
+      customerId: order.customerId,
+      orderId,
+      driverId: newDriverId,
+      now,
+    });
+    await batch.commit();
+    await sendPushToAudience({
+      shopId: adminCtx.shopId,
+      audience: "driver",
+      title: "Instant delivery",
+      body: `${callerName} - ${dispatchItemsSummary(order.lineItems || [])}`,
+      customerId: order.customerId,
+      driverId: newDriverId,
+      data: {
+        type: "orderAccepted",
+        orderId,
+      },
+    });
+    return orderPayload(orderId, responseOrder);
   } else {
     throw new HttpsError("invalid-argument", "Unsupported action.");
   }
 
   await orderRef.set(updates, { merge: true });
   return orderPayload(orderId, responseOrder);
+});
+
+exports.getShopSubscription = onCall(callableOptions, async (request) => {
+  const adminCtx = await requireAdmin(request.auth);
+  const shopRef = db.collection("shops").doc(adminCtx.shopId);
+  const shopSnap = await shopRef.get();
+  const shop = shopSnap.data();
+  if (!shop) {
+    throw new HttpsError("not-found", "Shop not found.");
+  }
+  const fresh = await ensureShopSubscriptionFresh(shopRef, shop);
+  return shopPayload(shopRef.id, fresh);
+});
+
+exports.activateShopSubscription = onCall(callableOptions, async (request) => {
+  const adminCtx = await requireAdmin(request.auth);
+  const planId = cleanText(request.data.planId, "Plan");
+  const plan = SUBSCRIPTION_PLANS[planId];
+  if (!plan) {
+    throw new HttpsError("invalid-argument", "Choose a valid subscription plan.");
+  }
+  const billingCycle = request.data.billingCycle === "annual"
+    ? "annual"
+    : "monthly";
+  const shopRef = db.collection("shops").doc(adminCtx.shopId);
+  const shopSnap = await shopRef.get();
+  const shop = shopSnap.data();
+  if (!shop) {
+    throw new HttpsError("not-found", "Shop not found.");
+  }
+
+  const now = new Date();
+  const periodEnd = billingCycle === "annual"
+    ? addMonths(now, 12)
+    : addMonths(now, 1);
+  const updates = {
+    subscriptionStatus: "active",
+    planId,
+    billingCycle,
+    subscriptionStartedAt: admin.firestore.FieldValue.serverTimestamp(),
+    currentPeriodEndsAt: timestampFromDate(periodEnd),
+    graceEndsAt: admin.firestore.FieldValue.delete(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  await shopRef.set(updates, { merge: true });
+  const updatedSnap = await shopRef.get();
+  return shopPayload(shopRef.id, updatedSnap.data() || {});
 });
 
 exports.getCustomerPortalData = onCall(callableOptions, async (request) => {

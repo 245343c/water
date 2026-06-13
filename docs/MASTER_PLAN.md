@@ -1,7 +1,7 @@
 # Sri Sai RO Water — Master Product & Technical Plan
 
 **Version:** 1.0 · **Status:** Living document  
-**App model:** One app on Play Store · Three roles · Firebase later (mock first)
+**App model:** One app on Play Store · Three roles · Firebase (admin + driver live; customer UI paused)
 
 **Current release scope:** ship admin + driver only. Customer portal UI and `/customer/*` routes are paused for this release.
 

@@ -23,6 +23,7 @@ class AdminDispatchService {
     required List<OrderLineItem> lineItems,
     String? note,
     required bool sendToDriver,
+    required String driverId,
   }) async {
     final order = await _plant.placeWalkInDispatch(
       callerName: callerName,
@@ -32,16 +33,20 @@ class AdminDispatchService {
       lineItems: lineItems,
       note: note,
       sendToDriver: sendToDriver,
+      driverId: driverId,
     );
     final name = order.walkInContact?.name ?? callerName.trim();
+    final driverName = _plant.driverById(driverId)?.name ?? 'Driver';
     if (sendToDriver) {
       _notifications.notifyDriverOrderAccepted(
         order: order,
         customerName: name,
+        driverId: driverId,
       );
       _notifications.notifyAdminOrderAccepted(
         order: order,
         customerName: name,
+        driverName: driverName,
       );
     } else {
       _notifications.notifyAdminInstantNoStock(
@@ -126,6 +131,25 @@ class AdminDispatchService {
       orderId: orderId,
       action: 'updateNote',
       adminNote: note,
+    );
+  }
+
+  Future<void> reassignInstantDispatchDriver({
+    required String orderId,
+    required String driverId,
+  }) async {
+    await _plant.reassignInstantDispatchDriverInFirestore(
+      orderId: orderId,
+      driverId: driverId,
+    );
+    final order = _plant.orderById(orderId);
+    if (order == null) return;
+    final customer = _plant.customerById(order.customerId);
+    final name = customer?.name ?? order.walkInContact?.name ?? 'Customer';
+    _notifications.notifyDriverOrderAccepted(
+      order: order,
+      customerName: name,
+      driverId: driverId,
     );
   }
 }

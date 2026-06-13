@@ -23,18 +23,15 @@ class PremiumResponsiveBody extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenWidth = MediaQuery.sizeOf(context).width;
-        final sidePadding = screenWidth >= 1200
-            ? horizontalPadding + 8
-            : horizontalPadding;
+        final sidePadding = _horizontalPadding(screenWidth);
         final availableWidth = constraints.hasBoundedWidth
-            ? math.max(0, constraints.maxWidth - (sidePadding * 2))
-            : screenWidth;
-        // Keep full-width feeling on common laptop screens, and constrain only
-        // on extra-wide layouts for readability.
-        final shouldUseFullWidth =
-            maxWidth >= 1180 && availableWidth <= 1536;
-        final effectiveMaxWidth = shouldUseFullWidth ? availableWidth : maxWidth;
-        final width = math.min(availableWidth, effectiveMaxWidth).toDouble();
+            ? math.max(0.0, constraints.maxWidth - (sidePadding * 2))
+            : screenWidth - (sidePadding * 2);
+        // When parent shell already bounds width, fill it. Otherwise cap for
+        // standalone pages on ultra-wide monitors.
+        final width = constraints.hasBoundedWidth
+            ? availableWidth
+            : math.min(availableWidth, maxWidth).toDouble();
 
         final sizedChild = constraints.hasBoundedHeight
             ? SizedBox(
@@ -56,6 +53,12 @@ class PremiumResponsiveBody extends StatelessWidget {
         );
       },
     );
+  }
+
+  double _horizontalPadding(double screenWidth) {
+    if (screenWidth >= 1200) return horizontalPadding;
+    if (screenWidth >= 600) return math.max(horizontalPadding, 8);
+    return math.max(horizontalPadding, 12);
   }
 }
 

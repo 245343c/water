@@ -31,10 +31,6 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
   late final TextEditingController _emailController;
   late final TextEditingController _placeController;
   late final TextEditingController _addressController;
-  late final TextEditingController _driverNameTeController;
-  late final TextEditingController _driverNameHiController;
-  late final TextEditingController _driverAddressNoteTeController;
-  late final TextEditingController _driverAddressNoteHiController;
   bool _loaded = false;
   bool _pricingReady = false;
   List<CustomerProductPrice> _productPrices = [];
@@ -54,10 +50,6 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
     _emailController = TextEditingController();
     _placeController = TextEditingController();
     _addressController = TextEditingController();
-    _driverNameTeController = TextEditingController();
-    _driverNameHiController = TextEditingController();
-    _driverAddressNoteTeController = TextEditingController();
-    _driverAddressNoteHiController = TextEditingController();
   }
 
   void _loadCustomer(Customer? customer, WaterPlantRepository repo) {
@@ -68,10 +60,6 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
       _emailController.text = customer.email;
       _placeController.text = customer.place;
       _addressController.text = customer.address;
-      _driverNameTeController.text = customer.driverNameTe;
-      _driverNameHiController.text = customer.driverNameHi;
-      _driverAddressNoteTeController.text = customer.driverAddressNoteTe;
-      _driverAddressNoteHiController.text = customer.driverAddressNoteHi;
       _productPrices = customer.productPrices.isEmpty
           ? repo.defaultCustomerPricing()
           : List<CustomerProductPrice>.from(customer.productPrices);
@@ -95,10 +83,6 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
     _emailController.dispose();
     _placeController.dispose();
     _addressController.dispose();
-    _driverNameTeController.dispose();
-    _driverNameHiController.dispose();
-    _driverAddressNoteTeController.dispose();
-    _driverAddressNoteHiController.dispose();
     super.dispose();
   }
 
@@ -111,10 +95,6 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
       email: _emailController.text.trim(),
       place: _placeController.text.trim(),
       address: _addressController.text.trim(),
-      driverNameTe: _driverNameTeController.text.trim(),
-      driverNameHi: _driverNameHiController.text.trim(),
-      driverAddressNoteTe: _driverAddressNoteTeController.text.trim(),
-      driverAddressNoteHi: _driverAddressNoteHiController.text.trim(),
     );
 
     try {
@@ -127,10 +107,6 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
             email: data.email,
             place: data.place,
             address: data.address,
-            driverNameTe: data.driverNameTe,
-            driverNameHi: data.driverNameHi,
-            driverAddressNoteTe: data.driverAddressNoteTe,
-            driverAddressNoteHi: data.driverAddressNoteHi,
             productPrices: _productPrices,
             routeId: _selectedRouteId,
             clearRoute: _selectedRouteId == null,
@@ -144,10 +120,6 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
           email: data.email,
           place: data.place,
           address: data.address,
-          driverNameTe: data.driverNameTe,
-          driverNameHi: data.driverNameHi,
-          driverAddressNoteTe: data.driverAddressNoteTe,
-          driverAddressNoteHi: data.driverAddressNoteHi,
           productPrices: _productPrices,
           routeId: _selectedRouteId,
         );
@@ -336,48 +308,6 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
                                       v == null || v.trim().isEmpty
                                       ? 'Address is required'
                                       : null,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          AddEditCustomerSectionCard(
-                            title: 'Driver language display',
-                            subtitle:
-                                'Optional. Driver app shows these names only when that language is selected.',
-                            child: Column(
-                              children: [
-                                AddEditCustomerField(
-                                  label: 'Telugu driver name',
-                                  controller: _driverNameTeController,
-                                  hint: 'Example: రమేష్ కుమార్',
-                                  icon: Icons.translate_rounded,
-                                  textCapitalization: TextCapitalization.words,
-                                ),
-                                AddEditCustomerField(
-                                  label: 'Hindi driver name',
-                                  controller: _driverNameHiController,
-                                  hint: 'Example: रमेश कुमार',
-                                  icon: Icons.translate_rounded,
-                                  textCapitalization: TextCapitalization.words,
-                                ),
-                                AddEditCustomerField(
-                                  label: 'Telugu driver address note',
-                                  controller: _driverAddressNoteTeController,
-                                  hint: 'Example: గుడి పక్కన, మెయిన్ రోడ్',
-                                  icon: Icons.edit_location_alt_outlined,
-                                  textCapitalization:
-                                      TextCapitalization.sentences,
-                                  maxLines: 2,
-                                ),
-                                AddEditCustomerField(
-                                  label: 'Hindi driver address note',
-                                  controller: _driverAddressNoteHiController,
-                                  hint: 'Example: मंदिर के पास, मेन रोड',
-                                  icon: Icons.edit_location_alt_outlined,
-                                  textCapitalization:
-                                      TextCapitalization.sentences,
-                                  maxLines: 2,
                                 ),
                               ],
                             ),

@@ -10,6 +10,7 @@ class AppUser {
     required this.role,
     this.driverId,
     this.customerProfileComplete = true,
+    this.pricingSetupComplete = true,
   });
 
   final String id;
@@ -24,6 +25,9 @@ class AppUser {
 
   /// False until customer finishes address + map onboarding.
   final bool customerProfileComplete;
+
+  /// False until new admin saves default product rates after signup.
+  final bool pricingSetupComplete;
 
   bool get isAdmin => role == AppRole.admin;
   bool get isDriver => role == AppRole.driver;

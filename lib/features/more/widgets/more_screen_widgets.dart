@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:sri_sai_ro_water/core/theme/app_colors.dart';
 import 'package:sri_sai_ro_water/core/widgets/admin_tab_header.dart';
 import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
@@ -57,15 +58,58 @@ class MoreHeader extends StatelessWidget {
   }
 }
 
+class MoreAccountSectionLabel extends StatelessWidget {
+  const MoreAccountSectionLabel({
+    super.key,
+    required this.title,
+    this.subtitle,
+  });
+
+  final String title;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(6, 6, 6, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              subtitle!,
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                color: Colors.white.withValues(alpha: 0.72),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class MoreBusinessProfileCard extends StatelessWidget {
   const MoreBusinessProfileCard({
     super.key,
     required this.settings,
     required this.onTap,
+    this.ownerName,
   });
 
   final BusinessSettings settings;
   final VoidCallback onTap;
+  final String? ownerName;
 
   @override
   Widget build(BuildContext context) {
@@ -141,6 +185,32 @@ class MoreBusinessProfileCard extends StatelessWidget {
                                     height: 1.25,
                                   ),
                                 ),
+                                if (ownerName != null &&
+                                    ownerName!.trim().isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.person_outline_rounded,
+                                        size: 13,
+                                        color: MoreColors.labelGrey,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          'Managed by ${ownerName!.trim()}',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                            color: MoreColors.labelGrey,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                                 const SizedBox(height: 6),
                                 Text(
                                   'Tap Edit to update shop details',
@@ -257,10 +327,12 @@ class MoreHomeDeliveryCard extends StatelessWidget {
     super.key,
     required this.value,
     required this.onChanged,
+    this.saving = false,
   });
 
   final bool value;
   final ValueChanged<bool> onChanged;
+  final bool saving;
 
   @override
   Widget build(BuildContext context) {
@@ -271,14 +343,34 @@ class MoreHomeDeliveryCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         child: Ink(
           decoration: CustomersColors.whiteCard,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-            child: HomeDeliveryChoice(
-              value: value,
-              onChanged: onChanged,
-              hideDescriptions: true,
-              titleOnly: true,
-            ),
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                child: HomeDeliveryChoice(
+                  value: value,
+                  onChanged: saving ? (_) {} : onChanged,
+                  hideDescriptions: true,
+                  titleOnly: true,
+                ),
+              ),
+              if (saving)
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
@@ -286,14 +378,18 @@ class MoreHomeDeliveryCard extends StatelessWidget {
   }
 }
 
-/// Drivers + sign out — routes live under Customers → Route filter.
+/// Drivers, reports, prices, sign out.
 class MoreManagementCard extends StatelessWidget {
   const MoreManagementCard({
     super.key,
+    required this.onReports,
+    required this.onDeliveryPrices,
     required this.onDrivers,
     required this.onSignOut,
   });
 
+  final VoidCallback onReports;
+  final VoidCallback onDeliveryPrices;
   final VoidCallback onDrivers;
   final VoidCallback onSignOut;
 
@@ -309,11 +405,54 @@ class MoreManagementCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
               child: Text(
-                'Staff & account',
+                'Management',
                 style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                   color: MoreColors.titleNavy,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                'Business tools',
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: MoreColors.labelGrey,
+                ),
+              ),
+            ),
+            _AccountRow(
+              icon: Icons.insights_rounded,
+              iconBg: const Color(0xFFEFF6FF),
+              iconColor: CustomersColors.addButton,
+              title: 'Reports',
+              subtitle: 'Sales, deliveries, and collections',
+              onTap: onReports,
+            ),
+            const Divider(height: 1, indent: 68, color: MoreColors.divider),
+            _AccountRow(
+              icon: Icons.price_change_outlined,
+              iconBg: const Color(0xFFECFDF5),
+              iconColor: const Color(0xFF059669),
+              title: 'Delivery prices',
+              subtitle: 'Normal, cool, lorry, and auto rates',
+              onTap: onDeliveryPrices,
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Divider(height: 1, color: MoreColors.divider),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                'Staff & account',
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: MoreColors.labelGrey,
                 ),
               ),
             ),
@@ -603,21 +742,138 @@ class MoreSectionDivider extends StatelessWidget {
   }
 }
 
-class MoreVersionLabel extends StatelessWidget {
-  const MoreVersionLabel({super.key, this.version = '1.0.0'});
+class MoreVersionLabel extends StatefulWidget {
+  const MoreVersionLabel({super.key});
 
-  final String version;
+  @override
+  State<MoreVersionLabel> createState() => _MoreVersionLabelState();
+}
+
+class _MoreVersionLabelState extends State<MoreVersionLabel> {
+  String? _version;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      setState(() => _version = info.version);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _version = '1.0.0');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final label = _version == null ? '…' : _version!;
     return Padding(
       padding: const EdgeInsets.only(top: 8, bottom: 20),
       child: Text(
-        'Version $version',
+        'Sri Sai RO Water · v$label',
         textAlign: TextAlign.center,
-        style: GoogleFonts.poppins(fontSize: 13, color: MoreColors.labelGrey),
+        style: GoogleFonts.poppins(fontSize: 12, color: MoreColors.labelGrey),
       ),
     );
   }
+}
+
+/// Premium confirm before admin sign-out.
+Future<bool> showAdminSignOutDialog(BuildContext context) async {
+  final result = await showDialog<bool>(
+    context: context,
+    barrierDismissible: true,
+    builder: (ctx) {
+      return Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEE2E2),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.logout_rounded,
+                  color: Color(0xFFDC2626),
+                  size: 26,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Sign out?',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: MoreColors.titleNavy,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'You will need your mobile and password to sign in again. '
+                'Unsaved work on other screens is already saved to the cloud.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  height: 1.45,
+                  color: MoreColors.labelGrey,
+                ),
+              ),
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Stay signed in',
+                        style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFFDC2626),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Sign out',
+                        style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+  return result ?? false;
 }
 

@@ -1,3 +1,4 @@
+import 'package:sri_sai_ro_water/core/subscription/shop_subscription_logic.dart';
 import 'package:sri_sai_ro_water/data/models/business_settings.dart';
 
 enum ShopSubscriptionStatus {
@@ -6,6 +7,8 @@ enum ShopSubscriptionStatus {
   grace,
   expired,
 }
+
+enum SubscriptionBillingCycle { monthly, annual }
 
 /// Water shop on the platform (multi-tenant ready; mock uses one shop).
 class Shop {
@@ -20,6 +23,11 @@ class Shop {
     this.longitude,
     this.subscriptionStatus = ShopSubscriptionStatus.trial,
     this.trialEndsAt,
+    this.graceEndsAt,
+    this.currentPeriodEndsAt,
+    this.subscriptionStartedAt,
+    this.planId,
+    this.billingCycle = SubscriptionBillingCycle.monthly,
     this.isListed = true,
     this.homeDeliveryAvailable = false,
     this.normalPrice = 20,
@@ -50,6 +58,11 @@ class Shop {
   final int reviewCount;
   final ShopSubscriptionStatus subscriptionStatus;
   final DateTime? trialEndsAt;
+  final DateTime? graceEndsAt;
+  final DateTime? currentPeriodEndsAt;
+  final DateTime? subscriptionStartedAt;
+  final String? planId;
+  final SubscriptionBillingCycle billingCycle;
   final bool isListed;
   final bool homeDeliveryAvailable;
   final double normalPrice;
@@ -61,13 +74,15 @@ class Shop {
 
   bool get isVisibleToCustomers {
     if (!isListed || !homeDeliveryAvailable) return false;
-    return switch (subscriptionStatus) {
-      ShopSubscriptionStatus.trial => true,
-      ShopSubscriptionStatus.active => true,
-      ShopSubscriptionStatus.grace => true,
-      ShopSubscriptionStatus.expired => false,
-    };
+    return ShopSubscriptionView(shop: this).canAccessAdminFeatures;
   }
+
+  ShopSubscriptionView get subscriptionView => ShopSubscriptionView(shop: this);
+
+  ShopSubscriptionStatus get effectiveSubscriptionStatus =>
+      subscriptionView.effectiveStatus;
+
+  bool get canAccessAdminFeatures => subscriptionView.canAccessAdminFeatures;
 
   bool get hasMapPin => latitude != null && longitude != null;
 

@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/services/subscription_service.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/widgets/month_year_wheel_picker.dart';
 import 'package:sri_sai_ro_water/data/models/delivery_line_item.dart';
@@ -15,6 +16,7 @@ import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/notifications/notifications_screen.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/features/dashboard/widgets/dashboard_home_widgets.dart';
+import 'package:sri_sai_ro_water/features/subscription/widgets/subscription_widgets.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -309,6 +311,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         void openAddDelivery() => _showCustomerPicker(context, repo);
 
+        void openAddCustomer() {
+          final sub = context.read<SubscriptionService>();
+          final shop = sub.currentShop;
+          if (shop != null && !shop.canAccessAdminFeatures) {
+            context.push(AppRoutes.subscription);
+            return;
+          }
+          final limitMsg = sub.customerLimitMessage();
+          if (limitMsg != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(limitMsg, style: GoogleFonts.poppins(fontSize: 13)),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            context.push(AppRoutes.subscription);
+            return;
+          }
+          context.push('/customers/add');
+        }
+
         return Scaffold(
           backgroundColor: CustomersColors.screenBg,
           body: DashboardScaffold(
@@ -329,9 +352,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
                       children: [
+                        const SubscriptionStatusBanner(),
+                        const SizedBox(height: 10),
                         DashboardQuickActions(
                           onAddDelivery: openAddDelivery,
-                          onAddCustomer: () => context.push('/customers/add'),
+                          onAddCustomer: openAddCustomer,
                         ),
                         const SizedBox(height: 14),
                         DashboardOwnerSnapshot(

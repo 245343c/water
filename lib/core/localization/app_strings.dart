@@ -124,6 +124,12 @@ class AppStrings {
   String get amount => _t('Amount', 'మొత్తం', 'राशि');
   String get openDeliver => _t('Open & deliver', 'తెరిచి డెలివర్ చేయండి', 'खोलें और डिलीवर करें');
   String get collectCash => _t('Collect cash', 'క్యాష్ తీసుకోండి', 'कैश लें');
+  String get orderLockedByAdmin => _t(
+    'Quantities set by admin — confirm delivery & payment only',
+    'పరిమాణాలు అడ్మిన్ సెట్ చేసారు — డెలివరీ & చెల్లింపు మాత్రమే',
+    'मात्रा एडमिन ने तय की — केवल डिलीवरी और भुगतान',
+  );
+  String get confirmDelivery => _t('Confirm delivery', 'డెలివరీ నిర్ధారించండి', 'डिलीवरी पुष्टि करें');
   String get instantDelivery => _t('Instant delivery', 'తక్షణ డెలివరీ', 'तत्काल डिलीवरी');
   String get completedToday => _t('Completed today', 'ఈరోజు పూర్తైనవి', 'आज पूरा हुआ');
   String get savedDeliveriesHere => _t('Saved deliveries appear here', 'సేవ్ చేసిన డెలివరీలు ఇక్కడ కనిపిస్తాయి', 'सेव डिलीवरी यहां दिखेगी');

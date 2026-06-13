@@ -169,9 +169,6 @@ class _MonthlyBillScreenState extends State<MonthlyBillScreen> {
           repo.deliveriesForCustomer(widget.customerId, month: _month),
         );
         final stats = repo.monthlyStatsForCustomer(widget.customerId, _month);
-        final colorIndex = repo.customers.indexWhere(
-          (c) => c.id == widget.customerId,
-        );
 
         return Scaffold(
           backgroundColor: CustomersColors.screenBg,
@@ -183,6 +180,7 @@ class _MonthlyBillScreenState extends State<MonthlyBillScreen> {
                   children: [
                     MonthlyBillHeader(
                       onBack: () => context.pop(),
+                      customerName: customer.name,
                       monthLabel: _month.monthYear,
                       onShare: _busy ? null : () => _sharePdf(),
                     ),
@@ -190,11 +188,6 @@ class _MonthlyBillScreenState extends State<MonthlyBillScreen> {
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
                         children: [
-                          MonthlyBillCustomerBar(
-                            customer: customer,
-                            colorIndex: colorIndex >= 0 ? colorIndex : 0,
-                          ),
-                          const SizedBox(height: 10),
                           MonthlySummaryMonthNav(
                             month: _month,
                             onPrev: () => _shiftMonth(-1),

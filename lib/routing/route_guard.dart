@@ -61,7 +61,7 @@ String? redirectForRole({required AppUser? user, required String location}) {
   }
 
   return switch (user.role) {
-    AppRole.admin => _adminRedirect(location),
+    AppRole.admin => _adminRedirect(location, user),
     AppRole.driver => _driverRedirect(location),
     AppRole.customer => _customerRedirect(location),
   };
@@ -69,13 +69,20 @@ String? redirectForRole({required AppUser? user, required String location}) {
 
 String homeRouteForRole(AppUser user) {
   return switch (user.role) {
-    AppRole.admin => AppRoutes.dashboard,
+    AppRole.admin => user.pricingSetupComplete
+        ? AppRoutes.dashboard
+        : AppRoutes.pricingSetup,
     AppRole.driver => AppRoutes.driverCustomers,
     AppRole.customer => AppRoutes.login,
   };
 }
 
-String? _adminRedirect(String location) {
+String? _adminRedirect(String location, AppUser user) {
+  if (!user.pricingSetupComplete) {
+    if (location != AppRoutes.pricingSetup) return AppRoutes.pricingSetup;
+    return null;
+  }
+  if (location == AppRoutes.pricingSetup) return AppRoutes.dashboard;
   if (isDriverShellRoute(location) || isDriverCustomerRoute(location)) {
     return AppRoutes.dashboard;
   }

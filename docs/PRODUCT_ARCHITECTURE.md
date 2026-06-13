@@ -12,7 +12,7 @@ This document is the **source of truth** for roles, permissions, and UI scope. A
 |------|--------|--------|
 | **Admin** | Implemented | Dashboard · Customers · Orders · Products · Menu |
 | **Driver** | Implemented | Customers · Deliveries · Profile |
-| **Customer** | Implemented (mock) | Home · Orders · Profile — see [MASTER_PLAN.md](MASTER_PLAN.md) |
+| **Customer** | Backend ready · UI paused | Home · Orders · Profile — see [MASTER_PLAN.md](MASTER_PLAN.md) |
 
 Current release app entry opens directly to staff sign-in. The old `/welcome`
 role picker is kept only as a legacy redirect to `/login`.
@@ -54,7 +54,7 @@ role picker is kept only as a legacy redirect to `/login`.
 | View orders | ✓ | ✓ | own only |
 | Accept/reject orders | ✓ | — | create |
 | Record delivery / cans | ✓ | ✓ (field UI on customer) | — |
-| Delivery notifications | receives | — | receives (in-app store; push mock) |
+| Delivery notifications | receives | receives (dispatch) | receives (in-app + FCM; UI paused) |
 | Record payments | ✓ | — | view own |
 | Monthly bills / ledger | ✓ | — | limited |
 
@@ -93,9 +93,9 @@ Enforce in **three layers**: `AppPermissions` → **go_router redirect** → **h
 
 ## Phases
 
-1. **Now**: Roles, driver shell, admin drivers (mock auth).
-2. **Next**: Backend JWT with role claims, sync, offline queue.
-3. **Later**: Customer role + OTP login.
+1. **Now (shipped):** Admin + driver on Firebase Auth, Firestore sync, Cloud Functions for writes, FCM push.
+2. **Next:** Re-enable customer portal UI, offline queue, broader integration tests.
+3. **Later:** Platform subscription billing, multi-shop analytics.
 
 ## Code map
 

@@ -934,12 +934,10 @@ class QuickActionsSection extends StatelessWidget {
     super.key,
     required this.onRecordPayment,
     required this.onViewBills,
-    required this.onCall,
   });
 
   final VoidCallback onRecordPayment;
   final VoidCallback onViewBills;
-  final VoidCallback onCall;
 
   @override
   Widget build(BuildContext context) {
@@ -981,7 +979,7 @@ class QuickActionsSection extends StatelessWidget {
                   onTap: onRecordPayment,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Expanded(
                 child: _SecondaryAction(
                   label: 'Monthly\nBill',
@@ -989,16 +987,6 @@ class QuickActionsSection extends StatelessWidget {
                   iconColor: const Color(0xFF7C3AED),
                   bgColor: const Color(0xFFEDE9FE),
                   onTap: onViewBills,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _SecondaryAction(
-                  label: 'Call',
-                  icon: Icons.phone_outlined,
-                  iconColor: CustomerDetailColors.statOrange,
-                  bgColor: const Color(0xFFFFF7ED),
-                  onTap: onCall,
                 ),
               ),
             ],

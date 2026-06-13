@@ -1,37 +1,70 @@
 # Sri Sai RO Water Plant
 
-Flutter UI preview for RO water delivery management — customers, deliveries, billing, payments, and reports. Uses in-memory mock data (editable). Backend can be connected later.
+Flutter app for RO water delivery — admin dashboard, customer CRM, billing, drivers, and field delivery. **Firebase-backed** (Auth, Firestore, Cloud Functions, FCM).
 
-## Run on Android phone (USB debug)
+**Current release:** admin + driver only. Customer portal routes are paused; customer records are still managed from admin/driver screens.
 
-1. Enable **Developer options** and **USB debugging** on your phone.
-2. Connect the phone with a USB cable.
-3. Verify device: `flutter devices`
-4. Run the app:
+## Prerequisites
+
+- Flutter SDK 3.11+ (`flutter doctor`)
+- Firebase project with Auth (Email/Password + Phone), Firestore, Functions, and FCM enabled
+- FlutterFire config: `lib/firebase_options.dart`, `android/app/google-services.json`, iOS/macOS `GoogleService-Info.plist`
+
+## Run locally
 
 ```bash
-cd c:\Users\UNIFY\Downloads\water
+cd c:\Users\91833\Documents\water
+flutter pub get
 flutter run
 ```
 
-Hot reload: press `r` in the terminal. Hot restart: `R`.
+Hot reload: `r` · Hot restart: `R`
 
-## Screen roles (no duplicate money on customer list)
+## Deploy Firebase backend
 
-- **Dashboard** — plant-wide monthly overview (sales, cans, outstanding) + latest 5 deliveries
-- **Customers** — directory only: name, phone, address, status chip (no ₹ on list)
-- **Customer detail** — full account: monthly usage, balance, payments, actions
-- **Bills** — monthly billing amounts and due per customer
-- **Deliveries** — full log grouped by day (Today / Yesterday / date)
-- **Add delivery** — normal/cool cans, pricing
-- **Delivery history** — per customer, by month
-- **Bills** — monthly summary and invoice preview
-- **Record payment** — cash/UPI/other
-- **Reports** — date range, KPIs, chart
-- **More** — settings (editable prices), reset mock data
+From the repo root (requires [Firebase CLI](https://firebase.google.com/docs/cli) and project selected):
 
-## Notes
+```bash
+firebase deploy --only firestore:rules,firestore:indexes,functions
+```
 
-- Data is stored in memory only (resets when app restarts unless you use **Reset Mock Data** in More).
-- PDF download and notifications are placeholders for backend integration.
-- Tablet layout: navigation rail on wider screens.
+Cloud Functions run in **`asia-south1`**. The Flutter app uses the same region via `FirebaseBackend`.
+
+## Staff flows (production)
+
+| Flow | How it works |
+|------|----------------|
+| **Admin signup** | `/register` → mobile OTP → `completeAdminRegistration` Cloud Function → sign in with **mobile + password** |
+| **Admin / driver login** | `/login` with mobile number (or email) + password |
+| **Forgot password** | Mobile number or registered email → Firebase reset email (uses internal auth email for phone-only accounts) |
+| **Customers** | Admin creates in Firestore (`shops/{id}/customers`); real-time list sync |
+| **Deliveries & payments** | Written via Cloud Functions (`recordCustomerDelivery`, `recordCustomerPayment`) |
+| **Drivers** | Admin creates via `createDriverAccount`; driver logs in with mobile + password |
+| **Walk-in / instant dispatch** | Admin `createWalkInDispatch` → driver `fulfillDispatchOrder` |
+| **Notifications** | Firestore `notifications` + FCM push (`registerFcmToken`) |
+
+## Roles & routes
+
+- **Admin:** `/` dashboard · `/customers` · `/orders` · `/products` · `/more`
+- **Driver:** `/driver/customers` · `/driver/route` · `/driver/profile`
+- Permissions: `AppPermissions` + `route_guard.dart` + UI hiding
+
+## Project docs
+
+- [docs/MASTER_PLAN.md](docs/MASTER_PLAN.md) — product scope
+- [docs/PRODUCT_ARCHITECTURE.md](docs/PRODUCT_ARCHITECTURE.md) — roles, permissions, routing
+
+## Development toggles
+
+`lib/core/config/app_config.dart`:
+
+- `useInstantDispatchMock = false` — use Firebase for instant dispatch (keep `false` in production)
+
+## Tests
+
+```bash
+flutter analyze
+flutter test
+```
+
+Customer UI tests are skipped intentionally for this release.

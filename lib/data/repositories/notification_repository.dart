@@ -48,12 +48,28 @@ class NotificationRepository extends ChangeNotifier {
       )
       .length;
 
-  List<AppNotification> forDriver() =>
-      _items.where((n) => n.audience == AppRole.driver).toList()
+  List<AppNotification> forDriver({String? driverId}) =>
+      _items
+          .where(
+            (n) =>
+                n.audience == AppRole.driver &&
+                (n.driverId == null ||
+                    n.driverId!.isEmpty ||
+                    n.driverId == driverId),
+          )
+          .toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-  int unreadCountForDriver() =>
-      _items.where((n) => n.audience == AppRole.driver && !n.read).length;
+  int unreadCountForDriver({String? driverId}) => _items
+      .where(
+        (n) =>
+            n.audience == AppRole.driver &&
+            !n.read &&
+            (n.driverId == null ||
+                n.driverId!.isEmpty ||
+                n.driverId == driverId),
+      )
+      .length;
 
   Future<void> syncForUser(
     AppUser? user,
@@ -114,6 +130,7 @@ class NotificationRepository extends ChangeNotifier {
           .doc(shop.id)
           .collection('notifications')
           .where('audience', isEqualTo: 'driver')
+          .where('driverId', isEqualTo: user.driverId)
           .limit(100)
           .snapshots()
           .listen(_applyDriverSnapshot);
@@ -394,6 +411,7 @@ class NotificationRepository extends ChangeNotifier {
   void notifyDriverOrderAccepted({
     required CustomerOrder order,
     required String customerName,
+    String? driverId,
   }) {
     _items.insert(
       0,
@@ -409,6 +427,7 @@ class NotificationRepository extends ChangeNotifier {
         audience: AppRole.driver,
         customerId: order.customerId,
         orderId: order.id,
+        driverId: driverId ?? order.driverId,
         createdAt: DateTime.now(),
       ),
     );
@@ -418,6 +437,7 @@ class NotificationRepository extends ChangeNotifier {
   void notifyAdminOrderAccepted({
     required CustomerOrder order,
     required String customerName,
+    String? driverName,
   }) {
     _items.insert(
       0,
@@ -425,7 +445,9 @@ class NotificationRepository extends ChangeNotifier {
         id: _uuid.v4(),
         type: AppNotificationType.orderAccepted,
         title: 'Order sent to driver',
-        body: '$customerName · ${order.itemsSummary} — driver notified',
+        body: driverName == null || driverName.isEmpty
+            ? '$customerName · ${order.itemsSummary} — driver notified'
+            : '$customerName · ${order.itemsSummary} — assigned to $driverName',
         audience: AppRole.admin,
         customerId: order.customerId,
         orderId: order.id,

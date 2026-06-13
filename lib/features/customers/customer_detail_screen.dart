@@ -128,6 +128,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                       CustomerInfoBar(
                         customer: customer,
                         colorIndex: idx >= 0 ? idx : 0,
+                        compact: true,
+                        onCallTap: () => _onCall(customer.phone),
                       ),
                       CustomerPendingCard(
                         totalPending: totalPending,
@@ -172,7 +174,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                         onViewBills: () => context.push(
                           '/customers/${widget.customerId}/bill',
                         ),
-                        onCall: () => _onCall(customer.phone),
                       ),
                       DeleteCustomerSection(
                         onDelete: () =>

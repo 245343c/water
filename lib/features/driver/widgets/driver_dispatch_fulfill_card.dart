@@ -12,6 +12,7 @@ import 'package:sri_sai_ro_water/data/models/delivery_line_item.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
+import 'package:sri_sai_ro_water/data/models/delivery_product_type.dart';
 import 'package:sri_sai_ro_water/data/models/dispatch_payment_mode.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
@@ -54,6 +55,9 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
   bool get _mustCollect =>
       widget.customer.isInstantDispatch ||
       widget.dispatch.paymentMode == DispatchPaymentMode.collectAtDoor;
+
+  /// Quick / phone orders are fixed by admin — driver confirms delivery + payment only.
+  bool get _lockQuantities => widget.dispatch.isPhoneDispatch;
 
   @override
   void initState() {
@@ -222,6 +226,37 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
     );
   }
 
+  List<_LockedDeliveryLine> _lockedDeliveryLines(
+    bool showNormal,
+    bool showCool,
+    List<DeliveryProductType> channelTypes,
+  ) {
+    final lines = <_LockedDeliveryLine>[];
+    if (showNormal && _normal > 0) {
+      lines.add(_LockedDeliveryLine(label: context.l10n.normal, qty: _normal));
+    }
+    if (showCool && _cool > 0) {
+      lines.add(_LockedDeliveryLine(label: context.l10n.cool, qty: _cool));
+    }
+    for (final type in channelTypes) {
+      final qty = _channelQty[type.variantId] ?? 0;
+      if (qty <= 0) continue;
+      lines.add(
+        _LockedDeliveryLine(
+          label: context.l10n.deliveryProductTitle(type),
+          qty: qty,
+        ),
+      );
+    }
+    if (lines.isEmpty && widget.dispatch.lineItems.isNotEmpty) {
+      for (final item in widget.dispatch.lineItems) {
+        if (item.quantity <= 0) continue;
+        lines.add(_LockedDeliveryLine(label: item.label, qty: item.quantity));
+      }
+    }
+    return lines;
+  }
+
   void _copyUpiHint(WaterPlantRepository repo) {
     final shop = repo.shopById(
       widget.dispatch.shopId ?? WaterPlantRepository.defaultShopId,
@@ -307,40 +342,104 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
             ),
           ],
           const SizedBox(height: 14),
-          Text(
-            strings.actualDelivered,
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: DriverColors.labelGrey,
+          if (_lockQuantities) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: DriverColors.cardBorder),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.lock_outline_rounded,
+                        size: 16,
+                        color: DriverColors.labelGrey,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          strings.orderLockedByAdmin,
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: DriverColors.labelGrey,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  for (final line in _lockedDeliveryLines(showNormal, showCool, channelTypes))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              line.label,
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: DriverColors.titleNavy,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: DriverColors.accent.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${line.qty}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: DriverColors.accent,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (estimate > 0) ...[
+                    const Divider(height: 20, color: DriverColors.cardBorder),
+                    Row(
+                      children: [
+                        Text(
+                          strings.amount,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: DriverColors.labelGrey,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          CurrencyUtils.format(estimate),
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: DriverColors.titleNavy,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          if (showNormal)
-            DriverCanStepperRow(
-              label: strings.normal,
-              value: _normal,
-              color: const Color(0xFF2563EB),
-              onChanged: (v) => setState(() => _normal = v),
-            ),
-          if (showCool)
-            DriverCanStepperRow(
-              label: strings.cool,
-              value: _cool,
-              color: DriverColors.accent,
-              onChanged: (v) => setState(() => _cool = v),
-            ),
-          for (final type in channelTypes)
-            DriverCanStepperRow(
-              label: strings.deliveryProductTitle(type),
-              value: _channelQty[type.variantId] ?? 0,
-              color: DriverColors.accent,
-              onChanged: (v) => setState(() => _channelQty[type.variantId] = v),
-            ),
-          if (showNormal || showCool) ...[
-            const SizedBox(height: 12),
+          ] else ...[
             Text(
-              strings.emptyReturned,
+              strings.actualDelivered,
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -350,18 +449,51 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
             const SizedBox(height: 8),
             if (showNormal)
               DriverCanStepperRow(
-                label: strings.emptyNormal,
-                value: _emptyNormal,
+                label: strings.normal,
+                value: _normal,
                 color: const Color(0xFF2563EB),
-                onChanged: (v) => setState(() => _emptyNormal = v),
+                onChanged: (v) => setState(() => _normal = v),
               ),
             if (showCool)
               DriverCanStepperRow(
-                label: strings.emptyCool,
-                value: _emptyCool,
+                label: strings.cool,
+                value: _cool,
                 color: DriverColors.accent,
-                onChanged: (v) => setState(() => _emptyCool = v),
+                onChanged: (v) => setState(() => _cool = v),
               ),
+            for (final type in channelTypes)
+              DriverCanStepperRow(
+                label: strings.deliveryProductTitle(type),
+                value: _channelQty[type.variantId] ?? 0,
+                color: DriverColors.accent,
+                onChanged: (v) => setState(() => _channelQty[type.variantId] = v),
+              ),
+            if (showNormal || showCool) ...[
+              const SizedBox(height: 12),
+              Text(
+                strings.emptyReturned,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: DriverColors.labelGrey,
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (showNormal)
+                DriverCanStepperRow(
+                  label: strings.emptyNormal,
+                  value: _emptyNormal,
+                  color: const Color(0xFF2563EB),
+                  onChanged: (v) => setState(() => _emptyNormal = v),
+                ),
+              if (showCool)
+                DriverCanStepperRow(
+                  label: strings.emptyCool,
+                  value: _emptyCool,
+                  color: DriverColors.accent,
+                  onChanged: (v) => setState(() => _emptyCool = v),
+                ),
+            ],
           ],
           if (_showPaymentSection) ...[
             const SizedBox(height: 14),
@@ -453,7 +585,9 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
                     ),
                   )
                 : Text(
-                    strings.saveDelivery,
+                    _lockQuantities
+                        ? strings.confirmDelivery
+                        : strings.saveDelivery,
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
@@ -464,6 +598,13 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
       ),
     );
   }
+}
+
+class _LockedDeliveryLine {
+  const _LockedDeliveryLine({required this.label, required this.qty});
+
+  final String label;
+  final int qty;
 }
 
 class _PaymentChip extends StatelessWidget {

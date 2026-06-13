@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
-import 'package:sri_sai_ro_water/core/widgets/customer_info_bar.dart';
+import 'package:sri_sai_ro_water/core/widgets/customer_info_bar.dart'
+    show customerContextSubtitle;
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/data/models/monthly_stats.dart';
@@ -104,43 +105,28 @@ class MonthlyBillHeader extends StatelessWidget {
   const MonthlyBillHeader({
     super.key,
     required this.onBack,
+    this.customerName,
     this.monthLabel,
     this.onShare,
   });
   final VoidCallback onBack;
+  final String? customerName;
   final String? monthLabel;
   final VoidCallback? onShare;
 
   @override
   Widget build(BuildContext context) {
+    final subtitle = customerName == null
+        ? (monthLabel ?? 'PDF preview and sharing')
+        : customerContextSubtitle(customerName!, monthLabel);
     return AdminPageHeader(
       title: 'Monthly Bill',
-      subtitle: monthLabel ?? 'PDF preview and sharing',
+      subtitle: subtitle,
       onBack: onBack,
       trailing: IconButton(
         icon: const Icon(Icons.ios_share_rounded, color: Colors.white, size: 22),
         onPressed: onShare,
       ),
-    );
-  }
-}
-
-class MonthlyBillCustomerBar extends StatelessWidget {
-  const MonthlyBillCustomerBar({
-    super.key,
-    required this.customer,
-    required this.colorIndex,
-  });
-
-  final Customer customer;
-  final int colorIndex;
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomerInfoBar(
-      customer: customer,
-      colorIndex: colorIndex,
-      margin: const EdgeInsets.only(top: 4),
     );
   }
 }

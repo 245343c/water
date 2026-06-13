@@ -13,6 +13,7 @@ import 'package:sri_sai_ro_water/data/models/customer_billing_mode.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/customer_can_balance.dart';
 import 'package:sri_sai_ro_water/data/models/shop.dart';
+import 'package:sri_sai_ro_water/data/models/subscription_plan.dart';
 import 'package:sri_sai_ro_water/data/models/customer_product_price.dart';
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/data/models/dispatch_collection_status.dart';
@@ -84,6 +85,7 @@ class WaterPlantRepository extends ChangeNotifier {
   String? _loadedFirebaseLedgerScopeKey;
   String? _currentFirebaseShopId;
   String? _currentFirebaseUserRole;
+  String? _currentFirebaseDriverId;
   bool _loadingFirebaseData = false;
   String? _loadedFirebaseUserId;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _ledgerDeliveriesSub;
@@ -98,6 +100,8 @@ class WaterPlantRepository extends ChangeNotifier {
   String? _watchedLedgerShopId;
   String? _watchedMasterDataShopId;
   String? _watchedCustomerLedgerUserId;
+  DateTime? _ledgerWatchRangeStart;
+  DateTime? _ledgerWatchRangeEndExclusive;
 
   bool get isFirebaseLoading => _loadingFirebaseData;
 
@@ -317,6 +321,19 @@ class WaterPlantRepository extends ChangeNotifier {
     }
   }
 
+  /// Signed-in admin's shop document (Firebase or cached).
+  Shop? get adminShop {
+    final shopId = _currentFirebaseShopId;
+    if (shopId != null) {
+      final shop = shopById(shopId);
+      if (shop != null) return shop;
+    }
+    for (final shop in _shops) {
+      if (shop.id != defaultShopId) return shop;
+    }
+    return shopById(_activeShopId);
+  }
+
   CustomerAppProfile? customerProfileByUserId(String userId) =>
       _customerProfiles[userId];
 
@@ -410,10 +427,35 @@ class WaterPlantRepository extends ChangeNotifier {
   String shopIdForDriver(String driverId) =>
       _driverShopIds[driverId] ?? defaultShopId;
 
+  String? _resolvedDriverShopId(String? driverId) {
+    if (_currentFirebaseShopId != null &&
+        _currentFirebaseShopId != defaultShopId) {
+      return _currentFirebaseShopId;
+    }
+    if (driverId != null) {
+      final linked = _driverShopIds[driverId];
+      if (linked != null && linked != defaultShopId) return linked;
+    }
+    return _currentFirebaseShopId;
+  }
+
+  bool _orderBelongsToDriverShop(CustomerOrder order, String? driverId) {
+    final shopId = _resolvedDriverShopId(driverId);
+    if (shopId == null) return true;
+    if (order.shopId == null || order.shopId!.isEmpty) return true;
+    if (order.shopId == shopId) return true;
+    return shopIdForCustomer(order.customerId) == shopId;
+  }
+
   Shop? shopForDriver(String? driverId) {
     if (driverId == null || driverId.isEmpty) return null;
+    final shopId = _resolvedDriverShopId(driverId);
+    if (shopId != null) {
+      final shop = shopById(shopId);
+      if (shop != null) return shop;
+    }
     _ensureDefaultShop();
-    return shopById(shopIdForDriver(driverId)) ?? shopById(_activeShopId);
+    return shopById(_activeShopId);
   }
 
   List<Customer> customersForShop(String shopId) => _customers
@@ -553,11 +595,21 @@ class WaterPlantRepository extends ChangeNotifier {
   bool canDriverAccessCustomer(String? driverId, String customerId) {
     final shop = shopForDriver(driverId);
     if (shop == null) return false;
+
+    final customer = customerById(customerId);
+    if (customer?.isInstantDispatch == true) {
+      final order = latestInstantOrderForCustomer(customerId);
+      if (order == null) return false;
+      return order.isVisibleToDriver(driverId) &&
+          (order.isOpenForDriver || order.isDelivered);
+    }
+
     if (shopIdForCustomer(customerId) == shop.id) return true;
     return _orders.any(
       (o) =>
           o.customerId == customerId &&
           o.isPhoneDispatch &&
+          o.isVisibleToDriver(driverId) &&
           (o.isOpenForDriver || o.isDelivered),
     );
   }
@@ -778,6 +830,8 @@ class WaterPlantRepository extends ChangeNotifier {
       normalPrice: 0,
       coolPrice: 0,
     );
+
+    if (!AppConfig.useInstantDispatchMock) return;
 
     _seedProducts();
     _ensureDefaultShop();
@@ -1494,6 +1548,9 @@ class WaterPlantRepository extends ChangeNotifier {
       }
       if (user.role == AppRole.admin) {
         await loadDriversForCurrentAdminFromFirestore(force: true);
+        try {
+          await syncShopSubscriptionFromCloud();
+        } catch (_) {}
       } else if (user.role == AppRole.driver && user.driverId != null) {
         await loadDriverForCurrentUserFromFirestore(user.driverId!);
       }
@@ -1636,6 +1693,7 @@ class WaterPlantRepository extends ChangeNotifier {
     final shopId = await _currentAdminShopId();
     if (shopId == null) return;
     final isDriver = _currentFirebaseUserRole == 'driver';
+    final currentDriverId = _currentFirebaseDriverId;
     if (_watchedLedgerShopId == shopId &&
         _ledgerDeliveriesSub != null &&
         (isDriver || _ledgerPaymentsSub != null) &&
@@ -1650,6 +1708,8 @@ class WaterPlantRepository extends ChangeNotifier {
     final now = DateTime.now();
     final monthStart = DateTime(now.year, now.month);
     final nextMonthStart = DateTime(now.year, now.month + 1);
+    _ledgerWatchRangeStart = monthStart;
+    _ledgerWatchRangeEndExclusive = nextMonthStart;
     final shopRef = FirebaseFirestore.instance.collection('shops').doc(shopId);
 
     _ledgerDeliveriesSub = shopRef
@@ -1660,9 +1720,11 @@ class WaterPlantRepository extends ChangeNotifier {
         .listen(_applyShopDeliverySnapshot);
 
     if (isDriver) {
+      if (currentDriverId == null || currentDriverId.isEmpty) return;
       _ledgerPaymentsSub = null;
       _ledgerOrdersSub = shopRef
           .collection('orders')
+          .where('driverId', isEqualTo: currentDriverId)
           .where('status', isEqualTo: 'accepted')
           .where('fulfilledAt', isNull: true)
           .snapshots()
@@ -1763,6 +1825,113 @@ class WaterPlantRepository extends ChangeNotifier {
   void _clearCurrentFirebaseUserContext() {
     _currentFirebaseShopId = null;
     _currentFirebaseUserRole = null;
+    _currentFirebaseDriverId = null;
+  }
+
+  bool _isInDateRange(
+    DateTime date,
+    DateTime rangeStart,
+    DateTime rangeEndExclusive,
+  ) =>
+      !date.isBefore(rangeStart) && date.isBefore(rangeEndExclusive);
+
+  void _replaceShopDeliveriesInRange(
+    String shopId,
+    Iterable<Delivery> deliveries,
+    DateTime rangeStart,
+    DateTime rangeEndExclusive,
+  ) {
+    _deliveries.removeWhere(
+      (d) =>
+          shopIdForCustomer(d.customerId) == shopId &&
+          _isInDateRange(d.date, rangeStart, rangeEndExclusive),
+    );
+    _deliveries.addAll(deliveries);
+    _deliveries.sort((a, b) => b.date.compareTo(a.date));
+  }
+
+  void _replaceShopPaymentsInRange(
+    String shopId,
+    Iterable<Payment> payments,
+    DateTime rangeStart,
+    DateTime rangeEndExclusive,
+  ) {
+    _payments.removeWhere(
+      (p) =>
+          shopIdForCustomer(p.customerId) == shopId &&
+          _isInDateRange(p.date, rangeStart, rangeEndExclusive),
+    );
+    _payments.addAll(payments);
+    _payments.sort((a, b) => b.date.compareTo(a.date));
+  }
+
+  void _replaceShopOrdersInRange(
+    String shopId,
+    Iterable<CustomerOrder> orders,
+    DateTime rangeStart,
+    DateTime rangeEndExclusive,
+  ) {
+    _orders.removeWhere(
+      (o) =>
+          o.shopId == shopId &&
+          _isInDateRange(o.createdAt, rangeStart, rangeEndExclusive),
+    );
+    for (final order in orders) {
+      _upsertOrder(order, notify: false);
+    }
+    _orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  Iterable<CustomerOrder> _filterDriverOpenOrders(
+    Iterable<CustomerOrder> orders, {
+    String? driverId,
+  }) {
+    final visibleDriverId = driverId ?? _currentFirebaseDriverId;
+    return orders.where(
+      (o) => o.isOpenForDriver && o.isVisibleToDriver(visibleDriverId),
+    );
+  }
+
+  void _replaceShopOpenOrders(String shopId, Iterable<CustomerOrder> orders) {
+    _orders.removeWhere((o) {
+      if (!o.isOpenForDriver) return false;
+      if (o.shopId == shopId) return true;
+      return o.shopId == null && shopIdForCustomer(o.customerId) == shopId;
+    });
+    for (final order in _filterDriverOpenOrders(orders)) {
+      _upsertOrder(order, notify: false);
+    }
+    _orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  void _upsertOrder(CustomerOrder incoming, {bool notify = true}) {
+    if (incoming.id.isEmpty) return;
+    final index = _orders.indexWhere((o) => o.id == incoming.id);
+    if (index >= 0) {
+      _mergeOrderFields(_orders[index], incoming);
+    } else {
+      _orders.insert(0, incoming);
+    }
+    if (notify) notifyListeners();
+  }
+
+  void _mergeOrderFields(CustomerOrder existing, CustomerOrder incoming) {
+    existing.status = incoming.status;
+    existing.normalQty = incoming.normalQty;
+    existing.coolQty = incoming.coolQty;
+    existing.driverId = incoming.driverId;
+    existing.fulfilledAt = incoming.fulfilledAt;
+    existing.fulfilledBy = incoming.fulfilledBy;
+    existing.adminDispatchNote = incoming.adminDispatchNote;
+    existing.adminResponse = incoming.adminResponse;
+    existing.respondedAt = incoming.respondedAt;
+    existing.driverAcceptedAt = incoming.driverAcceptedAt;
+    existing.deliveryStartedAt = incoming.deliveryStartedAt;
+    existing.collectionStatus = incoming.collectionStatus;
+    existing.collectedAmount = incoming.collectedAmount;
+    existing.collectionMethod = incoming.collectionMethod;
+    existing.collectionRecordedBy = incoming.collectionRecordedBy;
+    existing.instantOutcome = incoming.instantOutcome;
   }
 
   void _applyShopCustomersSnapshot(
@@ -1814,21 +1983,31 @@ class WaterPlantRepository extends ChangeNotifier {
     QuerySnapshot<Map<String, dynamic>> snapshot,
   ) {
     final shopId = _watchedLedgerShopId;
-    if (shopId == null) return;
+    final rangeStart = _ledgerWatchRangeStart;
+    final rangeEnd = _ledgerWatchRangeEndExclusive;
+    if (shopId == null || rangeStart == null || rangeEnd == null) return;
 
-    _deliveries.removeWhere((d) => shopIdForCustomer(d.customerId) == shopId);
-    _deliveries.addAll(snapshot.docs.map(_deliveryFromFirestore));
-    _deliveries.sort((a, b) => b.date.compareTo(a.date));
+    _replaceShopDeliveriesInRange(
+      shopId,
+      snapshot.docs.map(_deliveryFromFirestore),
+      rangeStart,
+      rangeEnd,
+    );
     notifyListeners();
   }
 
   void _applyShopPaymentSnapshot(QuerySnapshot<Map<String, dynamic>> snapshot) {
     final shopId = _watchedLedgerShopId;
-    if (shopId == null) return;
+    final rangeStart = _ledgerWatchRangeStart;
+    final rangeEnd = _ledgerWatchRangeEndExclusive;
+    if (shopId == null || rangeStart == null || rangeEnd == null) return;
 
-    _payments.removeWhere((p) => shopIdForCustomer(p.customerId) == shopId);
-    _payments.addAll(snapshot.docs.map(_paymentFromFirestore));
-    _payments.sort((a, b) => b.date.compareTo(a.date));
+    _replaceShopPaymentsInRange(
+      shopId,
+      snapshot.docs.map(_paymentFromFirestore),
+      rangeStart,
+      rangeEnd,
+    );
     notifyListeners();
   }
 
@@ -1836,9 +2015,15 @@ class WaterPlantRepository extends ChangeNotifier {
     final shopId = _watchedLedgerShopId;
     if (shopId == null) return;
 
-    _orders.removeWhere((o) => o.shopId == shopId);
-    _orders.addAll(snapshot.docs.map(_orderFromFirestore));
-    _orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final orders = snapshot.docs.map(_orderFromFirestore);
+    if (_currentFirebaseUserRole == 'driver') {
+      _replaceShopOpenOrders(shopId, orders);
+    } else {
+      final rangeStart = _ledgerWatchRangeStart;
+      final rangeEnd = _ledgerWatchRangeEndExclusive;
+      if (rangeStart == null || rangeEnd == null) return;
+      _replaceShopOrdersInRange(shopId, orders, rangeStart, rangeEnd);
+    }
     notifyListeners();
   }
 
@@ -1852,6 +2037,8 @@ class WaterPlantRepository extends ChangeNotifier {
     await _ledgerOrdersSub?.cancel();
     _ledgerOrdersSub = null;
     _watchedLedgerShopId = null;
+    _ledgerWatchRangeStart = null;
+    _ledgerWatchRangeEndExclusive = null;
     await _shopCustomersSub?.cancel();
     _shopCustomersSub = null;
     await _shopRoutesSub?.cancel();
@@ -1902,6 +2089,8 @@ class WaterPlantRepository extends ChangeNotifier {
     _loadedFirebaseLedgerShopId = null;
     _loadedFirebaseLedgerScopeKey = null;
     _currentFirebaseShopId = null;
+    _currentFirebaseUserRole = null;
+    _currentFirebaseDriverId = null;
 
     if (AppConfig.useInstantDispatchMock) {
       for (final customer in instantCustomers) {
@@ -1954,6 +2143,121 @@ class WaterPlantRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  SubscriptionPlan _planForLimits(Shop? shop) {
+    if (shop == null) return SubscriptionPlans.standard;
+    if (shop.subscriptionView.effectiveStatus == ShopSubscriptionStatus.trial) {
+      return SubscriptionPlans.premium;
+    }
+    return SubscriptionPlans.byId(shop.planId) ?? SubscriptionPlans.standard;
+  }
+
+  int _monthlyCustomerCountForPlan() =>
+      _customers.where((c) => !c.isInstantDispatch).length;
+
+  int _activeDriverCountForPlan() =>
+      _drivers.where((driver) => driver.active).length;
+
+  bool canAddCustomerWithinPlan({int extra = 1}) {
+    final plan = _planForLimits(adminShop);
+    return _monthlyCustomerCountForPlan() + extra <= plan.customerLimit;
+  }
+
+  bool canAddDriverWithinPlan({int extra = 1}) {
+    final plan = _planForLimits(adminShop);
+    return _activeDriverCountForPlan() + extra <= plan.driverLimit;
+  }
+
+  String? customerPlanLimitMessage() {
+    if (canAddCustomerWithinPlan()) return null;
+    final plan = _planForLimits(adminShop);
+    return 'Your ${plan.name} plan supports up to ${plan.customerLimit} customers. Upgrade in Account → Subscription.';
+  }
+
+  String? driverPlanLimitMessage() {
+    if (canAddDriverWithinPlan()) return null;
+    final plan = _planForLimits(adminShop);
+    return 'Your ${plan.name} plan supports up to ${plan.driverLimit} drivers. Upgrade in Account → Subscription.';
+  }
+
+  Future<Shop> syncShopSubscriptionFromCloud() async {
+    final shopId = await _currentAdminShopId();
+    if (shopId == null) {
+      final local = adminShop;
+      if (local != null) return local;
+      throw StateError('Shop account not found');
+    }
+
+    if (AppConfig.useInstantDispatchMock) {
+      final local = adminShop;
+      if (local != null) return local;
+      await loadCurrentShopFromFirestore(force: true);
+      return adminShop ?? Shop.fromBusinessSettings(settings, id: shopId);
+    }
+
+    final result = await FirebaseBackend.functions
+        .httpsCallable('getShopSubscription')
+        .call({});
+    final data = Map<String, dynamic>.from(result.data as Map);
+    final shop = _shopFromFirestore(
+      data['id'] as String? ?? shopId,
+      data,
+    );
+    _upsertShop(shop);
+    notifyListeners();
+    return shop;
+  }
+
+  Future<Shop> activateShopSubscriptionPlan({
+    required String planId,
+    SubscriptionBillingCycle billingCycle = SubscriptionBillingCycle.monthly,
+  }) async {
+    final shopId = await _currentAdminShopId();
+    if (shopId == null) throw StateError('Shop account not found');
+
+    if (AppConfig.useInstantDispatchMock) {
+      final plan =
+          SubscriptionPlans.byId(planId) ?? SubscriptionPlans.standard;
+      final now = DateTime.now();
+      final periodEnd = billingCycle == SubscriptionBillingCycle.annual
+          ? DateTime(now.year + 1, now.month, now.day)
+          : DateTime(now.year, now.month + 1, now.day);
+      final activated = Shop(
+        id: shopId,
+        name: settings.businessName,
+        address: settings.address,
+        phone: settings.phone,
+        email: settings.email,
+        subscriptionStatus: ShopSubscriptionStatus.active,
+        planId: plan.id,
+        billingCycle: billingCycle,
+        subscriptionStartedAt: now,
+        currentPeriodEndsAt: periodEnd,
+        trialEndsAt: adminShop?.trialEndsAt,
+        homeDeliveryAvailable: settings.homeDeliveryAvailable,
+        normalPrice: settings.normalPrice,
+        coolPrice: settings.coolPrice,
+      );
+      _upsertShop(activated);
+      notifyListeners();
+      return activated;
+    }
+
+    final result = await FirebaseBackend.functions
+        .httpsCallable('activateShopSubscription')
+        .call({
+          'planId': planId,
+          'billingCycle': billingCycle.name,
+        });
+    final data = Map<String, dynamic>.from(result.data as Map);
+    final shop = _shopFromFirestore(
+      data['id'] as String? ?? shopId,
+      data,
+    );
+    _upsertShop(shop);
+    notifyListeners();
+    return shop;
+  }
+
   Future<void> loadShopConfigurationFromFirestore(String shopId) async {
     final shopRef = FirebaseFirestore.instance.collection('shops').doc(shopId);
     final results = await Future.wait([
@@ -1991,13 +2295,18 @@ class WaterPlantRepository extends ChangeNotifier {
         ? DateTime(end.year, end.month, end.day).add(const Duration(days: 1))
         : DateTime(selectedMonth.year, selectedMonth.month + 1);
     final isDriver = _currentFirebaseUserRole == 'driver';
+    final currentDriverId = _currentFirebaseDriverId;
     final scopeKey =
         '$shopId|${_currentFirebaseUserRole ?? 'unknown'}|'
+        '${currentDriverId ?? 'none'}|'
         '${rangeStart.toIso8601String()}|'
         '${rangeEndExclusive.toIso8601String()}';
     if (!force &&
         _loadedFirebaseLedgerShopId == shopId &&
         _loadedFirebaseLedgerScopeKey == scopeKey) {
+      return;
+    }
+    if (isDriver && (currentDriverId == null || currentDriverId.isEmpty)) {
       return;
     }
 
@@ -2019,6 +2328,7 @@ class WaterPlantRepository extends ChangeNotifier {
     final ordersFuture = isDriver
         ? shopRef
               .collection('orders')
+              .where('driverId', isEqualTo: currentDriverId)
               .where('status', isEqualTo: 'accepted')
               .where('fulfilledAt', isNull: true)
               .get()
@@ -2044,15 +2354,33 @@ class WaterPlantRepository extends ChangeNotifier {
     final paymentSnapshot = results[1];
     final orderSnapshot = results[2] as QuerySnapshot<Map<String, dynamic>>;
 
-    _deliveries
-      ..clear()
-      ..addAll(deliverySnapshot.docs.map(_deliveryFromFirestore));
-    _payments
-      ..clear()
-      ..addAll(paymentSnapshot?.docs.map(_paymentFromFirestore) ?? const []);
-    _orders
-      ..clear()
-      ..addAll(orderSnapshot.docs.map(_orderFromFirestore));
+    _replaceShopDeliveriesInRange(
+      shopId,
+      deliverySnapshot.docs.map(_deliveryFromFirestore),
+      rangeStart,
+      rangeEndExclusive,
+    );
+    if (paymentSnapshot != null) {
+      _replaceShopPaymentsInRange(
+        shopId,
+        paymentSnapshot.docs.map(_paymentFromFirestore),
+        rangeStart,
+        rangeEndExclusive,
+      );
+    }
+    if (isDriver) {
+      _replaceShopOpenOrders(
+        shopId,
+        orderSnapshot.docs.map(_orderFromFirestore),
+      );
+    } else {
+      _replaceShopOrdersInRange(
+        shopId,
+        orderSnapshot.docs.map(_orderFromFirestore),
+        rangeStart,
+        rangeEndExclusive,
+      );
+    }
     _loadedFirebaseLedgerShopId = shopId;
     _loadedFirebaseLedgerScopeKey = scopeKey;
     notifyListeners();
@@ -2148,7 +2476,10 @@ class WaterPlantRepository extends ChangeNotifier {
   }
 
   Future<String?> _currentAdminShopId() async {
-    if (_currentFirebaseShopId != null && _currentFirebaseUserRole != null) {
+    if (_currentFirebaseShopId != null &&
+        _currentFirebaseUserRole != null &&
+        (_currentFirebaseUserRole != 'driver' ||
+            _currentFirebaseDriverId != null)) {
       return _currentFirebaseShopId;
     }
     final uid = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
@@ -2160,7 +2491,81 @@ class WaterPlantRepository extends ChangeNotifier {
     final data = userDoc.data();
     _currentFirebaseShopId = data?['shopId'] as String?;
     _currentFirebaseUserRole = data?['role'] as String?;
+    _currentFirebaseDriverId = data?['driverId'] as String?;
+    if (_currentFirebaseUserRole == 'driver' &&
+        _currentFirebaseDriverId != null &&
+        _currentFirebaseShopId != null) {
+      _linkDriverToShop(_currentFirebaseDriverId!, _currentFirebaseShopId!);
+    }
     return _currentFirebaseShopId;
+  }
+
+  /// Reload open orders for the signed-in driver (Firestore `isNull` queries
+  /// miss documents where `fulfilledAt` was never written).
+  Future<void> hydrateDriverOpenOrders({String? driverId}) async {
+    final shopId = await _currentAdminShopId();
+    if (shopId == null || _currentFirebaseUserRole != 'driver') return;
+    final visibleDriverId = driverId ?? _currentFirebaseDriverId;
+    if (visibleDriverId == null || visibleDriverId.isEmpty) return;
+
+    final snapshot = await FirebaseFirestore.instance
+        .collection('shops')
+        .doc(shopId)
+        .collection('orders')
+        .where('driverId', isEqualTo: visibleDriverId)
+        .where('status', isEqualTo: 'accepted')
+        .where('fulfilledAt', isNull: true)
+        .get();
+    _replaceShopOpenOrders(
+      shopId,
+      _filterDriverOpenOrders(
+        snapshot.docs.map(_orderFromFirestore),
+        driverId: visibleDriverId,
+      ),
+    );
+    notifyListeners();
+  }
+
+  Future<void> hydrateDriverOrderById(
+    String orderId, {
+    String? driverId,
+  }) async {
+    if (orderId.isEmpty) return;
+    final existing = orderById(orderId);
+    if (existing?.isOpenForDriver == true &&
+        existing!.isVisibleToDriver(driverId ?? _currentFirebaseDriverId)) {
+      return;
+    }
+
+    final shopId = await _currentAdminShopId();
+    if (shopId == null) return;
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('shops')
+          .doc(shopId)
+          .collection('orders')
+          .doc(orderId)
+          .get();
+      if (!doc.exists) return;
+      final data = doc.data();
+      if (data == null) return;
+      final order = _orderFromMap(doc.id, data);
+      if (!order.isOpenForDriver) return;
+      if (!order.isVisibleToDriver(driverId ?? _currentFirebaseDriverId)) {
+        return;
+      }
+      _upsertOrder(order);
+    } catch (_) {}
+  }
+
+  Future<void> hydrateDriverOrdersFromNotifications(
+    Iterable<String> orderIds, {
+    String? driverId,
+  }) async {
+    for (final orderId in orderIds) {
+      await hydrateDriverOrderById(orderId, driverId: driverId);
+    }
   }
 
   Future<String?> _shopIdForCustomerOrCurrent(String customerId) async {
@@ -2278,6 +2683,10 @@ class WaterPlantRepository extends ChangeNotifier {
 
   Shop _shopFromFirestore(String id, Map<String, dynamic> data) {
     final trialEndsAt = data['trialEndsAt'];
+    final graceEndsAt = data['graceEndsAt'];
+    final currentPeriodEndsAt = data['currentPeriodEndsAt'];
+    final subscriptionStartedAt = data['subscriptionStartedAt'];
+    final billingCycleRaw = data['billingCycle'] as String? ?? 'monthly';
     return Shop(
       id: id,
       name: data['name'] as String? ?? '',
@@ -2290,7 +2699,14 @@ class WaterPlantRepository extends ChangeNotifier {
       subscriptionStatus: _shopSubscriptionStatusFromFirestore(
         data['subscriptionStatus'] as String?,
       ),
-      trialEndsAt: trialEndsAt is Timestamp ? trialEndsAt.toDate() : null,
+      trialEndsAt: _dateTimeFromFirestore(trialEndsAt),
+      graceEndsAt: _dateTimeFromFirestore(graceEndsAt),
+      currentPeriodEndsAt: _dateTimeFromFirestore(currentPeriodEndsAt),
+      subscriptionStartedAt: _dateTimeFromFirestore(subscriptionStartedAt),
+      planId: data['planId'] as String?,
+      billingCycle: billingCycleRaw == 'annual'
+          ? SubscriptionBillingCycle.annual
+          : SubscriptionBillingCycle.monthly,
       isListed: data['isListed'] as bool? ?? true,
       homeDeliveryAvailable: data['homeDeliveryAvailable'] as bool? ?? false,
       normalPrice: (data['normalPrice'] as num?)?.toDouble() ?? 20,
@@ -2492,7 +2908,11 @@ class WaterPlantRepository extends ChangeNotifier {
     final data = value is Map
         ? Map<String, dynamic>.from(value)
         : <String, dynamic>{};
-    return _orderFromMap(data['id'] as String? ?? _uuid.v4(), data);
+    final id = data['id'] as String? ?? '';
+    if (id.isEmpty) {
+      throw StateError('Server did not return an order id');
+    }
+    return _orderFromMap(id, data);
   }
 
   CustomerOrder _orderFromMap(String id, Map<String, dynamic> data) {
@@ -2527,6 +2947,7 @@ class WaterPlantRepository extends ChangeNotifier {
         collectedAmount: collection.$2,
         collectionMethod: collection.$3,
         collectionRecordedBy: data['collectionRecordedBy'] as String?,
+        driverId: data['driverId'] as String?,
         instantOutcome: data['instantOutcome'] as String?,
       );
     }
@@ -2554,6 +2975,7 @@ class WaterPlantRepository extends ChangeNotifier {
       collectedAmount: collection.$2,
       collectionMethod: collection.$3,
       collectionRecordedBy: data['collectionRecordedBy'] as String?,
+      driverId: data['driverId'] as String?,
       instantOutcome: data['instantOutcome'] as String?,
     );
   }
@@ -2642,8 +3064,13 @@ class WaterPlantRepository extends ChangeNotifier {
       _orders.where((o) => o.status == OrderStatus.pending).length;
 
   List<CustomerOrder> ordersNewestFirst() {
-    final list = List<CustomerOrder>.from(_orders)
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final seen = <String>{};
+    final list = <CustomerOrder>[];
+    for (final order in _orders) {
+      if (order.id.isEmpty || !seen.add(order.id)) continue;
+      list.add(order);
+    }
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return list;
   }
 
@@ -2822,6 +3249,7 @@ class WaterPlantRepository extends ChangeNotifier {
     required List<OrderLineItem> lineItems,
     String? note,
     bool sendToDriver = true,
+    required String driverId,
   }) async {
     final items = lineItems.where((l) => l.quantity > 0).toList();
     if (items.isEmpty) {
@@ -2837,6 +3265,10 @@ class WaterPlantRepository extends ChangeNotifier {
       throw ArgumentError('Enter delivery address');
     }
 
+    if (sendToDriver && driverId.trim().isEmpty) {
+      throw ArgumentError('Select a driver');
+    }
+
     if (AppConfig.useInstantDispatchMock) {
       return _placeWalkInDispatchMock(
         callerName: callerName.trim(),
@@ -2846,6 +3278,7 @@ class WaterPlantRepository extends ChangeNotifier {
         lineItems: items,
         note: note,
         sendToDriver: sendToDriver,
+        driverId: driverId.trim(),
       );
     }
 
@@ -2859,6 +3292,7 @@ class WaterPlantRepository extends ChangeNotifier {
           'lineItems': items.map((l) => l.toMap()).toList(),
           'note': note ?? '',
           'sendToDriver': sendToDriver,
+          'driverId': driverId.trim(),
         });
 
     final data = Map<String, dynamic>.from(result.data as Map);
@@ -2868,8 +3302,7 @@ class WaterPlantRepository extends ChangeNotifier {
     if (shopId == null) throw StateError('Shop account not found');
 
     _upsertCustomer(customer, shopId);
-    _orders.insert(0, order);
-    notifyListeners();
+    _upsertOrder(order);
     return order;
   }
 
@@ -2881,6 +3314,7 @@ class WaterPlantRepository extends ChangeNotifier {
     required List<OrderLineItem> lineItems,
     String? note,
     required bool sendToDriver,
+    required String driverId,
   }) {
     final phone = callerPhone.replaceAll(RegExp(r'\D'), '');
     if (phone.length != 10) {
@@ -2924,12 +3358,12 @@ class WaterPlantRepository extends ChangeNotifier {
       paymentMode: DispatchPaymentMode.collectAtDoor,
       walkInContact: walkIn,
       instantOutcome: sendToDriver ? 'sent' : 'noStock',
+      driverId: sendToDriver ? driverId : null,
       lineItems: lineItems,
     );
 
     _upsertCustomer(customer, shopId);
-    _orders.insert(0, order);
-    notifyListeners();
+    _upsertOrder(order);
     return order;
   }
 
@@ -3014,6 +3448,7 @@ class WaterPlantRepository extends ChangeNotifier {
         paymentMode: DispatchPaymentMode.collectAtDoor,
         walkInContact: walkIn,
         instantOutcome: 'sent',
+        driverId: AppConfig.mockDriverId,
         lineItems: [
           OrderLineItem.fromDeliveryType(
             type: DeliveryProductType.fullLorry,
@@ -3135,6 +3570,12 @@ class WaterPlantRepository extends ChangeNotifier {
     final order = orderById(orderId);
     if (order == null || !order.isOpenForDriver) {
       throw StateError('Active instant delivery not found');
+    }
+    if (driverId != null &&
+        order.driverId != null &&
+        order.driverId!.isNotEmpty &&
+        order.driverId != driverId) {
+      throw StateError('This delivery is assigned to another driver');
     }
 
     var parsed = _parseInstantDeliveryLineMaps(lines);
@@ -3265,6 +3706,7 @@ class WaterPlantRepository extends ChangeNotifier {
     String? collectionStatus,
     double? collectedAmount,
     String? collectionMethod,
+    String? driverId,
   }) {
     final order = orderById(orderId);
     if (order == null || !order.isPhoneDispatch) return;
@@ -3305,10 +3747,30 @@ class WaterPlantRepository extends ChangeNotifier {
           recordedBy: 'admin',
         );
         break;
+      case 'reassignDriver':
+        if (order.fulfilledAt != null) {
+          throw StateError('Already delivered — cannot reassign driver');
+        }
+        if (driverId == null || driverId.trim().isEmpty) {
+          throw ArgumentError('Select a driver');
+        }
+        order.driverId = driverId.trim();
+        break;
       default:
         throw ArgumentError('Unsupported action: $action');
     }
     notifyListeners();
+  }
+
+  Future<void> reassignInstantDispatchDriverInFirestore({
+    required String orderId,
+    required String driverId,
+  }) async {
+    await updateWalkInDispatchInFirestore(
+      orderId: orderId,
+      action: 'reassignDriver',
+      driverId: driverId.trim(),
+    );
   }
 
   void _applyCollectionToOrder(
@@ -3365,6 +3827,7 @@ class WaterPlantRepository extends ChangeNotifier {
     String? collectionStatus,
     double? collectedAmount,
     String? collectionMethod,
+    String? driverId,
   }) async {
     if (AppConfig.useInstantDispatchMock) {
       _updateWalkInDispatchMock(
@@ -3374,6 +3837,7 @@ class WaterPlantRepository extends ChangeNotifier {
         collectionStatus: collectionStatus,
         collectedAmount: collectedAmount,
         collectionMethod: collectionMethod,
+        driverId: driverId,
       );
       return;
     }
@@ -3387,6 +3851,7 @@ class WaterPlantRepository extends ChangeNotifier {
           'collectionStatus': ?collectionStatus,
           'collectedAmount': ?collectedAmount,
           'collectionMethod': ?collectionMethod,
+          'driverId': ?driverId,
         });
     _mergeOrderFromCallable(_orderFromCallable(result.data));
   }
@@ -3432,22 +3897,28 @@ class WaterPlantRepository extends ChangeNotifier {
       existing.collectedAmount = updated.collectedAmount;
       existing.collectionMethod = updated.collectionMethod;
       existing.collectionRecordedBy = updated.collectionRecordedBy;
+      existing.driverId = updated.driverId;
       existing.instantOutcome = updated.instantOutcome;
     }
     notifyListeners();
   }
 
+  CustomerOrder? latestInstantOrderForCustomer(String customerId) {
+    CustomerOrder? latest;
+    for (final o in _orders) {
+      if (o.customerId != customerId || !o.isPhoneDispatch) continue;
+      if (latest == null || o.createdAt.isAfter(latest.createdAt)) {
+        latest = o;
+      }
+    }
+    return latest;
+  }
+
   CustomerOrder? openDispatchById(String orderId, {String? driverId}) {
     final order = orderById(orderId);
     if (order == null || !order.isOpenForDriver) return null;
-    if (driverId != null) {
-      final shop = shopForDriver(driverId);
-      if (shop == null) return null;
-      final ok =
-          order.shopId == shop.id ||
-          shopIdForCustomer(order.customerId) == shop.id;
-      if (!ok) return null;
-    }
+    if (!order.isVisibleToDriver(driverId)) return null;
+    if (!_orderBelongsToDriverShop(order, driverId)) return null;
     return order;
   }
 
@@ -3974,7 +4445,12 @@ class WaterPlantRepository extends ChangeNotifier {
   /// Phone / walk-in instant jobs for the driver.
   List<CustomerOrder> driverInstantOrders({String? driverId}) {
     var list = _orders
-        .where((o) => o.isOpenForDriver && o.isPhoneDispatch)
+        .where(
+          (o) =>
+              o.isOpenForDriver &&
+              o.isPhoneDispatch &&
+              o.isVisibleToDriver(driverId),
+        )
         .toList();
     list = _filterOrdersForDriverShop(list, driverId);
     return list..sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -3983,7 +4459,12 @@ class WaterPlantRepository extends ChangeNotifier {
   /// Customer-app requests accepted by admin.
   List<CustomerOrder> driverAppAcceptedOrders({String? driverId}) {
     var list = _orders
-        .where((o) => o.isOpenForDriver && !o.isPhoneDispatch)
+        .where(
+          (o) =>
+              o.isOpenForDriver &&
+              !o.isPhoneDispatch &&
+              o.isVisibleToDriver(driverId),
+        )
         .toList();
     list = _filterOrdersForDriverShop(list, driverId);
     return list..sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -3993,17 +4474,8 @@ class WaterPlantRepository extends ChangeNotifier {
     List<CustomerOrder> list,
     String? driverId,
   ) {
-    if (driverId == null) return list;
-    _ensureDefaultShop();
-    final shop = shopForDriver(driverId);
-    if (shop == null) return list;
     return list
-        .where(
-          (o) =>
-              o.shopId == shop.id ||
-              o.shopId == null ||
-              shopIdForCustomer(o.customerId) == shop.id,
-        )
+        .where((o) => _orderBelongsToDriverShop(o, driverId))
         .toList();
   }
 
@@ -4403,6 +4875,39 @@ class WaterPlantRepository extends ChangeNotifier {
       'isListed': newSettings.homeDeliveryAvailable,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    updateSettings(newSettings);
+  }
+
+  Future<void> completePricingSetupInFirestore(
+    BusinessSettings newSettings,
+  ) async {
+    final shopId = await _currentAdminShopId();
+    if (shopId == null) throw StateError('Shop account not found');
+    final uid = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
+    await FirebaseFirestore.instance.collection('shops').doc(shopId).set({
+      'name': newSettings.businessName,
+      'address': newSettings.address,
+      'phone': newSettings.phone,
+      'email': newSettings.email,
+      'normalPrice': newSettings.normalPrice,
+      'coolPrice': newSettings.coolPrice,
+      'lorryLiterPrice': newSettings.lorryLiterPrice,
+      'fullLorryPrice': newSettings.fullLorryPrice,
+      'autoLiterPrice': newSettings.autoLiterPrice,
+      'autoCanPrice': newSettings.autoCanPrice,
+      'latitude': newSettings.shopLatitude,
+      'longitude': newSettings.shopLongitude,
+      'homeDeliveryAvailable': newSettings.homeDeliveryAvailable,
+      'isListed': newSettings.homeDeliveryAvailable,
+      'pricingSetupComplete': true,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    if (uid != null) {
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'pricingSetupComplete': true,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
     updateSettings(newSettings);
   }
 

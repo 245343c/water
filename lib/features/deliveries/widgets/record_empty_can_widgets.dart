@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
+import 'package:sri_sai_ro_water/core/widgets/customer_info_bar.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/customer_can_balance.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
@@ -34,7 +35,7 @@ class RecordEmptyCanCustomerBar extends StatelessWidget {
   const RecordEmptyCanCustomerBar({
     super.key,
     required this.customer,
-    required this.colorIndex,
+    this.colorIndex = 0,
   });
 
   final Customer customer;
@@ -42,10 +43,7 @@ class RecordEmptyCanCustomerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AddDeliveryCustomerBar(
-      customer: customer,
-      colorIndex: colorIndex,
-    );
+    return CustomerAddressStrip(customer: customer);
   }
 }
 

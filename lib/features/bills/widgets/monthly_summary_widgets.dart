@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
-import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/core/widgets/monthly_metrics_list.dart';
 import 'package:sri_sai_ro_water/data/models/monthly_stats.dart';
@@ -61,35 +60,24 @@ class MonthlySummaryHeader extends StatelessWidget {
   const MonthlySummaryHeader({
     super.key,
     required this.onBack,
+    this.customerName,
     this.monthLabel,
   });
 
   final VoidCallback onBack;
+  final String? customerName;
   final String? monthLabel;
 
   @override
   Widget build(BuildContext context) {
+    final subtitle = customerName == null
+        ? monthLabel
+        : customerContextSubtitle(customerName!, monthLabel);
     return AdminPageHeader(
       title: 'Monthly Summary',
-      subtitle: monthLabel,
+      subtitle: subtitle,
       onBack: onBack,
     );
-  }
-}
-
-class MonthlySummaryCustomerBar extends StatelessWidget {
-  const MonthlySummaryCustomerBar({
-    super.key,
-    required this.customer,
-    required this.colorIndex,
-  });
-
-  final Customer customer;
-  final int colorIndex;
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomerInfoBar(customer: customer, colorIndex: colorIndex);
   }
 }
 

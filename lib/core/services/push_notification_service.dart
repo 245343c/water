@@ -74,15 +74,23 @@ class PushNotificationService {
 
   Future<void> unregisterCurrentToken() async {
     if (!_fcmSupported) return;
-    final token = _lastRegisteredToken ?? await _messaging.getToken();
-    if (token == null || token.isEmpty) return;
     try {
-      await FirebaseBackend.functions.httpsCallable('unregisterFcmToken').call({
-        'token': token,
-      });
+      final token = _lastRegisteredToken ??
+          await _messaging
+              .getToken()
+              .timeout(const Duration(seconds: 2), onTimeout: () => null);
+      if (token == null || token.isEmpty) return;
+      await FirebaseBackend.functions
+          .httpsCallable('unregisterFcmToken')
+          .call({'token': token})
+          .timeout(const Duration(seconds: 3));
     } on FirebaseFunctionsException catch (e) {
       if (kDebugMode) {
         debugPrint('FCM token unregister skipped: ${e.code}');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('FCM token unregister skipped: $e');
       }
     }
     _lastRegisteredToken = null;

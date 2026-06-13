@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -25,7 +23,7 @@ class DriverShell extends StatelessWidget {
       builder: (context, repo, notifications, auth, _) {
         final driverId = auth.currentUser?.driverId;
         final tasks = repo.driverAcceptedOrders(driverId: driverId).length;
-        final alerts = notifications.unreadCountForDriver();
+        final alerts = notifications.unreadCountForDriver(driverId: driverId);
         final badgeCount = tasks + alerts;
         final isCustomers = navigationShell.currentIndex == 0;
         final strings = context.l10n;
@@ -115,14 +113,10 @@ class _ResponsiveDriverShellBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = math.min(constraints.maxWidth, 1180.0);
-        return Align(
-          alignment: Alignment.topCenter,
-          child: SizedBox(
-            width: width,
-            height: constraints.maxHeight,
-            child: child,
-          ),
+        return SizedBox(
+          width: constraints.maxWidth,
+          height: constraints.maxHeight,
+          child: child,
         );
       },
     );
@@ -141,13 +135,11 @@ class _DriverBottomNavFrame extends StatelessWidget {
       top: false,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final width = math.min(constraints.maxWidth, 1180.0);
-          return Align(
-            alignment: Alignment.bottomCenter,
-            heightFactor: 1,
+          return DecoratedBox(
+            decoration: decoration,
             child: SizedBox(
-              width: width,
-              child: DecoratedBox(decoration: decoration, child: child),
+              width: constraints.maxWidth,
+              child: child,
             ),
           );
         },

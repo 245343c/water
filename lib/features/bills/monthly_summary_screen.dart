@@ -82,9 +82,6 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
           widget.customerId,
           month: _month,
         );
-        final colorIndex = repo.customers.indexWhere(
-          (c) => c.id == widget.customerId,
-        );
 
         return Scaffold(
           backgroundColor: CustomersColors.screenBg,
@@ -94,6 +91,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
               children: [
                 MonthlySummaryHeader(
                   onBack: () => context.pop(),
+                  customerName: customer.name,
                   monthLabel: _month.monthYear,
                 ),
                 Expanded(
@@ -101,13 +99,9 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        MonthlySummaryCustomerBar(
-                          customer: customer,
-                          colorIndex: colorIndex >= 0 ? colorIndex : 0,
-                        ),
                         Expanded(
                           child: ListView(
-                            padding: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.only(top: 8, bottom: 8),
                             children: [
                               MonthlySummaryStatsCard(stats: stats),
                               MonthlySummaryAccountCard(

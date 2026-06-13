@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
-import 'package:sri_sai_ro_water/core/widgets/customer_info_bar.dart';
-import 'package:sri_sai_ro_water/data/models/customer.dart';
+import 'package:sri_sai_ro_water/core/widgets/customer_info_bar.dart'
+    show customerContextSubtitle;
 import 'package:sri_sai_ro_water/data/models/payment_allocation_preview.dart';
 import 'package:sri_sai_ro_water/data/models/payment_method.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
@@ -50,33 +50,24 @@ abstract final class RecordPaymentColors {
 }
 
 class RecordPaymentHeader extends StatelessWidget {
-  const RecordPaymentHeader({super.key, required this.onBack});
+  const RecordPaymentHeader({
+    super.key,
+    required this.onBack,
+    this.customerName,
+  });
 
   final VoidCallback onBack;
+  final String? customerName;
 
   @override
   Widget build(BuildContext context) {
     return AdminPageHeader(
       title: 'Record Payment',
-      subtitle: 'Update customer ledger',
+      subtitle: customerName == null
+          ? 'Update customer ledger'
+          : customerContextSubtitle(customerName!),
       onBack: onBack,
     );
-  }
-}
-
-class RecordPaymentCustomerBar extends StatelessWidget {
-  const RecordPaymentCustomerBar({
-    super.key,
-    required this.customer,
-    required this.colorIndex,
-  });
-
-  final Customer customer;
-  final int colorIndex;
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomerInfoBar(customer: customer, colorIndex: colorIndex);
   }
 }
 

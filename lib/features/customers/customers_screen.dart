@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/services/subscription_service.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/core/constants/delivery_route_constants.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customer_list_card.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/features/routes/widgets/delivery_routes_widgets.dart';
+import 'package:sri_sai_ro_water/routing/app_router.dart';
 
 class CustomersScreen extends StatefulWidget {
   const CustomersScreen({super.key});
@@ -162,7 +164,26 @@ class _CustomersScreenState extends State<CustomersScreen> {
       builder: (context, repo, _) {
         final customers = _list(repo);
         final month = DateTime.now();
-        void openAddCustomer() => context.push('/customers/add');
+        void openAddCustomer() {
+          final sub = context.read<SubscriptionService>();
+          final shop = sub.currentShop;
+          if (shop != null && !shop.canAccessAdminFeatures) {
+            context.push(AppRoutes.subscription);
+            return;
+          }
+          final limitMsg = sub.customerLimitMessage();
+          if (limitMsg != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(limitMsg, style: GoogleFonts.poppins(fontSize: 13)),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            context.push(AppRoutes.subscription);
+            return;
+          }
+          context.push('/customers/add');
+        }
 
         return Scaffold(
           backgroundColor: CustomersColors.screenBg,
@@ -207,21 +228,33 @@ class _CustomersScreenState extends State<CustomersScreen> {
                             itemCount: customers.length,
                             itemBuilder: (_, i) {
                               final c = customers[i];
-                              final monthly = repo.monthlyStatsForCustomer(c.id, month);
-                              final deliveries = repo.deliveriesForCustomer(c.id);
-                              final last = deliveries.isEmpty ? null : deliveries.first.date;
-                              final idx = repo.customers.indexWhere((x) => x.id == c.id);
-                              final routeName = repo.deliveryRouteName(c.routeId);
-                              final unassigned =
-                                  c.routeId == null || c.routeId!.trim().isEmpty;
+                              final monthly = repo.monthlyStatsForCustomer(
+                                c.id,
+                                month,
+                              );
+                              final deliveries =
+                                  repo.deliveriesForCustomer(c.id);
+                              final last = deliveries.isEmpty
+                                  ? null
+                                  : deliveries.first.date;
+                              final idx = repo.customers
+                                  .indexWhere((x) => x.id == c.id);
+                              final routeName =
+                                  repo.deliveryRouteName(c.routeId);
+                              final unassigned = c.routeId == null ||
+                                  c.routeId!.trim().isEmpty;
                               return CustomerListCard(
                                 customer: c,
                                 colorIndex: idx >= 0 ? idx : i,
                                 unitsThisMonth: monthly.totalUnits,
-                                lastDeliveryLabel: lastDeliveryRelativeLabel(last),
-                                balance: repo.customerBalance(c.id).clamp(0, double.infinity),
+                                lastDeliveryLabel:
+                                    lastDeliveryRelativeLabel(last),
+                                balance: repo
+                                    .customerBalance(c.id)
+                                    .clamp(0, double.infinity),
                                 category: _categoryFor(repo, c, month),
-                                routeName: unassigned ? 'No route' : routeName,
+                                routeName:
+                                    unassigned ? 'No route' : routeName,
                                 routeUnassigned: unassigned,
                                 onTap: () => context.push('/customers/${c.id}'),
                               );

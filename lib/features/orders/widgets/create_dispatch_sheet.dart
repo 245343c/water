@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/core/services/admin_dispatch_service.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/data/models/delivery_product_type.dart';
+import 'package:sri_sai_ro_water/data/models/driver.dart';
 import 'package:sri_sai_ro_water/data/models/order_line_item.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
@@ -42,6 +43,18 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
   final Map<String, TextEditingController> _volumeQty = {};
   final Map<String, int> _bottleQty = {};
   bool _saving = false;
+  String? _selectedDriverId;
+
+  List<Driver> _activeDrivers(WaterPlantRepository repo) =>
+      repo.drivers.where((d) => d.active).toList();
+
+  void _ensureDriverSelected(WaterPlantRepository repo) {
+    if (_selectedDriverId != null) return;
+    final drivers = _activeDrivers(repo);
+    if (drivers.length == 1) {
+      _selectedDriverId = drivers.first.id;
+    }
+  }
 
   TextEditingController _volumeController(String variantId) {
     return _volumeQty.putIfAbsent(variantId, TextEditingController.new);
@@ -114,6 +127,7 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
   }
 
   Future<void> _save() async {
+    if (_saving) return;
     if (_name.text.trim().isEmpty) {
       _snack('Who called? Enter a name');
       return;
@@ -124,6 +138,11 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
     }
     if (_address.text.trim().isEmpty) {
       _snack('Where should we deliver?');
+      return;
+    }
+    final driverId = _selectedDriverId?.trim();
+    if (driverId == null || driverId.isEmpty) {
+      _snack('Select a driver for this delivery');
       return;
     }
     final repo = context.read<WaterPlantRepository>();
@@ -142,12 +161,14 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
         lineItems: items,
         note: _note.text.trim().isEmpty ? null : _note.text.trim(),
         sendToDriver: true,
+        driverId: driverId,
       );
       if (!mounted) return;
+      final driverName = repo.driverById(driverId)?.name ?? 'Driver';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Sent to driver - they will deliver and collect payment',
+            'Sent to $driverName — they will deliver and collect payment',
             style: GoogleFonts.poppins(),
           ),
           behavior: SnackBarBehavior.floating,
@@ -189,11 +210,13 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
   Widget build(BuildContext context) {
     return Consumer<WaterPlantRepository>(
       builder: (context, repo, _) {
+        _ensureDriverSelected(repo);
         final bottom = MediaQuery.paddingOf(context).bottom;
         final channelTypes = repo.enabledChannelTypesForWalkIn();
         final catalog = repo.catalogProducts();
         final items = _lineItems(repo);
         final total = repo.estimateWalkInDispatchTotal(items);
+        final drivers = _activeDrivers(repo);
 
         return Padding(
           padding: EdgeInsets.only(
@@ -282,6 +305,61 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
                           icon: Icons.home_outlined,
                           maxLines: 2,
                         ),
+                        const SizedBox(height: 14),
+                        Text(
+                          'Assign driver',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: CustomersColors.labelGrey,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (drivers.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF7ED),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFFFDBA74)),
+                            ),
+                            child: Text(
+                              'Add an active driver under Account → Drivers first.',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: CustomersColors.titleNavy,
+                              ),
+                            ),
+                          )
+                        else
+                          DropdownButtonFormField<String>(
+                            initialValue: _selectedDriverId,
+                            decoration: InputDecoration(
+                              prefixIcon: Icon(
+                                Icons.local_shipping_outlined,
+                                size: 20,
+                                color: CustomersColors.labelGrey,
+                              ),
+                              labelText: 'Driver',
+                              labelStyle: GoogleFonts.poppins(fontSize: 13),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            items: drivers
+                                .map(
+                                  (d) => DropdownMenuItem(
+                                    value: d.id,
+                                    child: Text(
+                                      d.name,
+                                      style: GoogleFonts.poppins(fontSize: 14),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) =>
+                                setState(() => _selectedDriverId = value),
+                          ),
                         const SizedBox(height: 16),
                         Text(
                           'Water for today',
@@ -400,7 +478,7 @@ class _WalkInDispatchSheetState extends State<_WalkInDispatchSheet> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         FilledButton(
-                          onPressed: _saving ? null : _save,
+                          onPressed: _saving || drivers.isEmpty ? null : _save,
                           style: FilledButton.styleFrom(
                             backgroundColor: CustomersColors.addButton,
                             padding: const EdgeInsets.symmetric(vertical: 14),

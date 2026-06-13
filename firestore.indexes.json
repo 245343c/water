@@ -15,6 +15,20 @@
       ]
     },
     {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "audience",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "driverId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "customerShopLinks",
       "queryScope": "COLLECTION",
       "fields": [
@@ -32,6 +46,24 @@
       "collectionGroup": "orders",
       "queryScope": "COLLECTION",
       "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fulfilledAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "driverId",
+          "order": "ASCENDING"
+        },
         {
           "fieldPath": "status",
           "order": "ASCENDING"

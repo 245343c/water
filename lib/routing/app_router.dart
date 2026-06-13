@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/features/admin/drivers_screen.dart';
+import 'package:sri_sai_ro_water/features/auth/admin_pricing_onboarding_screen.dart';
 import 'package:sri_sai_ro_water/features/auth/forgot_password_screen.dart';
 import 'package:sri_sai_ro_water/features/auth/login_screen.dart';
 import 'package:sri_sai_ro_water/features/auth/register_screen.dart';
@@ -30,6 +31,7 @@ import 'package:sri_sai_ro_water/features/products/products_screen.dart';
 import 'package:sri_sai_ro_water/features/reports/reports_screen.dart';
 import 'package:sri_sai_ro_water/features/routes/delivery_route_detail_screen.dart';
 import 'package:sri_sai_ro_water/features/routes/delivery_routes_screen.dart';
+import 'package:sri_sai_ro_water/features/subscription/subscription_screen.dart';
 import 'package:sri_sai_ro_water/features/shell/driver_shell.dart';
 import 'package:sri_sai_ro_water/features/shell/main_shell.dart';
 import 'package:sri_sai_ro_water/routing/route_guard.dart';
@@ -60,6 +62,8 @@ class AppRoutes {
   static const more = '/more';
   static const reports = '/reports';
   static const drivers = '/drivers';
+  static const subscription = '/subscription';
+  static const pricingSetup = '/admin/pricing-setup';
   static const deliveryRoutes = '/routes';
 
   static const driverRoute = '/driver/route';
@@ -97,6 +101,10 @@ GoRouter createAppRouter(AuthRepository auth) {
       GoRoute(
         path: AppRoutes.forgotPassword,
         builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.pricingSetup,
+        builder: (context, state) => const AdminPricingOnboardingScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -296,6 +304,11 @@ GoRouter createAppRouter(AuthRepository auth) {
         path: '/settings',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.subscription,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const SubscriptionScreen(),
       ),
       GoRoute(
         path: AppRoutes.drivers,

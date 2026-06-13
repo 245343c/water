@@ -86,11 +86,14 @@ class DriverProfileScreen extends StatelessWidget {
                 ),
                 _SignOutButton(
                   onTap: () async {
-                    await context
-                        .read<PushNotificationService>()
-                        .unregisterCurrentToken();
+                    try {
+                      await context
+                          .read<PushNotificationService>()
+                          .unregisterCurrentToken();
+                    } catch (_) {}
                     if (!context.mounted) return;
-                    auth.logout();
+                    await auth.logout();
+                    if (!context.mounted) return;
                     context.go(AppRoutes.login);
                   },
                 ),

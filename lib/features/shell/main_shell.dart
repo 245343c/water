@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -104,14 +102,10 @@ class _ResponsiveShellBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = math.min(constraints.maxWidth, 1180.0);
-        return Align(
-          alignment: Alignment.topCenter,
-          child: SizedBox(
-            width: width,
-            height: constraints.maxHeight,
-            child: child,
-          ),
+        return SizedBox(
+          width: constraints.maxWidth,
+          height: constraints.maxHeight,
+          child: child,
         );
       },
     );
@@ -130,13 +124,11 @@ class _ResponsiveBottomNav extends StatelessWidget {
       top: false,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final width = math.min(constraints.maxWidth, 1180.0);
-          return Align(
-            alignment: Alignment.bottomCenter,
-            heightFactor: 1,
+          return DecoratedBox(
+            decoration: decoration,
             child: SizedBox(
-              width: width,
-              child: DecoratedBox(decoration: decoration, child: child),
+              width: constraints.maxWidth,
+              child: child,
             ),
           );
         },

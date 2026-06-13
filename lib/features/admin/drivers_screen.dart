@@ -1,10 +1,13 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sri_sai_ro_water/data/models/driver.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
+import 'package:sri_sai_ro_water/core/services/subscription_service.dart';
+import 'package:sri_sai_ro_water/routing/app_router.dart';
 import 'package:sri_sai_ro_water/features/admin/widgets/drivers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
@@ -28,6 +31,24 @@ class _DriversScreenState extends State<DriversScreen> {
   }
 
   Future<void> _showAddDriver(BuildContext context) async {
+    final sub = context.read<SubscriptionService>();
+    final shop = sub.currentShop;
+    if (shop != null && !shop.canAccessAdminFeatures) {
+      context.push(AppRoutes.subscription);
+      return;
+    }
+    final limitMsg = sub.driverLimitMessage();
+    if (limitMsg != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(limitMsg, style: GoogleFonts.poppins(fontSize: 13)),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      context.push(AppRoutes.subscription);
+      return;
+    }
+
     final result = await showModalBottomSheet<AddDriverResult>(
       context: context,
       isScrollControlled: true,

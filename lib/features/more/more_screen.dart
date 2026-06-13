@@ -9,13 +9,30 @@ import 'package:sri_sai_ro_water/core/services/push_notification_service.dart';
 import 'package:sri_sai_ro_water/data/repositories/auth_repository.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/features/more/widgets/more_screen_widgets.dart';
+import 'package:sri_sai_ro_water/features/subscription/widgets/subscription_widgets.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
 
+  Future<void> _signOut(BuildContext context) async {
+    final confirmed = await showAdminSignOutDialog(context);
+    if (!confirmed || !context.mounted) return;
+
+    try {
+      await context.read<PushNotificationService>().unregisterCurrentToken();
+    } catch (_) {}
+    if (!context.mounted) return;
+    await context.read<AuthRepository>().logout();
+    if (!context.mounted) return;
+    context.go(AppRoutes.login);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthRepository>();
+    final ownerName = auth.currentUser?.ownerName;
+
     return Consumer<WaterPlantRepository>(
       builder: (context, repo, _) {
         return Scaffold(
@@ -31,21 +48,33 @@ class MoreScreen extends StatelessWidget {
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(8, 14, 8, 24),
                       children: [
+                        const MoreAccountSectionLabel(
+                          title: 'Shop profile',
+                          subtitle: 'Your business on the app',
+                        ),
                         MoreBusinessProfileCard(
                           settings: repo.settings,
+                          ownerName: ownerName,
                           onTap: () => context.push('/settings'),
+                        ),
+                        _AccountHomeDeliveryCard(
+                          value: repo.settings.homeDeliveryAvailable,
+                        ),
+                        const MoreAccountSectionLabel(
+                          title: 'Plan & billing',
+                          subtitle: 'Trial, renewal, and access',
+                        ),
+                        const AccountSubscriptionCard(),
+                        const MoreAccountSectionLabel(
+                          title: 'Preferences',
                         ),
                         const _AdminLanguageCard(),
                         MoreManagementCard(
+                          onReports: () => context.push(AppRoutes.reports),
+                          onDeliveryPrices: () =>
+                              context.go(AppRoutes.products),
                           onDrivers: () => context.push(AppRoutes.drivers),
-                          onSignOut: () async {
-                            await context
-                                .read<PushNotificationService>()
-                                .unregisterCurrentToken();
-                            if (!context.mounted) return;
-                            context.read<AuthRepository>().logout();
-                            context.go(AppRoutes.login);
-                          },
+                          onSignOut: () => _signOut(context),
                         ),
                         const MoreVersionLabel(),
                       ],
@@ -57,6 +86,87 @@ class MoreScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _AccountHomeDeliveryCard extends StatefulWidget {
+  const _AccountHomeDeliveryCard({required this.value});
+
+  final bool value;
+
+  @override
+  State<_AccountHomeDeliveryCard> createState() =>
+      _AccountHomeDeliveryCardState();
+}
+
+class _AccountHomeDeliveryCardState extends State<_AccountHomeDeliveryCard> {
+  late bool _value;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.value;
+  }
+
+  @override
+  void didUpdateWidget(covariant _AccountHomeDeliveryCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_saving && oldWidget.value != widget.value) {
+      _value = widget.value;
+    }
+  }
+
+  Future<void> _onChanged(bool next) async {
+    if (_saving || next == _value) return;
+    setState(() {
+      _value = next;
+      _saving = true;
+    });
+
+    final repo = context.read<WaterPlantRepository>();
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      await repo.updateSettingsInFirestore(
+        repo.settings.copyWith(homeDeliveryAvailable: next),
+      );
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            next
+                ? 'Home delivery enabled for your shop'
+                : 'Home delivery turned off',
+            style: GoogleFonts.poppins(fontSize: 13),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _value = !next);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not update delivery mode. Try again.',
+            style: GoogleFonts.poppins(fontSize: 13),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MoreHomeDeliveryCard(
+      value: _value,
+      saving: _saving,
+      onChanged: _onChanged,
     );
   }
 }

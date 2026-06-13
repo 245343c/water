@@ -30,6 +30,7 @@ class CustomerOrder {
     this.collectedAmount,
     this.collectionMethod,
     this.collectionRecordedBy,
+    this.driverId,
     this.instantOutcome,
     List<OrderLineItem> lineItems = const [],
   })  : lineItems = List.unmodifiable(lineItems),
@@ -58,6 +59,7 @@ class CustomerOrder {
   double? collectedAmount;
   String? collectionMethod;
   String? collectionRecordedBy;
+  String? driverId;
   String? instantOutcome;
   final List<OrderLineItem> lineItems;
 
@@ -145,6 +147,16 @@ class CustomerOrder {
 
   bool get isOutForDelivery => deliveryStartedAt != null;
 
+  /// When admin assigns a quick order, only that driver should see/act on it.
+  bool isVisibleToDriver(String? currentDriverId) {
+    final assigned = driverId;
+    if (assigned == null || assigned.isEmpty) return true;
+    return currentDriverId != null && assigned == currentDriverId;
+  }
+
+  bool get isInstantDispatchLockedForDriver =>
+      isPhoneDispatch && isDelivered;
+
   static int _sumCans(List<OrderLineItem> items, bool normal) {
     return items
         .where((l) => normal ? l.isNormalCan : l.isCoolCan)
@@ -174,6 +186,7 @@ class CustomerOrder {
     double? collectedAmount,
     String? collectionMethod,
     String? collectionRecordedBy,
+    String? driverId,
     String? instantOutcome,
   }) {
     return CustomerOrder(
@@ -200,6 +213,7 @@ class CustomerOrder {
       collectedAmount: collectedAmount,
       collectionMethod: collectionMethod,
       collectionRecordedBy: collectionRecordedBy,
+      driverId: driverId,
       instantOutcome: instantOutcome,
       lineItems: lineItems,
     );

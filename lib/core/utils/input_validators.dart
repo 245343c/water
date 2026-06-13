@@ -71,4 +71,15 @@ abstract final class InputValidators {
     }
     return null;
   }
+
+  static String? requiredStaffLoginId(String? value) {
+    final trimmed = (value ?? '').trim();
+    if (trimmed.isEmpty) return 'Mobile number or email is required';
+    if (trimmed.contains('@')) {
+      return isValidEmail(normalizeEmail(trimmed))
+          ? null
+          : 'Enter a valid email address';
+    }
+    return requiredIndianMobile(trimmed);
+  }
 }

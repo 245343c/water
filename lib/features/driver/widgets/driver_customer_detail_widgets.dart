@@ -5,6 +5,7 @@ import 'package:sri_sai_ro_water/core/localization/customer_display_localization
 import 'package:sri_sai_ro_water/core/localization/delivery_localization.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/data/models/customer.dart';
+import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/data/models/delivery.dart';
 import 'package:sri_sai_ro_water/features/driver/widgets/driver_theme.dart';
 
@@ -340,6 +341,89 @@ class DriverSectionLabel extends StatelessWidget {
           fontWeight: FontWeight.w600,
           color: DriverColors.labelGrey,
         ),
+      ),
+    );
+  }
+}
+
+/// Quick-order job is finished — driver cannot add more products.
+class DriverInstantDeliveryClosedCard extends StatelessWidget {
+  const DriverInstantDeliveryClosedCard({super.key, this.order});
+
+  final CustomerOrder? order;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.l10n;
+    final label = order?.dispatchTrackerLabel ?? strings.deliverySaved;
+    final items = order?.itemsSummary;
+
+    return DriverContentCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: DriverColors.success.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  order?.isDelivered == true
+                      ? Icons.check_circle_outline
+                      : Icons.lock_outline_rounded,
+                  color: DriverColors.success,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      strings.deliverySaved,
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: DriverColors.titleNavy,
+                      ),
+                    ),
+                    Text(
+                      label,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: DriverColors.labelGrey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (items != null && items.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              items,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: DriverColors.titleNavy,
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Text(
+            'This quick delivery is closed. Contact admin if something needs to change.',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              height: 1.4,
+              color: DriverColors.labelGrey,
+            ),
+          ),
+        ],
       ),
     );
   }

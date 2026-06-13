@@ -20,7 +20,7 @@ class OrdersScreen extends StatefulWidget {
 class _OrdersScreenState extends State<OrdersScreen> {
   final _search = TextEditingController();
   String _query = '';
-  OrderListFilter _filter = OrderListFilter.outForDelivery;
+  OrderListFilter _filter = OrderListFilter.all;
 
   @override
   void dispose() {
@@ -215,12 +215,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
                               final walkIn = order.walkInContact;
                               final customerName =
                                   customer?.name ?? walkIn?.name ?? 'Unknown';
-                              final customerPhone =
-                                  customer?.phone ?? walkIn?.phone ?? '';
-                              final shopName = order.shopId == null
-                                  ? 'Your water plant'
-                                  : repo.shopById(order.shopId!)?.name ??
-                                        'Your water plant';
                               final idx = customer == null
                                   ? 0
                                   : repo.customers.indexWhere(
@@ -235,10 +229,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
                               return OrderListCard(
                                 order: order,
                                 customerName: customerName,
-                                customerPhone: customerPhone,
-                                shopName: shopName,
-                                isMonthlyCustomer:
-                                    customer?.isMonthlyContract ?? false,
                                 initials: customer?.initials ?? '?',
                                 colorIndex: idx >= 0 ? idx : 0,
                                 estimatedTotal: estimatedTotal,
