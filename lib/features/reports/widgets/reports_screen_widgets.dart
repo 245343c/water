@@ -7,7 +7,7 @@ import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/widgets/premium_responsive.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 
-enum ReportsPeriodPreset { thisWeek, thisMonth, lastMonth, custom }
+enum ReportsPeriodPreset { thisWeek, thisMonth, lastMonth, pickedMonth, custom }
 
 abstract final class ReportsColors {
   static const Color screenBg = AppColors.surface;
@@ -78,7 +78,7 @@ class ReportsHeader extends StatelessWidget {
   }
 }
 
-/// Simple month switch — This month or Last month only.
+/// Month switch — quick picks plus scroll wheel for any month.
 class ReportsSimpleMonthPicker extends StatelessWidget {
   const ReportsSimpleMonthPicker({
     super.key,
@@ -87,6 +87,7 @@ class ReportsSimpleMonthPicker extends StatelessWidget {
     required this.end,
     required this.onThisMonth,
     required this.onLastMonth,
+    required this.onPickMonth,
     required this.onPickDates,
   });
 
@@ -95,13 +96,16 @@ class ReportsSimpleMonthPicker extends StatelessWidget {
   final DateTime end;
   final VoidCallback onThisMonth;
   final VoidCallback onLastMonth;
+  final VoidCallback onPickMonth;
   final VoidCallback onPickDates;
 
   @override
   Widget build(BuildContext context) {
     final isThisMonth = selected == ReportsPeriodPreset.thisMonth;
     final isLastMonth = selected == ReportsPeriodPreset.lastMonth;
+    final isPickedMonth = selected == ReportsPeriodPreset.pickedMonth;
     final isCustom = selected == ReportsPeriodPreset.custom;
+    final monthLabel = DateFormat('MMMM yyyy').format(start);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
@@ -117,6 +121,52 @@ class ReportsSimpleMonthPicker extends StatelessWidget {
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
                 color: ReportsColors.titleNavy,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Material(
+              color: const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                onTap: onPickMonth,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.calendar_month_rounded,
+                        size: 18,
+                        color: ReportsColors.heroEnd,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          monthLabel,
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: ReportsColors.titleNavy,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        'Change',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: ReportsColors.heroEnd,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 20,
+                        color: ReportsColors.heroEnd,
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -148,6 +198,18 @@ class ReportsSimpleMonthPicker extends StatelessWidget {
                 color: ReportsColors.labelGrey,
               ),
             ),
+            if (isPickedMonth)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Selected month',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: ReportsColors.heroEnd,
+                  ),
+                ),
+              ),
             if (isCustom)
               Padding(
                 padding: const EdgeInsets.only(top: 6),

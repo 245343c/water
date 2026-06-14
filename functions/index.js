@@ -11,6 +11,7 @@ const callableOptions = {
   invoker: "public",
   region: "asia-south1",
   maxInstances: 3,
+  enforceAppCheck: true,
 };
 
 async function requireAdmin(auth) {
@@ -1393,6 +1394,31 @@ exports.unregisterFcmToken = onCall(callableOptions, async (request) => {
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
   return { ok: true };
+});
+
+exports.resolveStaffLogin = onCall(callableOptions, async (request) => {
+  const normalizedPhone = normalizePhone(request.data.phone);
+  const snap = await db
+    .collection("users")
+    .where("normalizedPhone", "==", normalizedPhone)
+    .limit(5)
+    .get();
+
+  const roleOrder = { admin: 0, driver: 1 };
+  const emails = snap.docs
+    .map((doc) => doc.data())
+    .filter((user) => ["admin", "driver"].includes(user.role))
+    .filter((user) => user.active !== false)
+    .sort((a, b) => roleOrder[a.role] - roleOrder[b.role])
+    .map((user) => {
+      if (user.authEmail) return user.authEmail;
+      if (user.role === "admin" && user.email) return user.email;
+      if (user.role === "admin") return adminAuthEmail(normalizedPhone);
+      return driverAuthEmail(normalizedPhone);
+    })
+    .filter((email, index, all) => email && all.indexOf(email) === index);
+
+  return { emails };
 });
 
 exports.createDriverAccount = onCall(callableOptions, async (request) => {

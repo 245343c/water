@@ -278,6 +278,9 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
   Widget build(BuildContext context) {
     final repo = context.watch<WaterPlantRepository>();
     final strings = context.l10n;
+    final shop = repo.shopById(
+      widget.dispatch.shopId ?? WaterPlantRepository.defaultShopId,
+    );
     final showNormal = repo.customerUsesNormalCans(widget.customer);
     final showCool = repo.customerUsesCoolCans(widget.customer);
     final channelTypes = repo.enabledChannelTypesForCustomer(widget.customer);
@@ -468,7 +471,7 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
                 color: DriverColors.accent,
                 onChanged: (v) => setState(() => _channelQty[type.variantId] = v),
               ),
-            if (showNormal || showCool) ...[
+            if ((showNormal || showCool) && !_lockQuantities) ...[
               const SizedBox(height: 12),
               Text(
                 strings.emptyReturned,
@@ -534,26 +537,15 @@ class _DriverDispatchFulfillCardState extends State<DriverDispatchFulfillCard> {
               ),
             ],
             if (_payment == _DriverPaymentChoice.upi) ...[
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: () => _copyUpiHint(repo),
-                icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
-                label: Text(
-                  strings.copyShopNumberForUpi,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: DriverColors.accent,
-                  side: const BorderSide(color: DriverColors.accent),
-                ),
+              const SizedBox(height: 10),
+              _DriverUpiCollectBar(
+                shopName: shop?.name ?? strings.waterPlant,
+                phone: shop?.phone ?? widget.customer.phone,
+                amount: estimate,
+                onCopy: () => _copyUpiHint(repo),
               ),
             ],
-            if (estimate > 0 &&
-                (_payment == _DriverPaymentChoice.cash ||
-                    _payment == _DriverPaymentChoice.upi)) ...[
+            if (estimate > 0 && _payment == _DriverPaymentChoice.cash) ...[
               const SizedBox(height: 10),
               Text(
                 '${strings.amount}: ${CurrencyUtils.format(estimate)}',
@@ -605,6 +597,175 @@ class _LockedDeliveryLine {
 
   final String label;
   final int qty;
+}
+
+class _DriverUpiCollectBar extends StatelessWidget {
+  const _DriverUpiCollectBar({
+    required this.shopName,
+    required this.phone,
+    required this.amount,
+    required this.onCopy,
+  });
+
+  final String shopName;
+  final String phone;
+  final double amount;
+  final VoidCallback onCopy;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.l10n;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F766E), Color(0xFF1D4ED8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F766E).withValues(alpha: 0.18),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.qr_code_scanner_rounded,
+                  size: 22,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      strings.upiCollectVia,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      shopName,
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withValues(alpha: 0.88),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (amount > 0)
+                Text(
+                  CurrencyUtils.format(amount),
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        strings.upiPayToShop,
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: DriverColors.labelGrey,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        phone,
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: DriverColors.titleNavy,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                FilledButton.icon(
+                  onPressed: onCopy,
+                  icon: const Icon(Icons.copy_rounded, size: 16),
+                  label: Text(
+                    strings.copyShopNumberForUpi,
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: DriverColors.accent,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            strings.upiDriverHint,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: Colors.white.withValues(alpha: 0.92),
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            strings.upiSameAsAdmin,
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withValues(alpha: 0.78),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _PaymentChip extends StatelessWidget {

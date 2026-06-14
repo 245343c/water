@@ -26,6 +26,7 @@ class BusinessSetupForm extends StatefulWidget {
 
 class BusinessSetupFormState extends State<BusinessSetupForm> {
   final _formKey = GlobalKey<FormState>();
+  final _locationPickerKey = GlobalKey<ShopLocationPickerState>();
   late final TextEditingController _nameController;
   late final TextEditingController _addressController;
   late final TextEditingController _phoneController;
@@ -66,28 +67,42 @@ class BusinessSetupFormState extends State<BusinessSetupForm> {
     _initialized = true;
   }
 
-  bool save(WaterPlantRepository repo) {
+  Future<bool> save(WaterPlantRepository repo) async {
     if (!_formKey.currentState!.validate()) return false;
 
     final current = repo.settings;
-    repo.updateSettings(
-      current.copyWith(
-        businessName: _nameController.text.trim(),
-        address: _addressController.text.trim(),
-        phone: _phoneController.text.trim(),
-        email: _emailController.text.trim(),
-        shopLatitude: _shopLat,
-        shopLongitude: _shopLng,
-        homeDeliveryAvailable: _homeDelivery,
-        clearMapPin: _shopLat == null || _shopLng == null,
-      ),
+    final updated = current.copyWith(
+      businessName: _nameController.text.trim(),
+      address: _addressController.text.trim(),
+      phone: _phoneController.text.trim(),
+      email: _emailController.text.trim(),
+      shopLatitude: _shopLat,
+      shopLongitude: _shopLng,
+      homeDeliveryAvailable: _homeDelivery,
+      clearMapPin: _shopLat == null || _shopLng == null,
     );
-    return true;
+    try {
+      await repo.updateSettingsInFirestore(updated);
+      return true;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e.toString().replaceFirst('Exception: ', ''),
+              style: GoogleFonts.poppins(),
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return false;
+    }
   }
 
-  void _onSavePressed() {
+  void _onSavePressed() async {
     final repo = context.read<WaterPlantRepository>();
-    if (!save(repo)) return;
+    if (!await save(repo)) return;
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -145,6 +160,7 @@ class BusinessSetupFormState extends State<BusinessSetupForm> {
                 ),
                 const SizedBox(height: 14),
                 ShopLocationPicker(
+                  key: _locationPickerKey,
                   minimal: true,
                   embedded: true,
                   latitude: _shopLat,
@@ -159,7 +175,10 @@ class BusinessSetupFormState extends State<BusinessSetupForm> {
                 ),
                 const SizedBox(height: 12),
                 FilledButton(
-                  onPressed: () => Navigator.pop(ctx),
+                  onPressed: () async {
+                    await _locationPickerKey.currentState?.confirmCurrentPin();
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
                   style: FilledButton.styleFrom(
                     backgroundColor: AddEditCustomerColors.primaryBtn,
                     padding: const EdgeInsets.symmetric(vertical: 14),

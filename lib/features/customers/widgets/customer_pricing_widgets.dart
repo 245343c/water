@@ -277,31 +277,43 @@ class _UnifiedProductsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final grid = GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: items.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        childAspectRatio: 0.88,
-      ),
-      itemBuilder: (context, i) => _SelectableProductBox(
-        item: items[i],
-        onTap: () => onToggle(items[i]),
-      ),
-    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final crossAxisCount = width >= 900
+            ? 4
+            : width >= 600
+                ? 3
+                : 2;
 
-    if (embedded) return grid;
+        final grid = GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: items.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            childAspectRatio: width >= 600 ? 1.05 : 0.88,
+          ),
+          itemBuilder: (context, i) => _SelectableProductBox(
+            item: items[i],
+            onTap: () => onToggle(items[i]),
+            compact: width >= 600,
+          ),
+        );
 
-    return _PricingCardShell(
-      embedded: false,
-      icon: Icons.grid_view_rounded,
-      iconColor: const Color(0xFF2563EB),
-      title: 'Products',
-      subtitle: 'Tap a card to enable/disable for this customer',
-      child: grid,
+        if (embedded) return grid;
+
+        return _PricingCardShell(
+          embedded: false,
+          icon: Icons.grid_view_rounded,
+          iconColor: const Color(0xFF2563EB),
+          title: 'Products',
+          subtitle: 'Tap a card to enable/disable for this customer',
+          child: grid,
+        );
+      },
     );
   }
 }
@@ -310,10 +322,12 @@ class _SelectableProductBox extends StatelessWidget {
   const _SelectableProductBox({
     required this.item,
     required this.onTap,
+    this.compact = false,
   });
 
   final _CustomerSelectableItem item;
   final VoidCallback onTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -333,25 +347,28 @@ class _SelectableProductBox extends StatelessWidget {
               width: item.enabled ? 2 : 1,
             ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 6 : 8,
+            vertical: compact ? 8 : 10,
+          ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 item.icon,
-                size: 22,
+                size: compact ? 18 : 22,
                 color: item.enabled
                     ? const Color(0xFF2563EB)
                     : AddEditCustomerColors.labelGrey,
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: compact ? 4 : 6),
               Text(
                 item.title,
-                maxLines: 1,
+                maxLines: compact ? 2 : 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
-                  fontSize: 11,
+                  fontSize: compact ? 10 : 11,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF111827),
                 ),

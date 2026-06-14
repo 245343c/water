@@ -368,7 +368,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           productBreakdown: productBreakdown,
                         ),
                         const SizedBox(height: 14),
-                        DashboardShopCanBalanceCard(balance: shopCanBalance),
+                        DashboardShopEmptyCansCard(balance: shopCanBalance),
                         const SizedBox(height: 14),
                         DashboardOverviewCard(
                           month: _month,

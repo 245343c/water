@@ -57,9 +57,6 @@ class MoreScreen extends StatelessWidget {
                           ownerName: ownerName,
                           onTap: () => context.push('/settings'),
                         ),
-                        _AccountHomeDeliveryCard(
-                          value: repo.settings.homeDeliveryAvailable,
-                        ),
                         const MoreAccountSectionLabel(
                           title: 'Plan & billing',
                           subtitle: 'Trial, renewal, and access',
@@ -86,87 +83,6 @@ class MoreScreen extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _AccountHomeDeliveryCard extends StatefulWidget {
-  const _AccountHomeDeliveryCard({required this.value});
-
-  final bool value;
-
-  @override
-  State<_AccountHomeDeliveryCard> createState() =>
-      _AccountHomeDeliveryCardState();
-}
-
-class _AccountHomeDeliveryCardState extends State<_AccountHomeDeliveryCard> {
-  late bool _value;
-  bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _value = widget.value;
-  }
-
-  @override
-  void didUpdateWidget(covariant _AccountHomeDeliveryCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!_saving && oldWidget.value != widget.value) {
-      _value = widget.value;
-    }
-  }
-
-  Future<void> _onChanged(bool next) async {
-    if (_saving || next == _value) return;
-    setState(() {
-      _value = next;
-      _saving = true;
-    });
-
-    final repo = context.read<WaterPlantRepository>();
-    final messenger = ScaffoldMessenger.of(context);
-
-    try {
-      await repo.updateSettingsInFirestore(
-        repo.settings.copyWith(homeDeliveryAvailable: next),
-      );
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            next
-                ? 'Home delivery enabled for your shop'
-                : 'Home delivery turned off',
-            style: GoogleFonts.poppins(fontSize: 13),
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _value = !next);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            'Could not update delivery mode. Try again.',
-            style: GoogleFonts.poppins(fontSize: 13),
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return MoreHomeDeliveryCard(
-      value: _value,
-      saving: _saving,
-      onChanged: _onChanged,
     );
   }
 }

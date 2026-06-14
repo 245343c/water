@@ -4387,8 +4387,28 @@ class WaterPlantRepository extends ChangeNotifier {
   }
 
   List<DashboardProductBreakdown> productBreakdownOnDate(DateTime day) {
-    final byLabel = <String, (int qty, double amount, DeliveryQuantityUnit unit)>{};
-    for (final delivery in deliveriesOnDate(day)) {
+    return _productBreakdownFromDeliveries(deliveriesOnDate(day));
+  }
+
+  List<DashboardProductBreakdown> productBreakdownForMonth(DateTime month) {
+    return _productBreakdownFromDeliveries(
+      _deliveries.where((d) => d.date.isSameMonth(month)),
+    );
+  }
+
+  List<DashboardProductBreakdown> productBreakdownInRange(
+    DateTime start,
+    DateTime end,
+  ) {
+    return _productBreakdownFromDeliveries(deliveriesInRange(start, end));
+  }
+
+  List<DashboardProductBreakdown> _productBreakdownFromDeliveries(
+    Iterable<Delivery> deliveries,
+  ) {
+    final byLabel =
+        <String, (int qty, double amount, DeliveryQuantityUnit unit)>{};
+    for (final delivery in deliveries) {
       for (final line in delivery.lines) {
         final current = byLabel[line.label] ?? (0, 0.0, line.quantityUnit);
         byLabel[line.label] = (

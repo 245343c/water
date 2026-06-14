@@ -29,10 +29,10 @@ class ShopLocationPicker extends StatefulWidget {
   final bool embedded;
 
   @override
-  State<ShopLocationPicker> createState() => _ShopLocationPickerState();
+  State<ShopLocationPicker> createState() => ShopLocationPickerState();
 }
 
-class _ShopLocationPickerState extends State<ShopLocationPicker> {
+class ShopLocationPickerState extends State<ShopLocationPicker> {
   final _mapController = MapController();
   LatLng? _confirmedPin;
   String? _placeLabel;
@@ -149,6 +149,10 @@ class _ShopLocationPickerState extends State<ShopLocationPicker> {
       _placeLabel = null;
     });
     widget.onChanged(null, null, null);
+  }
+
+  Future<void> confirmCurrentPin() async {
+    await _commitMapCenter();
   }
 
   void _showError(String message) {

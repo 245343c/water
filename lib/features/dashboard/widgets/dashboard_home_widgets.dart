@@ -248,11 +248,6 @@ class DashboardOwnerSnapshot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final topRows = productBreakdown.take(5).toList();
-    final bulkParts = <String>[
-      if (todayLiters > 0) '$todayLiters L',
-      if (todayLoads > 0) '$todayLoads load${todayLoads == 1 ? '' : 's'}',
-    ];
     return Container(
       decoration: DashboardColors.whiteCard,
       padding: const EdgeInsets.all(14),
@@ -291,7 +286,7 @@ class DashboardOwnerSnapshot extends StatelessWidget {
             children: [
               Expanded(
                 child: _OwnerMetricTile(
-                  label: 'Today deliveries',
+                  label: 'Deliveries',
                   value: '$todayDeliveries',
                   helper: 'Saved today',
                   color: DashboardColors.statTeal,
@@ -301,11 +296,9 @@ class DashboardOwnerSnapshot extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _OwnerMetricTile(
-                  label: 'Cans / count',
+                  label: 'Cans',
                   value: '$todayCanUnits',
-                  helper: bulkParts.isEmpty
-                      ? 'Countable items'
-                      : 'Bulk: ${bulkParts.join(' • ')}',
+                  helper: todayCanUnits > 0 ? 'Normal + cool' : 'None today',
                   color: DashboardColors.statBlue,
                   icon: Icons.inventory_2_outlined,
                 ),
@@ -313,83 +306,57 @@ class DashboardOwnerSnapshot extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _OwnerMetricTile(
-                  label: 'Today sales',
-                  value: CurrencyUtils.format(todaySales),
-                  helper: 'From deliveries',
-                  color: DashboardColors.statGreen,
-                  icon: Icons.currency_rupee_rounded,
+                  label: 'Bulk',
+                  value: _bulkTodayValue(todayLoads, todayLiters),
+                  helper: _bulkTodayHelper(todayLoads, todayLiters),
+                  color: DashboardColors.statPurple,
+                  icon: Icons.fire_truck_outlined,
                 ),
               ),
             ],
           ),
           if (productBreakdown.isNotEmpty) ...[
             const SizedBox(height: 12),
-            Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFFAFBFC),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: DashboardColors.statCellBorder),
-              ),
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Today by product',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: DashboardColors.cardTitle,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        'Qty',
-                        style: GoogleFonts.poppins(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: DashboardColors.labelGrey,
-                        ),
-                      ),
-                      const SizedBox(width: 24),
-                      Text(
-                        'Amount',
-                        style: GoogleFonts.poppins(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: DashboardColors.labelGrey,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  for (var i = 0; i < topRows.length; i++) ...[
-                    _ProductBreakdownRow(row: topRows[i]),
-                    if (i != topRows.length - 1)
-                      const Divider(height: 10, color: DashboardColors.statCellBorder),
-                  ],
-                ],
-              ),
+            ProductMixBreakdownPanel(
+              title: 'Today by product',
+              rows: productBreakdown,
+              totalLabel: 'Today sales',
+              totalAmount: CurrencyUtils.format(todaySales),
+              maxRows: 5,
             ),
           ],
         ],
       ),
     );
   }
+
+  static String _bulkTodayValue(int loads, int liters) {
+    if (loads > 0) return '$loads';
+    if (liters > 0) return '$liters';
+    return '0';
+  }
+
+  static String _bulkTodayHelper(int loads, int liters) {
+    if (loads <= 0 && liters <= 0) return 'No bulk today';
+    if (loads > 0 && liters <= 0) {
+      return loads == 1 ? 'Full lorry load' : 'Full lorry loads';
+    }
+    if (loads <= 0 && liters > 0) return 'Lorry liters';
+    return '$loads load${loads == 1 ? '' : 's'} · ${liters}L';
+  }
 }
 
-/// Shop-wide empty cans still with customers — between today summary and monthly overview.
-class DashboardShopCanBalanceCard extends StatelessWidget {
-  const DashboardShopCanBalanceCard({super.key, required this.balance});
+/// Shop-wide empty can totals — delivered & returned across all customers.
+class DashboardShopEmptyCansCard extends StatelessWidget {
+  const DashboardShopEmptyCansCard({super.key, required this.balance});
 
   final CustomerCanBalance balance;
 
   @override
   Widget build(BuildContext context) {
-    final total = balance.totalWithCustomer;
+    final totalDelivered = balance.normalDelivered + balance.coolDelivered;
+    final totalReturned = balance.normalReturned + balance.coolReturned;
+    final stillOut = balance.totalWithCustomer;
 
     return Container(
       decoration: DashboardColors.whiteCard,
@@ -407,7 +374,7 @@ class DashboardShopCanBalanceCard extends StatelessWidget {
                 ),
                 child: const Icon(
                   Icons.recycling_rounded,
-                  color: Color(0xFF0D9488),
+                  color: DashboardColors.statTeal,
                   size: 20,
                 ),
               ),
@@ -417,15 +384,15 @@ class DashboardShopCanBalanceCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Empty can balance',
+                      'Empty cans',
                       style: GoogleFonts.poppins(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w800,
                         color: DashboardColors.cardTitle,
                       ),
                     ),
                     Text(
-                      'Empty cans still with all customers',
+                      'All customers · lifetime totals',
                       style: GoogleFonts.poppins(
                         fontSize: 11,
                         color: DashboardColors.labelGrey,
@@ -434,23 +401,53 @@ class DashboardShopCanBalanceCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Text(
-                '$total total',
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF0F766E),
+              if (stillOut > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF7ED),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFFED7AA)),
+                  ),
+                  child: Text(
+                    '$stillOut out',
+                    style: GoogleFonts.poppins(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFFEA580C),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _DashboardCanTotalTile(
+                  label: 'Delivered',
+                  value: totalDelivered,
+                  icon: Icons.arrow_upward_rounded,
+                  color: DashboardColors.statBlue,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _DashboardCanTotalTile(
+                  label: 'Returned',
+                  value: totalReturned,
+                  icon: Icons.arrow_downward_rounded,
+                  color: DashboardColors.statGreen,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                child: _ShopCanBalanceTile(
-                  label: 'Normal can',
-                  balance: balance.normalWithCustomer,
+                child: _DashboardCanTypeTile(
+                  label: 'Normal',
                   delivered: balance.normalDelivered,
                   returned: balance.normalReturned,
                   color: DashboardColors.statBlue,
@@ -458,12 +455,11 @@ class DashboardShopCanBalanceCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _ShopCanBalanceTile(
-                  label: 'Cool can',
-                  balance: balance.coolWithCustomer,
+                child: _DashboardCanTypeTile(
+                  label: 'Cool',
                   delivered: balance.coolDelivered,
                   returned: balance.coolReturned,
-                  color: const Color(0xFF0D9488),
+                  color: DashboardColors.statTeal,
                 ),
               ),
             ],
@@ -474,19 +470,17 @@ class DashboardShopCanBalanceCard extends StatelessWidget {
   }
 }
 
-class _ShopCanBalanceTile extends StatelessWidget {
-  const _ShopCanBalanceTile({
+class _DashboardCanTotalTile extends StatelessWidget {
+  const _DashboardCanTotalTile({
     required this.label,
-    required this.balance,
-    required this.delivered,
-    required this.returned,
+    required this.value,
+    required this.icon,
     required this.color,
   });
 
   final String label;
-  final int balance;
-  final int delivered;
-  final int returned;
+  final int value;
+  final IconData icon;
   final Color color;
 
   @override
@@ -494,9 +488,79 @@ class _ShopCanBalanceTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 11),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.06),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withValues(alpha: 0.12),
+            color.withValues(alpha: 0.04),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: DashboardColors.labelGrey,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '$value',
+            style: GoogleFonts.poppins(
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              color: color,
+              height: 1,
+            ),
+          ),
+          Text(
+            'cans',
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: DashboardColors.labelGrey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardCanTypeTile extends StatelessWidget {
+  const _DashboardCanTypeTile({
+    required this.label,
+    required this.delivered,
+    required this.returned,
+    required this.color,
+  });
+
+  final String label;
+  final int delivered;
+  final int returned;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: DashboardColors.statCellBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -505,38 +569,58 @@ class _ShopCanBalanceTile extends StatelessWidget {
             label,
             style: GoogleFonts.poppins(
               fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: DashboardColors.labelGrey,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '$balance',
-            style: GoogleFonts.poppins(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               color: color,
-              height: 1.05,
             ),
           ),
-          Text(
-            'Balance',
-            style: GoogleFonts.poppins(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF111827),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Delivered $delivered · Returned $returned',
-            style: GoogleFonts.poppins(
-              fontSize: 9,
-              color: DashboardColors.labelGrey,
-            ),
+          const SizedBox(height: 8),
+          _DashboardCanStatRow(label: 'Delivered', value: delivered, color: color),
+          const SizedBox(height: 4),
+          _DashboardCanStatRow(
+            label: 'Returned',
+            value: returned,
+            color: returned > 0 ? DashboardColors.statGreen : DashboardColors.labelGrey,
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DashboardCanStatRow extends StatelessWidget {
+  const _DashboardCanStatRow({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final int value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: DashboardColors.labelGrey,
+            ),
+          ),
+        ),
+        Text(
+          '$value',
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -594,12 +678,13 @@ class _OwnerMetricTile extends StatelessWidget {
               ),
               Text(
                 label,
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.poppins(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF111827),
+                  height: 1.2,
                 ),
               ),
               Text(
@@ -667,6 +752,106 @@ class _ProductBreakdownRow extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Product-type sales rows (cans, lorry, auto liters, etc.).
+class ProductMixBreakdownPanel extends StatelessWidget {
+  const ProductMixBreakdownPanel({
+    super.key,
+    required this.title,
+    required this.rows,
+    this.totalLabel,
+    this.totalAmount,
+    this.maxRows = 8,
+  });
+
+  final String title;
+  final List<DashboardProductBreakdown> rows;
+  final String? totalLabel;
+  final String? totalAmount;
+  final int maxRows;
+
+  @override
+  Widget build(BuildContext context) {
+    if (rows.isEmpty && totalAmount == null) return const SizedBox.shrink();
+    final visible = rows.take(maxRows).toList();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAFBFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: DashboardColors.statCellBorder),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: DashboardColors.cardTitle,
+                  ),
+                ),
+              ),
+              Text(
+                'Qty',
+                style: GoogleFonts.poppins(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: DashboardColors.labelGrey,
+                ),
+              ),
+              const SizedBox(width: 24),
+              Text(
+                'Amount',
+                style: GoogleFonts.poppins(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: DashboardColors.labelGrey,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          for (var i = 0; i < visible.length; i++) ...[
+            _ProductBreakdownRow(row: visible[i]),
+            if (i != visible.length - 1)
+              const Divider(height: 10, color: DashboardColors.statCellBorder),
+          ],
+          if (totalAmount != null) ...[
+            const Divider(height: 14, color: DashboardColors.statCellBorder),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    totalLabel ?? 'Total sales',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: DashboardColors.cardTitle,
+                    ),
+                  ),
+                ),
+                Text(
+                  totalAmount!,
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: DashboardColors.statGreen,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -1121,7 +1306,7 @@ class DashboardOverviewCard extends StatelessWidget {
           ],
           const SizedBox(height: 12),
 
-          // ── Total Sales hero (teal gradient) ──────────────────────────
+          // ── Total Sales hero (bulk summary) ───────────────────────────
           _SalesHero(
             totalSales: data.totalSales,
             deliveries: data.totalDeliveries,
@@ -1214,13 +1399,13 @@ class _SalesHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bulkParts = <String>[
+      if (loads != '0') '$loads load${loads == '1' ? '' : 's'}',
       if (liters != '0') '$liters L',
-      if (loads != '0') '$loads loads',
+      if (units != '0') '$units cans',
     ];
-    final quantityText = [
-      '$units cans',
-      ...bulkParts,
-    ].join('  •  ');
+    final quantityText = bulkParts.isEmpty
+        ? '$deliveries deliveries'
+        : '${bulkParts.join('  •  ')}  •  $deliveries trips';
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
@@ -1233,7 +1418,6 @@ class _SalesHero extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
       child: Row(
         children: [
-          // Text block
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1262,11 +1446,11 @@ class _SalesHero extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '$deliveries deliveries  •  $quantityText',
+                  quantityText,
                   style: GoogleFonts.poppins(
                     fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white.withValues(alpha: 0.80),
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withValues(alpha: 0.88),
                   ),
                 ),
               ],

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
+import 'package:sri_sai_ro_water/core/widgets/month_year_wheel_picker.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
+import 'package:sri_sai_ro_water/features/dashboard/widgets/dashboard_home_widgets.dart';
 import 'package:sri_sai_ro_water/features/reports/widgets/reports_screen_widgets.dart';
 
 class ReportsScreen extends StatefulWidget {
@@ -53,6 +56,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         start = DateTime(now.year, now.month - 1, 1);
         end = DateTime(now.year, now.month, 0);
       case ReportsPeriodPreset.thisWeek:
+      case ReportsPeriodPreset.pickedMonth:
       case ReportsPeriodPreset.custom:
         return;
     }
@@ -69,6 +73,23 @@ class _ReportsScreenState extends State<ReportsScreen> {
       _start = start;
       _end = end;
     }
+  }
+
+  Future<void> _pickMonth() async {
+    final picked = await showMonthYearWheelPicker(
+      context,
+      initial: DateTime(_start.year, _start.month),
+    );
+    if (picked == null || !mounted) return;
+
+    final start = DateTime(picked.year, picked.month, 1);
+    final end = DateTime(picked.year, picked.month + 1, 0);
+    setState(() {
+      _preset = ReportsPeriodPreset.pickedMonth;
+      _start = start;
+      _end = end;
+    });
+    await _loadSelectedRange();
   }
 
   Future<void> _pickRange() async {
@@ -99,6 +120,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         );
         final sales = deliveries.fold<double>(0, (s, d) => s + d.totalAmount);
         final collected = repo.paymentsTotalInRange(_start, _end);
+        final productMix = repo.productBreakdownInRange(_start, _end);
 
         return Scaffold(
           backgroundColor: ReportsColors.screenBg,
@@ -120,12 +142,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               _applyPreset(ReportsPeriodPreset.thisMonth),
                           onLastMonth: () =>
                               _applyPreset(ReportsPeriodPreset.lastMonth),
+                          onPickMonth: _pickMonth,
                           onPickDates: _pickRange,
                         ),
                         ReportsSimpleSummaryCard(
                           sales: sales,
                           collected: collected,
                           cans: cans,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+                          child: ProductMixBreakdownPanel(
+                            title: 'Sales by product type',
+                            rows: productMix,
+                            totalLabel: 'Total sales',
+                            totalAmount: CurrencyUtils.format(sales),
+                          ),
                         ),
                         const ReportsSimpleFootnote(),
                       ],

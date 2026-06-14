@@ -72,23 +72,13 @@ class _RecordEmptyCanReturnSheetState extends State<_RecordEmptyCanReturnSheet> 
     final date = DateTime.now();
 
     try {
-      try {
-        await repo.recordEmptyCanReturnToCurrentShop(
-          customerId: widget.customerId,
-          date: date,
-          emptyNormalReturned: showNormal ? _emptyNormal : 0,
-          emptyCoolReturned: showCool ? _emptyCool : 0,
-          driverId: staffId,
-        );
-      } catch (_) {
-        repo.recordEmptyCanReturn(
-          customerId: widget.customerId,
-          date: date,
-          emptyNormalReturned: showNormal ? _emptyNormal : 0,
-          emptyCoolReturned: showCool ? _emptyCool : 0,
-          driverId: staffId,
-        );
-      }
+      await repo.recordEmptyCanReturnToCurrentShop(
+        customerId: widget.customerId,
+        date: date,
+        emptyNormalReturned: showNormal ? _emptyNormal : 0,
+        emptyCoolReturned: showCool ? _emptyCool : 0,
+        driverId: staffId,
+      );
       if (!mounted) return;
       setState(() {
         _saving = false;

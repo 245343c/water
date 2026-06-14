@@ -162,6 +162,18 @@ class AppStrings {
   String get amountMustBeGreaterThanZero => _t('Amount must be greater than zero', 'మొత్తం సున్నా కంటే ఎక్కువగా ఉండాలి', 'राशि शून्य से अधिक होनी चाहिए');
   String get copyShopNumberForUpi => _t('Copy shop number for UPI', 'UPI కోసం షాప్ నంబర్ కాపీ చేయండి', 'UPI के लिए दुकान नंबर कॉपी करें');
   String get shopNumberCopiedUpi => _t('Shop number copied - open GPay/PhonePe', 'షాప్ నంబర్ కాపీ అయింది - GPay/PhonePe తెరవండి', 'दुकान नंबर कॉपी हुआ - GPay/PhonePe खोलें');
+  String get upiCollectVia => _t('Collect via UPI', 'UPI ద్వారా సేకరించండి', 'UPI से वसूली');
+  String get upiPayToShop => _t('Pay to shop number', 'షాప్ నంబర్‌కు చెల్లించండి', 'दुकान नंबर पर भुगतान');
+  String get upiDriverHint => _t(
+        'Show this to customer. They pay in GPay or PhonePe to the shop number below. Confirm after payment is received.',
+        'దీన్ని కస్టమర్‌కు చూపించండి. వారు క్రింది షాప్ నంబర్‌కు GPay/PhonePeలో చెల్లిస్తారు. చెల్లింపు వచ్చిన తర్వాత నిర్ధారించండి.',
+        'ग्राहक को दिखाएँ। वे नीचे दुकान नंबर पर GPay/PhonePe से भुगतान करें। भुगतान मिलने के बाद कन्फर्म करें।',
+      );
+  String get upiSameAsAdmin => _t(
+        'Same shop UPI number admin uses at the plant.',
+        'ప్లాంట్‌లో అడ్మిన్ ఉపయోగించే అదే షాప్ UPI నంబర్.',
+        'प्लांट में एडमिन जो दुकान UPI नंबर उपयोग करता है, वही।',
+      );
   String get directions => _t('Directions', 'దారి', 'रास्ता');
   String get call => _t('Call', 'కాల్', 'कॉल');
   String get noPreviousVisit => _t('No previous visit on record', 'మునుపటి విజిట్ రికార్డ్ లేదు', 'पिछली विजिट रिकॉर्ड में नहीं है');

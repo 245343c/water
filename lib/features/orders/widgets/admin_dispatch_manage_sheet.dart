@@ -214,9 +214,11 @@ class _AdminDispatchManageSheetState extends State<_AdminDispatchManageSheet> {
       _snack('Instant customer record not found. Refresh and try again.');
       return Future.value(null);
     }
-    return showDialog<_AdminFulfillmentChoice>(
+    return showModalBottomSheet<_AdminFulfillmentChoice>(
       context: context,
-      builder: (ctx) => _AdminFulfillmentDialog(
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _AdminFulfillmentSheet(
         order: order,
         customer: customer,
         repo: repo,
@@ -1029,8 +1031,8 @@ class _AdminFulfillmentChoice {
   final String method;
 }
 
-class _AdminFulfillmentDialog extends StatefulWidget {
-  const _AdminFulfillmentDialog({
+class _AdminFulfillmentSheet extends StatefulWidget {
+  const _AdminFulfillmentSheet({
     required this.order,
     required this.customer,
     required this.repo,
@@ -1041,13 +1043,12 @@ class _AdminFulfillmentDialog extends StatefulWidget {
   final WaterPlantRepository repo;
 
   @override
-  State<_AdminFulfillmentDialog> createState() =>
-      _AdminFulfillmentDialogState();
+  State<_AdminFulfillmentSheet> createState() => _AdminFulfillmentSheetState();
 }
 
-class _AdminFulfillmentDialogState extends State<_AdminFulfillmentDialog> {
+class _AdminFulfillmentSheetState extends State<_AdminFulfillmentSheet> {
   final Map<String, int> _qtyByKey = {};
-  final _amount = TextEditingController();
+  late final TextEditingController _amount;
   String _status = 'collected';
   String _method = 'cash';
   int _emptyNormal = 0;
@@ -1077,6 +1078,32 @@ class _AdminFulfillmentDialogState extends State<_AdminFulfillmentDialog> {
     for (final item in items) {
       _qtyByKey[_key(item)] = item.quantity;
     }
+    final estimate = _estimateAfterInit(items);
+    _amount = TextEditingController(
+      text: estimate > 0
+          ? estimate.toStringAsFixed(
+              estimate.truncateToDouble() == estimate ? 0 : 1,
+            )
+          : '',
+    );
+  }
+
+  double _estimateAfterInit(List<OrderLineItem> items) {
+    final temp = <String, int>{};
+    for (final item in items) {
+      temp[_key(item)] = item.quantity;
+    }
+    final actual = [
+      for (final item in items)
+        if ((temp[_key(item)] ?? 0) > 0)
+          OrderLineItem(
+            productId: item.productId,
+            variantId: item.variantId,
+            label: item.label,
+            quantity: temp[_key(item)] ?? 0,
+          ),
+    ];
+    return widget.repo.estimateDispatchTotal(widget.customer, actual);
   }
 
   @override
@@ -1134,6 +1161,12 @@ class _AdminFulfillmentDialogState extends State<_AdminFulfillmentDialog> {
   double get _estimate =>
       widget.repo.estimateDispatchTotal(widget.customer, _actualItems);
 
+  bool get _showEmptyCans =>
+      _templateItems.any((item) => item.isNormalCan || item.isCoolCan);
+
+  bool get _driverMarkedPending =>
+      widget.order.isDelivered && widget.order.isPaymentPending;
+
   void _submit() {
     if (_deliveredTotal <= 0) {
       _snack('Enter what was delivered');
@@ -1168,146 +1201,314 @@ class _AdminFulfillmentDialogState extends State<_AdminFulfillmentDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(
-        'Confirm delivered',
-        style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Actual delivered',
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: CustomersColors.titleNavy,
-              ),
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    final viewInsets = MediaQuery.viewInsetsOf(context).bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: viewInsets),
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x22000000),
+                  blurRadius: 24,
+                  offset: Offset(0, -4),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            for (final item in _templateItems) ...[
-              _AdminQtyRow(
-                label: item.label,
-                value: _qtyByKey[_key(item)] ?? 0,
-                onChanged: (value) =>
-                    setState(() => _qtyByKey[_key(item)] = value),
-              ),
-              const SizedBox(height: 8),
-            ],
-            Text(
-              'Empty returned',
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: CustomersColors.titleNavy,
-              ),
-            ),
-            const SizedBox(height: 8),
-            _AdminQtyRow(
-              label: 'Empty normal',
-              value: _emptyNormal,
-              onChanged: (value) => setState(() => _emptyNormal = value),
-            ),
-            const SizedBox(height: 8),
-            _AdminQtyRow(
-              label: 'Empty cool',
-              value: _emptyCool,
-              onChanged: (value) => setState(() => _emptyCool = value),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              'Payment',
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: CustomersColors.titleNavy,
-              ),
-            ),
-            const SizedBox(height: 8),
-            _RadioTile(
-              title: 'Cash / UPI received',
-              value: 'collected',
-              group: _status,
-              onChanged: (v) => setState(() => _status = v),
-            ),
-            _RadioTile(
-              title: 'Not paid - customer will pay admin',
-              value: 'pending',
-              group: _status,
-              onChanged: (v) => setState(() => _status = v),
-            ),
-            _RadioTile(
-              title: 'Pay later / waived',
-              value: 'waived',
-              group: _status,
-              onChanged: (v) => setState(() => _status = v),
-            ),
-            if (_status == 'collected') ...[
-              const SizedBox(height: 8),
-              Text(
-                'Estimated amount: ${CurrencyUtils.format(_estimate)}',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: CustomersColors.labelGrey,
+            child: SafeArea(
+              top: false,
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(20, 12, 20, bottom + 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: CustomersColors.cardBorder,
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: CustomersColors.addButton.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.check_circle_outline_rounded,
+                            color: CustomersColors.addButton,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Confirm delivered',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: CustomersColors.titleNavy,
+                                ),
+                              ),
+                              Text(
+                                _driverMarkedPending
+                                    ? 'Driver marked payment pending — record collection'
+                                    : 'Confirm what was delivered and payment',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: CustomersColors.labelGrey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Actual delivered',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: CustomersColors.titleNavy,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    for (final item in _templateItems) ...[
+                      _AdminQtyRow(
+                        label: item.label,
+                        value: _qtyByKey[_key(item)] ?? 0,
+                        onChanged: (value) {
+                          setState(() {
+                            _qtyByKey[_key(item)] = value;
+                            final est = _estimate;
+                            if (est > 0 && _status == 'collected') {
+                              _amount.text = est.toStringAsFixed(
+                                est.truncateToDouble() == est ? 0 : 1,
+                              );
+                            }
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    if (_showEmptyCans) ...[
+                      Text(
+                        'Empty returned',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: CustomersColors.titleNavy,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _AdminQtyRow(
+                        label: 'Empty normal',
+                        value: _emptyNormal,
+                        onChanged: (value) => setState(() => _emptyNormal = value),
+                      ),
+                      const SizedBox(height: 8),
+                      _AdminQtyRow(
+                        label: 'Empty cool',
+                        value: _emptyCool,
+                        onChanged: (value) => setState(() => _emptyCool = value),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+                    if (_estimate > 0) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: CustomersColors.addButton.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Text(
+                              'Order total',
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: CustomersColors.labelGrey,
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              CurrencyUtils.format(_estimate),
+                              style: GoogleFonts.poppins(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: CustomersColors.titleNavy,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+                    Text(
+                      'Payment',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: CustomersColors.titleNavy,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    _PaymentStatusCard(
+                      title: 'Collected now (Cash / UPI)',
+                      subtitle: 'Customer paid at delivery or to you',
+                      icon: Icons.check_circle_outline_rounded,
+                      color: const Color(0xFF16A34A),
+                      selected: _status == 'collected',
+                      onTap: () => setState(() => _status = 'collected'),
+                    ),
+                    const SizedBox(height: 8),
+                    _PaymentStatusCard(
+                      title: 'Still pending',
+                      subtitle: 'Not collected yet — follow up later',
+                      icon: Icons.schedule_rounded,
+                      color: const Color(0xFFEA580C),
+                      selected: _status == 'pending',
+                      onTap: () => setState(() => _status = 'pending'),
+                    ),
+                    const SizedBox(height: 8),
+                    _PaymentStatusCard(
+                      title: 'Waived / pay later',
+                      subtitle: 'No collection for this order',
+                      icon: Icons.block_rounded,
+                      color: CustomersColors.labelGrey,
+                      selected: _status == 'waived',
+                      onTap: () => setState(() => _status = 'waived'),
+                    ),
+                    if (_status == 'collected') ...[
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: _amount,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: 'Collected amount (₹)',
+                          labelStyle: GoogleFonts.poppins(),
+                          prefixText: '₹ ',
+                          prefixStyle: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w700,
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: CustomersColors.cardBorder,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: CustomersColors.cardBorder,
+                            ),
+                          ),
+                        ),
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: _method,
+                        decoration: InputDecoration(
+                          labelText: 'Payment method',
+                          labelStyle: GoogleFonts.poppins(),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'cash', child: Text('Cash')),
+                          DropdownMenuItem(
+                            value: 'upi',
+                            child: Text('UPI / GPay'),
+                          ),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) setState(() => _method = v);
+                        },
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Text(
+                              'Cancel',
+                              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 2,
+                          child: FilledButton(
+                            onPressed: _submit,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: CustomersColors.addButton,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Text(
+                              'Save delivery',
+                              style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _amount,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: InputDecoration(
-                  labelText: 'Collected amount',
-                  hintText: _estimate > 0 ? _estimate.toStringAsFixed(0) : '',
-                  labelStyle: GoogleFonts.poppins(),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                style: GoogleFonts.poppins(),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: _method,
-                decoration: InputDecoration(
-                  labelText: 'Method',
-                  labelStyle: GoogleFonts.poppins(),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'cash', child: Text('Cash')),
-                  DropdownMenuItem(value: 'upi', child: Text('UPI')),
-                ],
-                onChanged: (v) {
-                  if (v != null) setState(() => _method = v);
-                },
-              ),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('Cancel', style: GoogleFonts.poppins()),
-        ),
-        FilledButton(
-          onPressed: _submit,
-          style: FilledButton.styleFrom(
-            backgroundColor: CustomersColors.addButton,
+            ),
           ),
-          child: Text(
-            'Save delivery',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-          ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -1603,7 +1804,7 @@ class _AdminPaymentUpdateSheetState extends State<_AdminPaymentUpdateSheet> {
                 ),
                 const SizedBox(height: 10),
                 _PaymentStatusCard(
-                  title: 'Cash / UPI received',
+                  title: 'Collected now (Cash / UPI)',
                   subtitle: 'Customer paid you at shop or online',
                   icon: Icons.check_circle_outline_rounded,
                   color: const Color(0xFF16A34A),
@@ -1612,8 +1813,8 @@ class _AdminPaymentUpdateSheetState extends State<_AdminPaymentUpdateSheet> {
                 ),
                 const SizedBox(height: 8),
                 _PaymentStatusCard(
-                  title: 'Still not paid',
-                  subtitle: 'Keep pending — customer will pay later',
+                  title: 'Still pending',
+                  subtitle: 'Not collected yet — follow up later',
                   icon: Icons.schedule_rounded,
                   color: const Color(0xFFEA580C),
                   selected: _status == 'pending',
@@ -1864,37 +2065,6 @@ class _PaymentStatusCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _RadioTile extends StatelessWidget {
-  const _RadioTile({
-    required this.title,
-    required this.value,
-    required this.group,
-    required this.onChanged,
-  });
-
-  final String title;
-  final String value;
-  final String group;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final selected = value == group;
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      dense: true,
-      minLeadingWidth: 24,
-      leading: Icon(
-        selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-        color: selected ? CustomersColors.addButton : CustomersColors.labelGrey,
-        size: 20,
-      ),
-      title: Text(title, style: GoogleFonts.poppins(fontSize: 13)),
-      onTap: () => onChanged(value),
     );
   }
 }

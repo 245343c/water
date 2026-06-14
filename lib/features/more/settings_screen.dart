@@ -17,17 +17,24 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _formKey = GlobalKey<BusinessSetupFormState>();
+  bool _saving = false;
 
-  void _save(WaterPlantRepository repo) {
-    if (_formKey.currentState?.save(repo) != true) return;
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Settings saved', style: GoogleFonts.poppins()),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-    context.pop();
+  Future<void> _save(WaterPlantRepository repo) async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      if (await _formKey.currentState?.save(repo) != true) return;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Settings saved', style: GoogleFonts.poppins()),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      context.pop();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -61,8 +68,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   AddEditCustomerSaveButton(
-                    label: 'Save settings',
-                    onPressed: () => _save(repo),
+                    label: _saving ? 'Saving…' : 'Save settings',
+                    onPressed: _saving ? null : () => _save(repo),
                   ),
                 ],
               ),

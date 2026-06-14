@@ -7,6 +7,7 @@ import 'package:sri_sai_ro_water/data/models/customer.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
 import 'package:sri_sai_ro_water/core/constants/delivery_route_constants.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customer_list_card.dart';
+import 'package:sri_sai_ro_water/core/widgets/gradient_page_widgets.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/features/routes/widgets/delivery_routes_widgets.dart';
 import 'package:sri_sai_ro_water/routing/app_router.dart';
@@ -284,39 +285,14 @@ class _EmptyCustomers extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.people_outline,
-              size: 56,
-              color: CustomersColors.labelGrey.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              isSearch ? 'No customers match your filters' : 'No customers yet',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 15,
-                color: CustomersColors.labelGrey,
-              ),
-            ),
-            if (!isSearch) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Tap Add customer below',
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  color: CustomersColors.labelGrey,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
+    return GradientEmptyStateCard(
+      icon: Icons.people_outline,
+      title: isSearch ? 'No customers match your filters' : 'No customers yet',
+      subtitle: isSearch
+          ? 'Try a different search or route filter'
+          : 'Add customers to start deliveries and billing',
+      actionLabel: isSearch ? null : 'Add customer',
+      onAction: isSearch ? null : onAdd,
     );
   }
 }

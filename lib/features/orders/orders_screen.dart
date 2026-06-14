@@ -5,6 +5,7 @@ import 'package:sri_sai_ro_water/core/services/order_workflow_service.dart';
 import 'package:sri_sai_ro_water/data/models/customer_order.dart';
 import 'package:sri_sai_ro_water/data/models/order_status.dart';
 import 'package:sri_sai_ro_water/data/repositories/water_plant_repository.dart';
+import 'package:sri_sai_ro_water/core/widgets/gradient_page_widgets.dart';
 import 'package:sri_sai_ro_water/features/customers/widgets/customers_screen_widgets.dart';
 import 'package:sri_sai_ro_water/features/orders/widgets/admin_dispatch_manage_sheet.dart';
 import 'package:sri_sai_ro_water/features/orders/widgets/create_dispatch_sheet.dart';
@@ -203,6 +204,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         ? _EmptyOrders(
                             filter: _filter,
                             isSearch: _query.isNotEmpty,
+                            onCreateOrder: () => showCreateDispatchSheet(context),
                           )
                         : ListView.builder(
                             padding: const EdgeInsets.fromLTRB(8, 4, 8, 88),
@@ -254,14 +256,19 @@ class _OrdersScreenState extends State<OrdersScreen> {
 }
 
 class _EmptyOrders extends StatelessWidget {
-  const _EmptyOrders({required this.filter, required this.isSearch});
+  const _EmptyOrders({
+    required this.filter,
+    required this.isSearch,
+    this.onCreateOrder,
+  });
 
   final OrderListFilter filter;
   final bool isSearch;
+  final VoidCallback? onCreateOrder;
 
   @override
   Widget build(BuildContext context) {
-    final message = isSearch
+    final title = isSearch
         ? 'No orders match your search'
         : switch (filter) {
             OrderListFilter.pending => 'No new app requests',
@@ -271,39 +278,23 @@ class _EmptyOrders extends StatelessWidget {
             OrderListFilter.delivered => 'No completed deliveries',
             OrderListFilter.all => 'No orders yet',
           };
+    final subtitle = isSearch
+        ? 'Try another name, phone, or filter'
+        : switch (filter) {
+            OrderListFilter.walkIn || OrderListFilter.all =>
+              'Create a quick order when someone calls for water',
+            _ => 'Orders in this status will appear here',
+          };
+    final showAction = !isSearch &&
+        onCreateOrder != null &&
+        (filter == OrderListFilter.all || filter == OrderListFilter.walkIn);
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.receipt_long_outlined,
-              size: 56,
-              color: CustomersColors.labelGrey.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 15,
-                color: CustomersColors.labelGrey,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Tap New order below when someone calls for water',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: CustomersColors.labelGrey,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return GradientEmptyStateCard(
+      icon: Icons.receipt_long_outlined,
+      title: title,
+      subtitle: subtitle,
+      actionLabel: showAction ? 'New quick order' : null,
+      onAction: showAction ? onCreateOrder : null,
     );
   }
 }

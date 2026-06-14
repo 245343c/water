@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:sri_sai_ro_water/core/constants/empty_can_balance.dart';
 import 'package:sri_sai_ro_water/core/utils/currency_utils.dart';
 import 'package:sri_sai_ro_water/core/utils/date_utils_ext.dart';
 import 'package:sri_sai_ro_water/core/widgets/month_wheel_scroll.dart';
@@ -342,13 +341,10 @@ class CustomerCanBalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalOut = balance.totalWithCustomer;
-    final showJarWarning = emptyCanCountIsWarning(totalOut);
-
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       decoration: CustomerDetailColors.borderedCard,
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -357,57 +353,32 @@ class CustomerCanBalanceCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
-                  color: showJarWarning
-                      ? const Color(0xFFFEF2F2)
-                      : const Color(0xFFF0FDFA),
+                  color: const Color(0xFFF0FDFA),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.recycling_rounded,
                   size: 16,
-                  color: showJarWarning
-                      ? const Color(0xFFDC2626)
-                      : const Color(0xFF0D9488),
+                  color: Color(0xFF0D9488),
                 ),
               ),
               const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Empty Can Balance',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: CustomerDetailColors.titleNavy,
-                      ),
-                    ),
-                    if (totalOut > 0)
-                      Text(
-                        showJarWarning
-                            ? '$totalOut jars out — collect before next delivery'
-                            : '$totalOut empty jar${totalOut == 1 ? '' : 's'} with customer',
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: showJarWarning
-                              ? const Color(0xFFDC2626)
-                              : CustomerDetailColors.labelGrey,
-                        ),
-                      ),
-                  ],
+              Text(
+                'Empty cans',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: CustomerDetailColors.titleNavy,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                child: _CanBalanceMiniTile(
+                child: _CanDeliveredReturnedTile(
                   label: 'Normal',
-                  withCustomer: balance.normalWithCustomer,
                   delivered: balance.normalDelivered,
                   returned: balance.normalReturned,
                   color: const Color(0xFF2563EB),
@@ -415,9 +386,8 @@ class CustomerCanBalanceCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _CanBalanceMiniTile(
+                child: _CanDeliveredReturnedTile(
                   label: 'Cool',
-                  withCustomer: balance.coolWithCustomer,
                   delivered: balance.coolDelivered,
                   returned: balance.coolReturned,
                   color: const Color(0xFF0D9488),
@@ -456,75 +426,87 @@ class CustomerCanBalanceCard extends StatelessWidget {
   }
 }
 
-class _CanBalanceMiniTile extends StatelessWidget {
-  const _CanBalanceMiniTile({
+class _CanDeliveredReturnedTile extends StatelessWidget {
+  const _CanDeliveredReturnedTile({
     required this.label,
-    required this.withCustomer,
     required this.delivered,
     required this.returned,
     required this.color,
   });
 
   final String label;
-  final int withCustomer;
   final int delivered;
   final int returned;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final countColor = emptyCanCountColor(withCustomer, normalColor: color);
-
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
       decoration: BoxDecoration(
-        color: countColor.withValues(alpha: 0.06),
+        color: color.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: emptyCanCountIsWarning(withCustomer)
-              ? const Color(0xFFFECACA)
-              : color.withValues(alpha: 0.18),
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '$label Can',
+            label,
             style: GoogleFonts.poppins(
               fontSize: 12,
               fontWeight: FontWeight.w700,
               color: color,
             ),
           ),
+          const SizedBox(height: 10),
+          _CanStatRow(label: 'Delivered', value: delivered, color: color),
           const SizedBox(height: 6),
-          Text(
-            '$withCustomer',
-            style: GoogleFonts.poppins(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: countColor,
-              height: 1,
-            ),
-          ),
-          Text(
-            'with customer',
-            style: GoogleFonts.poppins(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: countColor,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Delivered $delivered · returned $returned',
-            style: GoogleFonts.poppins(
-              fontSize: 9,
-              color: CustomerDetailColors.labelGrey,
-            ),
+          _CanStatRow(
+            label: 'Returned',
+            value: returned,
+            color: returned > 0 ? const Color(0xFF16A34A) : CustomerDetailColors.labelGrey,
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CanStatRow extends StatelessWidget {
+  const _CanStatRow({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final int value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: CustomerDetailColors.labelGrey,
+            ),
+          ),
+        ),
+        Text(
+          '$value',
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 }

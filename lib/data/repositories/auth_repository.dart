@@ -39,7 +39,7 @@ class AuthRepository extends ChangeNotifier {
     required String email,
     required String password,
   }) async {
-    final candidates = _staffLoginEmails(email);
+    final candidates = await _staffLoginEmails(email);
     if (candidates.isEmpty) return 'Email or mobile number is required';
     if (password.isEmpty) return 'Password is required';
 
@@ -83,14 +83,27 @@ class AuthRepository extends ChangeNotifier {
     return 'Invalid login ID or password';
   }
 
-  List<String> _staffLoginEmails(String value) {
+  Future<List<String>> _staffLoginEmails(String value) async {
     final cleaned = InputValidators.normalizeEmail(value);
     if (cleaned.contains('@')) {
       return InputValidators.isValidEmail(cleaned) ? [cleaned] : const [];
     }
     final digits = InputValidators.phoneDigits(cleaned);
     if (!InputValidators.isValidIndianMobile(digits)) return const [];
-    return [_adminAuthEmail(digits), _driverAuthEmail(digits)];
+    final fallback = [_adminAuthEmail(digits), _driverAuthEmail(digits)];
+    try {
+      final result = await FirebaseBackend.functions
+          .httpsCallable('resolveStaffLogin')
+          .call({'phone': digits});
+      final data = Map<String, dynamic>.from(result.data as Map);
+      final remote = (data['emails'] as List? ?? const [])
+          .whereType<String>()
+          .where(InputValidators.isValidEmail)
+          .toList();
+      return {...remote, ...fallback}.toList();
+    } catch (_) {
+      return fallback;
+    }
   }
 
   String _adminAuthEmail(String phoneDigits) =>
@@ -180,9 +193,7 @@ class AuthRepository extends ChangeNotifier {
     required double coolPrice,
     required bool homeDeliveryAvailable,
   }) {
-    return Future.value(
-      'Use mobile OTP signup on the registration screen.',
-    );
+    return Future.value('Use mobile OTP signup on the registration screen.');
   }
 
   Future<String?> requestAdminRegistrationOtp({
@@ -790,7 +801,7 @@ class AuthRepository extends ChangeNotifier {
       return 'Mobile number or email is required';
     }
 
-    final candidates = _staffLoginEmails(trimmed);
+    final candidates = await _staffLoginEmails(trimmed);
     if (candidates.isEmpty) {
       final normalized = InputValidators.normalizeEmail(trimmed);
       if (!InputValidators.isValidEmail(normalized)) {
